@@ -99,6 +99,25 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+:root[data-theme='dark'] {
+  --color-primary: var(--color-primary-400);
+  --color-primary-hover: var(--color-primary-300);
+  --color-secondary: var(--color-primary-500);
+  --color-background: var(--color-neutral-950);
+  --color-surface: var(--color-neutral-900);
+  --color-surface-subtle: var(--color-neutral-800);
+  --color-border: var(--color-neutral-800);
+  --color-border-strong: var(--color-neutral-700);
+  --color-text: var(--color-neutral-50);
+  --color-text-muted: var(--color-neutral-400);
+  --color-danger-subtle: #450a0a;
+  --color-danger-border: #7f1d1d;
+  --color-danger-text: #fecaca;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.25);
+  --shadow-md: 0 8px 24px rgb(0 0 0 / 0.28);
+  --shadow-lg: 0 18px 48px rgb(0 0 0 / 0.36);
+}
+
 *,
 *::before,
 *::after {
@@ -118,6 +137,9 @@ body {
   background: var(--color-background);
   font-size: var(--font-size-md);
   line-height: var(--line-height-body);
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
 }
 
 h1,

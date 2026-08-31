@@ -1,16 +1,7 @@
-import './App.css'
+import { MainLayout } from './layouts/MainLayout/MainLayout'
 
 function App() {
-  return (
-    <main className="page-shell">
-      <span className="eyebrow">Panel principal</span>
-      <h1>Gestión de envíos</h1>
-      <p>
-        El área privada está preparada para incorporar el seguimiento y la
-        administración de envíos.
-      </p>
-    </main>
-  )
+  return <MainLayout />
 }
 
 export default App

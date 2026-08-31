@@ -166,7 +166,7 @@ export function LoginPage() {
             </div>
 
             {errorMessage && (
-              <p className="login-error" role="alert" aria-live="polite">
+              <p className="form-error" role="alert" aria-live="polite">
                 <CircleAlert size={18} aria-hidden="true" />
                 {errorMessage}
               </p>
@@ -179,7 +179,7 @@ export function LoginPage() {
             >
               {loginMutation.isPending ? (
                 <LoaderCircle
-                  className="login-submit__spinner"
+                  className="loading-icon"
                   size={18}
                   aria-hidden="true"
                 />

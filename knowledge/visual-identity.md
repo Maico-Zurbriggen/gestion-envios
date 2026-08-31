@@ -17,3 +17,4 @@ Las escalas completas, colores semánticos y tokens de interfaz están definidos
 - Jerarquía tipográfica clara y textos secundarios en grises fríos.
 - Estados de foco visibles, contraste suficiente y diseño responsive desde 320 px.
 - Los iconos de interfaz provienen de `lucide-react`. Se priorizan en botones y acciones cuando ayuden a reconocer su función, siempre con nombre accesible cuando el icono no esté acompañado por texto.
+- La aplicación admite temas claro y oscuro mediante `data-theme` en el elemento raíz. La preferencia se guarda localmente y los componentes deben utilizar tokens semánticos para funcionar correctamente en ambos temas.
