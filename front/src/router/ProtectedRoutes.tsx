@@ -3,11 +3,10 @@ import { useAppSelector } from '../app/store'
 import {
   selectCurrentUser,
   selectIsAuthenticated,
-  type UserRole,
 } from '../features/auth/redux/authSlice'
 
 interface ProtectedRoutesProps {
-  allowedRoles?: readonly UserRole[]
+  allowedRoles?: readonly string[]
 }
 
 export function ProtectedRoutes({ allowedRoles }: ProtectedRoutesProps) {
@@ -21,7 +20,7 @@ export function ProtectedRoutes({ allowedRoles }: ProtectedRoutesProps) {
 
   const hasRequiredRole =
     !allowedRoles?.length ||
-    allowedRoles.some((allowedRole) => user?.roles.includes(allowedRole))
+    allowedRoles.includes(user?.role ?? '')
 
   if (!hasRequiredRole) {
     return <Navigate to="/unauthorized" replace />
