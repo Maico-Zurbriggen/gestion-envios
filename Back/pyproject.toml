@@ -1,0 +1,43 @@
+[project]
+name = "sistema-gestion-envios-back"
+version = "0.1.0"
+description = "Backend del Sistema de Gestión de Envíos y Distribución"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501", "N818"]
+
+[tool.importlinter]
+root_package = "app"
+
+[[tool.importlinter.contracts]]
+name = "Clean Architecture Layers"
+type = "layers"
+layers = [
+    "app.api",
+    "app.application",
+    "app.domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "Infrastructure cannot be imported by domain or application"
+type = "forbidden"
+source_modules = [
+    "app.domain",
+    "app.application",
+]
+forbidden_modules = [
+    "app.infrastructure",
+    "app.api",
+]
+

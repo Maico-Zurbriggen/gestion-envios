@@ -1,0 +1,99 @@
+import asyncio
+from typing import AsyncGenerator
+import pytest
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.pool import StaticPool
+
+from app.api.dependencies import obtener_sesion_db
+from app.api.main import app
+from app.core.config import settings
+from app.domain.constants.roles import RolEnum, RolIdEnum
+from app.domain.constants.scopes import ScopeEnum
+from app.infrastructure.auth.hasher import HasherContrasenas
+from app.infrastructure.auth.jwt_handler import ManejadorJWT
+from app.infrastructure.db.models import Base, RolModel, UsuarioModel
+
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+test_engine = create_async_engine(
+    TEST_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+
+TestingSessionLocal = async_sessionmaker(
+    bind=test_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
+
+
+@pytest_asyncio.fixture(scope="function")
+async def db_session() -> AsyncGenerator[AsyncSession, None]:
+    """Crea una base de datos limpia en memoria para cada test y siembra roles y superadmin."""
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    async with TestingSessionLocal() as session:
+        # Sembrar roles
+        roles = [
+            RolModel(id=RolIdEnum.SUPERADMIN.value, nombre=RolEnum.SUPERADMIN.value, descripcion="Superadmin"),
+            RolModel(id=RolIdEnum.ADMINISTRATIVO.value, nombre=RolEnum.ADMINISTRATIVO.value, descripcion="Administrativo"),
+            RolModel(id=RolIdEnum.VENDEDOR.value, nombre=RolEnum.VENDEDOR.value, descripcion="Vendedor"),
+            RolModel(id=RolIdEnum.REPARTIDOR.value, nombre=RolEnum.REPARTIDOR.value, descripcion="Repartidor"),
+        ]
+        session.add_all(roles)
+        await session.commit()
+
+        # Sembrar Superadmin
+        superadmin = UsuarioModel(
+            nombre=settings.SUPERADMIN_SEED_NOMBRE,
+            dni=settings.SUPERADMIN_SEED_DNI,
+            email=settings.SUPERADMIN_SEED_EMAIL,
+            telefono=settings.SUPERADMIN_SEED_TELEFONO,
+            password_hash=HasherContrasenas.generar_hash(settings.SUPERADMIN_SEED_PASSWORD or "SuperAdmin2026!*"),
+            estado="Activo",
+            requiere_cambio_password=False,
+            rol_id=RolIdEnum.SUPERADMIN.value,
+        )
+        session.add(superadmin)
+        await session.commit()
+        await session.refresh(superadmin)
+
+        yield session
+
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+
+@pytest_asyncio.fixture(scope="function")
+async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+    """Cliente HTTP de prueba asíncrono configurado con la DB en memoria."""
+    async def override_obtener_sesion_db():
+        yield db_session
+
+    app.dependency_overrides[obtener_sesion_db] = override_obtener_sesion_db
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def superadmin_token(db_session: AsyncSession) -> str:
+    """Genera un token JWT de superadmin con FULL_ACCESS."""
+    # Sub dummy o el id del superadmin
+    return ManejadorJWT.emitir_token(
+        usuario_id="00000000-0000-0000-0000-000000000001",
+        rol=RolEnum.SUPERADMIN.value,
+        scope=ScopeEnum.FULL_ACCESS.value,
+    )
+
