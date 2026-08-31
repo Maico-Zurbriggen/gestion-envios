@@ -53,6 +53,9 @@
   --color-text-on-primary: var(--color-neutral-0);
   --color-success: #16a34a;
   --color-danger: #dc2626;
+  --color-danger-subtle: #fef2f2;
+  --color-danger-border: #fecaca;
+  --color-danger-text: #991b1b;
   --color-warning: var(--color-accent-500);
   --color-info: #0284c7;
 
