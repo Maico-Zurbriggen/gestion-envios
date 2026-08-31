@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useAppSelector } from '../app/store'
-import { selectIsAuthenticated } from '../features/auth/authSlice'
+import { selectIsAuthenticated } from '../features/auth/redux/authSlice'
 import '../App.css'
 
 export function NotFoundPage() {

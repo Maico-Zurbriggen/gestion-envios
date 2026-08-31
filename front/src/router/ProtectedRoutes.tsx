@@ -4,7 +4,7 @@ import {
   selectCurrentUser,
   selectIsAuthenticated,
   type UserRole,
-} from '../features/auth/authSlice'
+} from '../features/auth/redux/authSlice'
 
 interface ProtectedRoutesProps {
   allowedRoles?: readonly UserRole[]

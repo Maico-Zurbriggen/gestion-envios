@@ -1,5 +1,5 @@
 import type { RouteObject } from 'react-router-dom'
-import { LoginPage } from '../pages/LoginPage'
+import { LoginPage } from '../features/auth/pages/LoginPage'
 
 export const authRoutes: RouteObject[] = [
   {
