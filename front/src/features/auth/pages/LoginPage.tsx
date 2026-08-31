@@ -51,7 +51,14 @@ export function LoginPage() {
     loginMutation.mutate(
       { dni: dni.trim(), password },
       {
-        onSuccess: () => navigate(getReturnPath(location.state), { replace: true }),
+        onSuccess: (result) => {
+          if (result.type === 'passwordChangeRequired') {
+            navigate('/cambiar-password', { replace: true })
+            return
+          }
+
+          navigate(getReturnPath(location.state), { replace: true })
+        },
       },
     )
   }

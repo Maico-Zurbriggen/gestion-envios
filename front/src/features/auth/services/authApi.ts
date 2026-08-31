@@ -2,7 +2,11 @@ import type {
   ApiErrorResponse,
   ApiUser,
   AuthSession,
+  ChangePasswordCredentials,
+  ChangePasswordSuccessResponse,
   LoginCredentials,
+  LoginRequiresPasswordChangeResponse,
+  LoginResult,
   LoginSuccessResponse,
 } from '../types/auth.types'
 
@@ -27,8 +31,16 @@ function mapUser(user: ApiUser): AuthSession['user'] {
 }
 
 function getApiErrorMessage(payload: unknown, status: number) {
-  if (payload && typeof payload === 'object' && 'detail' in payload) {
-    const { detail } = payload as ApiErrorResponse
+  if (payload && typeof payload === 'object') {
+    const { detail, errors, message } = payload as ApiErrorResponse
+
+    if (Array.isArray(errors)) {
+      const messages = errors
+        .map((issue) => issue.message)
+        .filter((errorMessage): errorMessage is string => Boolean(errorMessage))
+
+      if (messages.length) return messages.join('. ')
+    }
 
     if (Array.isArray(detail)) {
       const messages = detail
@@ -39,6 +51,7 @@ function getApiErrorMessage(payload: unknown, status: number) {
     }
 
     if (typeof detail === 'string' && detail) return detail
+    if (typeof message === 'string' && message) return message
   }
 
   if (status === 401) return 'El DNI o la contraseña son incorrectos.'
@@ -55,7 +68,7 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
-export async function login(credentials: LoginCredentials): Promise<AuthSession> {
+export async function login(credentials: LoginCredentials): Promise<LoginResult> {
   if (!apiUrl) {
     throw new AuthApiError('No se configuró la URL de la API.')
   }
@@ -83,6 +96,21 @@ export async function login(credentials: LoginCredentials): Promise<AuthSession>
     throw new AuthApiError(getApiErrorMessage(payload, response.status))
   }
 
+  const passwordChangeResponse = payload as LoginRequiresPasswordChangeResponse
+
+  if (
+    passwordChangeResponse?.status === 'requires_password_change' &&
+    passwordChangeResponse.data?.temp_token
+  ) {
+    return {
+      type: 'passwordChangeRequired',
+      challenge: {
+        token: passwordChangeResponse.data.temp_token,
+        dni: credentials.dni,
+      },
+    }
+  }
+
   const loginResponse = payload as LoginSuccessResponse
 
   if (
@@ -93,8 +121,70 @@ export async function login(credentials: LoginCredentials): Promise<AuthSession>
     throw new AuthApiError('El servidor devolvió una respuesta inesperada.')
   }
 
-  return {
+  const session = {
     token: loginResponse.data.token,
     user: mapUser(loginResponse.data.user),
+  }
+
+  if (session.user.requiresPasswordChange) {
+    return {
+      type: 'passwordChangeRequired',
+      challenge: { token: session.token, dni: credentials.dni },
+    }
+  }
+
+  return {
+    type: 'authenticated',
+    session,
+  }
+}
+
+export async function changePassword(
+  credentials: ChangePasswordCredentials,
+  token: string,
+): Promise<{ authToken: string; message: string }> {
+  if (!apiUrl) {
+    throw new AuthApiError('No se configuró la URL de la API.')
+  }
+
+  let response: Response
+
+  try {
+    response = await fetch(`${apiUrl}/auth/cambiar-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        password_actual: credentials.currentPassword,
+        nueva_password: credentials.newPassword,
+        confirmacion_password: credentials.passwordConfirmation,
+      }),
+    })
+  } catch {
+    throw new AuthApiError(
+      'No pudimos conectarnos con el servidor. Intentá nuevamente.',
+    )
+  }
+
+  const payload = await readJson(response)
+
+  if (!response.ok) {
+    throw new AuthApiError(getApiErrorMessage(payload, response.status))
+  }
+
+  const changePasswordResponse = payload as ChangePasswordSuccessResponse
+  if (
+    changePasswordResponse?.status !== 'success' ||
+    !changePasswordResponse.data?.auth_token
+  ) {
+    throw new AuthApiError('El servidor devolvió una respuesta inesperada.')
+  }
+
+  return {
+    authToken: changePasswordResponse.data.auth_token,
+    message: changePasswordResponse.message,
   }
 }
