@@ -3,6 +3,10 @@ export interface LoginCredentials {
   password: string
 }
 
+export interface LoginTokenCredentials {
+  token: string
+}
+
 export interface ApiUser {
   id: string
   nombre: string

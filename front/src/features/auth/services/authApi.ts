@@ -8,14 +8,18 @@ import type {
   LoginRequiresPasswordChangeResponse,
   LoginResult,
   LoginSuccessResponse,
+  LoginTokenCredentials,
 } from '../types/auth.types'
 
 const apiUrl = import.meta.env.VITE_API_URL?.replace(/\/+$/, '')
 
 export class AuthApiError extends Error {
-  constructor(message: string) {
+  readonly status?: number
+
+  constructor(message: string, status?: number) {
     super(message)
     this.name = 'AuthApiError'
+    this.status = status
   }
 }
 
@@ -30,7 +34,11 @@ function mapUser(user: ApiUser): AuthSession['user'] {
   }
 }
 
-function getApiErrorMessage(payload: unknown, status: number) {
+function getApiErrorMessage(
+  payload: unknown,
+  status: number,
+  unauthorizedMessage = 'El DNI o la contraseña son incorrectos.',
+) {
   if (payload && typeof payload === 'object') {
     const { detail, errors, message } = payload as ApiErrorResponse
 
@@ -54,10 +62,54 @@ function getApiErrorMessage(payload: unknown, status: number) {
     if (typeof message === 'string' && message) return message
   }
 
-  if (status === 401) return 'El DNI o la contraseña son incorrectos.'
+  if (status === 401 || status === 403) return unauthorizedMessage
   if (status >= 500) return 'El servicio no está disponible. Intentá nuevamente.'
 
   return 'No pudimos iniciar sesión. Revisá los datos ingresados.'
+}
+
+function parseLoginResponse(payload: unknown, fallbackDni: string): LoginResult {
+  const passwordChangeResponse = payload as LoginRequiresPasswordChangeResponse
+
+  if (
+    passwordChangeResponse?.status === 'requires_password_change' &&
+    passwordChangeResponse.data?.temp_token
+  ) {
+    return {
+      type: 'passwordChangeRequired',
+      challenge: {
+        token: passwordChangeResponse.data.temp_token,
+        dni: fallbackDni,
+      },
+    }
+  }
+
+  const loginResponse = payload as LoginSuccessResponse
+
+  if (
+    loginResponse?.status !== 'success' ||
+    !loginResponse.data?.token ||
+    !loginResponse.data?.user
+  ) {
+    throw new AuthApiError('El servidor devolvió una respuesta inesperada.')
+  }
+
+  const session = {
+    token: loginResponse.data.token,
+    user: mapUser(loginResponse.data.user),
+  }
+
+  if (session.user.requiresPasswordChange) {
+    return {
+      type: 'passwordChangeRequired',
+      challenge: { token: session.token, dni: fallbackDni },
+    }
+  }
+
+  return {
+    type: 'authenticated',
+    session,
+  }
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -93,50 +145,54 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
   const payload = await readJson(response)
 
   if (!response.ok) {
-    throw new AuthApiError(getApiErrorMessage(payload, response.status))
+    throw new AuthApiError(
+      getApiErrorMessage(payload, response.status),
+      response.status,
+    )
   }
 
-  const passwordChangeResponse = payload as LoginRequiresPasswordChangeResponse
+  return parseLoginResponse(payload, credentials.dni)
+}
 
-  if (
-    passwordChangeResponse?.status === 'requires_password_change' &&
-    passwordChangeResponse.data?.temp_token
-  ) {
-    return {
-      type: 'passwordChangeRequired',
-      challenge: {
-        token: passwordChangeResponse.data.temp_token,
-        dni: credentials.dni,
+export async function loginWithToken(
+  credentials: LoginTokenCredentials,
+  fallbackDni = '',
+): Promise<LoginResult> {
+  if (!apiUrl) {
+    throw new AuthApiError('No se configuró la URL de la API.')
+  }
+
+  let response: Response
+
+  try {
+    response = await fetch(`${apiUrl}/auth/login-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
-    }
+      body: JSON.stringify(credentials),
+    })
+  } catch {
+    throw new AuthApiError(
+      'No pudimos validar la sesión con el servidor. Intentá nuevamente.',
+    )
   }
 
-  const loginResponse = payload as LoginSuccessResponse
+  const payload = await readJson(response)
 
-  if (
-    loginResponse?.status !== 'success' ||
-    !loginResponse.data?.token ||
-    !loginResponse.data?.user
-  ) {
-    throw new AuthApiError('El servidor devolvió una respuesta inesperada.')
+  if (!response.ok) {
+    throw new AuthApiError(
+      getApiErrorMessage(
+        payload,
+        response.status,
+        'La sesión venció o dejó de ser válida.',
+      ),
+      response.status,
+    )
   }
 
-  const session = {
-    token: loginResponse.data.token,
-    user: mapUser(loginResponse.data.user),
-  }
-
-  if (session.user.requiresPasswordChange) {
-    return {
-      type: 'passwordChangeRequired',
-      challenge: { token: session.token, dni: credentials.dni },
-    }
-  }
-
-  return {
-    type: 'authenticated',
-    session,
-  }
+  return parseLoginResponse(payload, fallbackDni)
 }
 
 export async function changePassword(
@@ -172,7 +228,10 @@ export async function changePassword(
   const payload = await readJson(response)
 
   if (!response.ok) {
-    throw new AuthApiError(getApiErrorMessage(payload, response.status))
+    throw new AuthApiError(
+      getApiErrorMessage(payload, response.status),
+      response.status,
+    )
   }
 
   const changePasswordResponse = payload as ChangePasswordSuccessResponse
