@@ -10,27 +10,11 @@ import {
   PackageCheck,
   ShieldCheck,
 } from 'lucide-react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAppSelector } from '../../../app/store'
 import { useLogin } from '../hooks/useLogin'
 import { selectIsAuthenticated } from '../redux/authSlice'
 import './LoginPage.css'
-
-interface LoginLocationState {
-  from?: {
-    pathname?: string
-    search?: string
-    hash?: string
-  }
-}
-
-function getReturnPath(state: unknown) {
-  const { from } = (state ?? {}) as LoginLocationState
-
-  if (!from?.pathname?.startsWith('/')) return '/'
-
-  return `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`
-}
 
 export function LoginPage() {
   const [dni, setDni] = useState('')
@@ -38,7 +22,6 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const isAuthenticated = useAppSelector(selectIsAuthenticated)
   const loginMutation = useLogin()
-  const location = useLocation()
   const navigate = useNavigate()
 
   if (isAuthenticated) {
@@ -57,7 +40,7 @@ export function LoginPage() {
             return
           }
 
-          navigate(getReturnPath(location.state), { replace: true })
+          navigate('/', { replace: true })
         },
       },
     )

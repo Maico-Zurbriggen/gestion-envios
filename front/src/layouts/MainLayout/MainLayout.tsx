@@ -5,12 +5,15 @@ import {
   Moon,
   PackageCheck,
   Sun,
-  UserPlus,
   X,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '../../app/store'
+import {
+  getAccessibleModules,
+  NAVIGATION_SECTIONS,
+} from '../../app/navigation'
 import {
   clearCredentials,
   selectCurrentUser,
@@ -25,6 +28,7 @@ export function MainLayout() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
+  const accessibleModules = getAccessibleModules(user?.role)
 
   useEffect(() => {
     if (!sidebarOpen) return
@@ -89,19 +93,37 @@ export function MainLayout() {
         </header>
 
         <nav className="sidebar-nav">
-          <span className="sidebar-nav__label">Administración</span>
-          {user?.role === 'SUPERADMIN' && (
-            <NavLink
-              className={({ isActive }) =>
-                `sidebar-nav__item ${isActive ? 'is-active' : ''}`
-              }
-              to="/admin/usuarios/nuevo"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <UserPlus size={19} aria-hidden="true" />
-              Registrar usuario
-            </NavLink>
-          )}
+          {NAVIGATION_SECTIONS.map((section) => {
+            const sectionModules = accessibleModules.filter(
+              (module) => module.section === section.id,
+            )
+
+            if (!sectionModules.length) return null
+
+            return (
+              <div className="sidebar-nav__section" key={section.id}>
+                <span className="sidebar-nav__label">{section.label}</span>
+                {sectionModules.map((module) => {
+                  const Icon = module.icon
+
+                  return (
+                    <NavLink
+                      className={({ isActive }) =>
+                        `sidebar-nav__item ${isActive ? 'is-active' : ''}`
+                      }
+                      end={module.path === '/'}
+                      key={module.id}
+                      to={module.path}
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      <Icon size={19} aria-hidden="true" />
+                      {module.label}
+                    </NavLink>
+                  )
+                })}
+              </div>
+            )
+          })}
         </nav>
 
         <footer className="sidebar-footer">

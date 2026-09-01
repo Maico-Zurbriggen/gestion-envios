@@ -1,5 +1,6 @@
-import { Navigate, type RouteObject } from 'react-router-dom'
+import type { RouteObject } from 'react-router-dom'
 import App from '../App'
+import { HomePage } from '../features/home/pages/HomePage'
 import { CreateUserPage } from '../features/users/pages/CreateUserPage'
 import { UnauthorizedPage } from '../pages/UnauthorizedPage'
 import { ProtectedRoutes } from './ProtectedRoutes'
@@ -10,7 +11,7 @@ export const mainRoutes: RouteObject[] = [
     children: [
       {
         index: true,
-        element: <Navigate to="/admin/usuarios/nuevo" replace />,
+        element: <HomePage />,
       },
       {
         element: <ProtectedRoutes allowedRoles={['SUPERADMIN']} />,
