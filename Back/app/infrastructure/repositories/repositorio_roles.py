@@ -12,6 +12,8 @@ class RepositorioRoles:
         self.db = db
 
     async def obtener_por_id(self, id: int) -> Optional[RolModel]:
+        """Valida que el `rol_id` recibido al dar de alta un empleado
+        (HU01) corresponda a uno de los roles sembrados."""
         stmt = select(RolModel).where(RolModel.id == id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()

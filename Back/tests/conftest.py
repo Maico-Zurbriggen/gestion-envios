@@ -17,7 +17,7 @@ from app.domain.constants.roles import RolEnum, RolIdEnum
 from app.domain.constants.scopes import ScopeEnum
 from app.infrastructure.auth.hasher import HasherContrasenas
 from app.infrastructure.auth.jwt_handler import ManejadorJWT
-from app.infrastructure.db.models import Base, RolModel, UsuarioModel
+from app.infrastructure.db.models import Base, RolModel, SucursalModel, UsuarioModel
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -65,6 +65,30 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
         session.add(superadmin)
         await session.commit()
         await session.refresh(superadmin)
+
+        # Sembrar Sucursales (mínimo set para tests de HU03/HU04)
+        sucursales = [
+            SucursalModel(
+                id=1,
+                nombre="Sucursal Test Centro",
+                provincia="Córdoba",
+                ciudad="Córdoba",
+                direccion="Calle Falsa 123",
+                latitud=-31.4,
+                longitud=-64.18,
+            ),
+            SucursalModel(
+                id=2,
+                nombre="Sucursal Test Norte",
+                provincia="Santa Fe",
+                ciudad="Rosario",
+                direccion="Bv. Test 456",
+                latitud=-32.95,
+                longitud=-60.69,
+            ),
+        ]
+        session.add_all(sucursales)
+        await session.commit()
 
         yield session
 

@@ -5,6 +5,10 @@ from app.contracts.common import ApiModel
 
 
 class CrearEmpleadoRequest(ApiModel):
+    """Alta de empleado por Superadministrador (HU01). No incluye
+    contraseña: se genera automáticamente en el servicio y se devuelve una
+    única vez en la respuesta (ver `EmpleadoCreadoData.password_temporal`)."""
+
     nombre: str = Field(..., min_length=2, max_length=100, description="Nombre y apellido del empleado")
     dni: str = Field(..., description="DNI del empleado (solo dígitos)", examples=["35123456"])
     email: EmailStr = Field(..., description="Correo electrónico del empleado", examples=["carlos.gomez@empresa.com"])
@@ -31,6 +35,9 @@ class CrearEmpleadoRequest(ApiModel):
 
 
 class EmpleadoCreadoData(ApiModel):
+    """`password_temporal` viaja en texto plano solo en esta respuesta; el
+    backend nunca vuelve a exponerla, solo persiste su hash BCrypt."""
+
     id: UUID
     nombre: str
     dni: str

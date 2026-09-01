@@ -7,5 +7,6 @@ Este directorio registra criterios compartidos para evitar que las decisiones de
 - [Identidad visual](./visual-identity.md)
 - [Administración de usuarios](./user-management.md)
 - [Autenticación](./authentication.md)
+- [Registro de envíos y seguimiento público](./envios-seguimiento.md)
 
 Los documentos describen el estado actual y deben actualizarse cuando cambie un contrato o una decisión transversal.

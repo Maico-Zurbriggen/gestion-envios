@@ -40,6 +40,10 @@ class LoginSuccessResponse(ApiModel):
 
 
 class LoginTempTokenData(ApiModel):
+    """`temp_token` tiene scope PASSWORD_RESET_ONLY: solo sirve para llamar
+    a `/auth/cambiar-password` (HU02 Escenario 1), no para ningún otro
+    endpoint protegido."""
+
     temp_token: str
     requiere_cambio_password: bool = True
 
@@ -50,6 +54,9 @@ class LoginRequiresPasswordChangeResponse(ApiModel):
     data: LoginTempTokenData
 
 
+# El login devuelve una u otra forma según si el usuario debe cambiar su
+# contraseña temporal (HU02) o no; FastAPI documenta ambas en Swagger vía
+# este Union.
 LoginResponseUnion = LoginSuccessResponse | LoginRequiresPasswordChangeResponse
 
 
