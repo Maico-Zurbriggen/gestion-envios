@@ -1,8 +1,7 @@
 import re
 from datetime import timedelta
-from typing import Optional
 
-from pydantic import Field
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,7 +13,7 @@ def parse_duration(duration_str: str) -> timedelta:
             return timedelta(seconds=int(duration_str))
         except ValueError:
             return timedelta(hours=8)
-    
+
     val, unit = int(match.group(1)), match.group(2)
     if unit == "s":
         return timedelta(seconds=val)
@@ -51,11 +50,26 @@ class Settings(BaseSettings):
     BCRYPT_SALT_ROUNDS: int = 12
 
     # Semilla Superadministrador (Adenda Sección A y D)
-    SUPERADMIN_SEED_PASSWORD: Optional[str] = "SuperAdmin2026!*"
+    SUPERADMIN_SEED_PASSWORD: str | None = "SuperAdmin2026!*"
     SUPERADMIN_SEED_DNI: str = "00000000"
     SUPERADMIN_SEED_EMAIL: str = "admin@empresa.com"
     SUPERADMIN_SEED_NOMBRE: str = "Admin General"
     SUPERADMIN_SEED_TELEFONO: str = "+5493564000000"
+
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def parse_debug(cls, value: object) -> object:
+        """Acepta valores de entorno habituales además de booleanos estrictos."""
+        if not isinstance(value, str):
+            return value
+
+        normalized_value = value.strip().lower()
+        if normalized_value in {"1", "true", "yes", "on", "debug", "development"}:
+            return True
+        if normalized_value in {"0", "false", "no", "off", "release", "production"}:
+            return False
+
+        return value
 
     @property
     def jwt_expiration_timedelta(self) -> timedelta:

@@ -4,6 +4,11 @@ from typing import Optional
 from uuid import UUID
 
 
+# Nota: los servicios actuales trabajan directamente con
+# `infrastructure/db/models.py:UsuarioModel` (SQLAlchemy), no con esta
+# dataclase. Queda del scaffolding inicial de la arquitectura como punto de
+# partida si en el futuro se separa el dominio del ORM (ver
+# Back/docs/01-arquitectura/capas-y-estructura.md).
 @dataclass
 class Usuario:
     id: UUID

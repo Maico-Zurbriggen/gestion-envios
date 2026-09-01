@@ -15,6 +15,9 @@ class RepositorioUsuarios:
         self.db = db
 
     async def obtener_por_id(self, id: UUID) -> Optional[UsuarioModel]:
+        """Siempre carga la relación `rol` (`selectinload`): casi todo flujo
+        de autenticación necesita el nombre del rol para armar el JWT o
+        validar permisos."""
         stmt = (
             select(UsuarioModel)
             .options(selectinload(UsuarioModel.rol))
@@ -24,6 +27,8 @@ class RepositorioUsuarios:
         return result.scalar_one_or_none()
 
     async def obtener_por_dni(self, dni: str) -> Optional[UsuarioModel]:
+        """Usado tanto en el login (HU01/HU02) como en la validación de
+        unicidad al dar de alta un empleado (HU01 Escenario 4)."""
         stmt = (
             select(UsuarioModel)
             .options(selectinload(UsuarioModel.rol))
@@ -33,6 +38,8 @@ class RepositorioUsuarios:
         return result.scalar_one_or_none()
 
     async def obtener_por_email(self, email: str) -> Optional[UsuarioModel]:
+        """Validación de unicidad de email al dar de alta un empleado
+        (HU01 Escenario 4)."""
         stmt = (
             select(UsuarioModel)
             .options(selectinload(UsuarioModel.rol))
@@ -49,6 +56,9 @@ class RepositorioUsuarios:
         return await self.obtener_por_id(usuario.id)  # type: ignore
 
     async def actualizar_password(self, id: UUID, nuevo_hash: str) -> bool:
+        """Cambio obligatorio de contraseña (HU02): actualiza el hash y baja
+        el flag `requiere_cambio_password` en la misma operación, para que
+        ambos cambios queden atómicos."""
         stmt = (
             update(UsuarioModel)
             .where(UsuarioModel.id == id)
