@@ -99,6 +99,7 @@ Las 6 sucursales base se siembran automáticamente al iniciar el backend (`app/i
 
 - Endpoint: `GET /api/v1/seguimiento/{token}`
 - Acceso: público.
+- Ruta del frontend: `/seguimiento`; acepta opcionalmente `?token=ENV-...` para compartir una consulta directa.
 - Un token corresponde a un único envío y devuelve **todos** los paquetes asociados a ese envío (Escenario 2 de HU04).
 
 ```json
@@ -123,6 +124,8 @@ Las 6 sucursales base se siembran automáticamente al iniciar el backend (`app/i
 
 `destino` ya viene armado como un único string legible por el backend (dirección completa si es a domicilio, o nombre y dirección de la sucursal si es retiro), para que la vista pública no tenga que componerlo.
 
+La vista presenta cada paquete por separado, con su estado real, contenido, observaciones, fechas y un recorrido operativo de cuatro etapas: registrado, recibido en sucursal, en viaje y entregado. Las etapas futuras son solamente una representación visual inactiva; el estado textual devuelto por el backend es la fuente de verdad.
+
 Token inexistente: `404` con el mismo esquema estándar de error:
 
 ```json
@@ -131,7 +134,7 @@ Token inexistente: `404` con el mismo esquema estándar de error:
 
 ### Pendiente para completar HU04 (fuera de este alcance de backend ya implementado)
 
-- Escenarios 5 y 6 (distinción corta/larga distancia, mapa con recorrido y ubicación en tiempo real del repartidor) dependen de HU10/HU11 (recorridos y tracking del repartidor), todavía no implementadas. Por ahora `estado` solo refleja `"Pendiente"` desde el alta; no hay más transiciones de estado ni datos de recorrido.
+- Escenarios 5 y 6 (distinción corta/larga distancia, mapa con recorrido y ubicación en tiempo real del repartidor) dependen de HU10/HU11 (recorridos y tracking del repartidor), todavía no implementadas. El frontend no dibuja un mapa ni inventa un origen: informa este alcance y queda preparado para incorporar la ubicación cuando el repartidor local inicie su ruta. Por ahora `estado` solo refleja `"Pendiente"` desde el alta; no hay más transiciones de estado ni datos geográficos de recorrido.
 - HU05 (envío del token por email y WhatsApp) no está implementada; el token solo se devuelve en la respuesta de `POST /api/v1/envios`.
 
 ## Identificadores

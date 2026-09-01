@@ -1,4 +1,10 @@
-import { House, PackagePlus, UserPlus, type LucideIcon } from 'lucide-react'
+import {
+  House,
+  PackagePlus,
+  Route,
+  UserPlus,
+  type LucideIcon,
+} from 'lucide-react'
 
 export interface NavigationModule {
   id: string
@@ -33,6 +39,15 @@ export const NAVIGATION_MODULES: NavigationModule[] = [
     path: '/envios/nuevo',
     section: 'general',
     icon: PackagePlus,
+    showAsQuickAccess: true,
+  },
+  {
+    id: 'tracking',
+    label: 'Seguir envío',
+    description: 'Consultá el estado de tus paquetes con el código de seguimiento.',
+    path: '/seguimiento',
+    section: 'general',
+    icon: Route,
     showAsQuickAccess: true,
   },
   {
