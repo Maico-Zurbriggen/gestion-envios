@@ -95,6 +95,29 @@
   font-size: var(--font-size-xs);
 }
 
+.role-retry {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  color: var(--color-danger-text);
+  background: transparent;
+  border: 0;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+.role-retry:hover:not(:disabled) {
+  color: var(--color-primary-hover);
+  text-decoration: underline;
+}
+
+.role-retry:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .user-form__actions {
   display: flex;
   justify-content: flex-end;

@@ -8,27 +8,40 @@ import {
   LoaderCircle,
   Mail,
   Phone,
+  RefreshCw,
   RotateCcw,
   Shield,
   UserPlus,
   UserRound,
 } from 'lucide-react'
-import { ASSIGNABLE_ROLES } from '../constants/roles'
 import { useCreateUser } from '../hooks/useCreateUser'
+import { useRoles } from '../hooks/useRoles'
 import './CreateUserPage.css'
 
-const INITIAL_FORM = {
+interface CreateUserForm {
+  name: string
+  dni: string
+  email: string
+  phone: string
+  roleId: number | ''
+}
+
+const INITIAL_FORM: CreateUserForm = {
   name: '',
   dni: '',
   email: '',
   phone: '',
-  roleId: 2,
+  roleId: '',
 }
 
 export function CreateUserPage() {
   const [form, setForm] = useState(INITIAL_FORM)
   const [passwordCopied, setPasswordCopied] = useState(false)
   const createUserMutation = useCreateUser()
+  const rolesQuery = useRoles()
+  const assignableRoles =
+    rolesQuery.data?.filter((role) => role.name !== 'SUPERADMIN') ?? []
+  const selectedRole = assignableRoles.find((role) => role.id === form.roleId)
 
   function updateField<Key extends keyof typeof form>(
     field: Key,
@@ -39,9 +52,12 @@ export function CreateUserPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (form.roleId === '') return
+
     createUserMutation.mutate(
       {
         ...form,
+        roleId: form.roleId,
         name: form.name.trim(),
         dni: form.dni.trim(),
         email: form.email.trim(),
@@ -251,21 +267,53 @@ export function CreateUserPage() {
                   id="employee-role"
                   value={form.roleId}
                   onChange={(event) =>
-                    updateField('roleId', Number(event.target.value))
+                    updateField(
+                      'roleId',
+                      event.target.value === ''
+                        ? ''
+                        : Number(event.target.value),
+                    )
                   }
+                  disabled={rolesQuery.isPending || rolesQuery.isError}
                   required
                 >
-                  {ASSIGNABLE_ROLES.map((role) => (
+                  <option value="" disabled>
+                    {rolesQuery.isPending
+                      ? 'Cargando roles…'
+                      : rolesQuery.isError
+                        ? 'No se pudieron cargar los roles'
+                        : assignableRoles.length
+                          ? 'Seleccioná un rol'
+                          : 'No hay roles disponibles'}
+                  </option>
+                  {assignableRoles.map((role) => (
                     <option key={role.id} value={role.id}>
-                      {role.label}
+                      {role.name}
                     </option>
                   ))}
                 </select>
               </div>
-              <span className="role-source-note">
-                <Info size={14} aria-hidden="true" />
-                Roles disponibles definidos temporalmente en el frontend.
-              </span>
+              {rolesQuery.isError ? (
+                <button
+                  className="role-retry"
+                  type="button"
+                  disabled={rolesQuery.isFetching}
+                  onClick={() => void rolesQuery.refetch()}
+                >
+                  {rolesQuery.isFetching ? (
+                    <LoaderCircle className="loading-icon" size={14} />
+                  ) : (
+                    <RefreshCw size={14} aria-hidden="true" />
+                  )}
+                  Reintentar carga de roles
+                </button>
+              ) : (
+                <span className="role-source-note">
+                  <Info size={14} aria-hidden="true" />
+                  {selectedRole?.description ??
+                    'Seleccioná el nivel de acceso del nuevo usuario.'}
+                </span>
+              )}
             </div>
           </div>
 
@@ -280,7 +328,13 @@ export function CreateUserPage() {
             <button
               className="user-submit"
               type="submit"
-              disabled={createUserMutation.isPending}
+              disabled={
+                createUserMutation.isPending ||
+                rolesQuery.isPending ||
+                rolesQuery.isError ||
+                assignableRoles.length === 0 ||
+                form.roleId === ''
+              }
             >
               {createUserMutation.isPending ? (
                 <LoaderCircle

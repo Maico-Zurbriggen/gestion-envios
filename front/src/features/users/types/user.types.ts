@@ -6,6 +6,23 @@ export interface CreateUserInput {
   roleId: number
 }
 
+export interface ApiRole {
+  id: number
+  nombre: string
+  descripcion: string
+}
+
+export interface RolesSuccessResponse {
+  status: 'success'
+  data: ApiRole[]
+}
+
+export interface Role {
+  id: number
+  name: string
+  description: string
+}
+
 export interface ApiCreatedUser {
   id: string
   nombre: string
