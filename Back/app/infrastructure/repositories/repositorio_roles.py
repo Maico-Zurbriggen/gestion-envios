@@ -23,3 +23,9 @@ class RepositorioRoles:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def obtener_todos(self) -> list[RolModel]:
+        stmt = select(RolModel).order_by(RolModel.id.asc())
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+

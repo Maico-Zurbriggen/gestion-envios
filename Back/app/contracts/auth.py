@@ -75,3 +75,17 @@ class CambiarPasswordResponse(ApiModel):
     message: str = "Contraseña actualizada exitosamente. Ya puede operar normalmente."
     data: CambiarPasswordData
 
+
+class LoginTokenRequest(ApiModel):
+    token: str | None = Field(None, description="Token JWT de autenticación (opcional si se envía en el header Authorization: Bearer)")
+
+
+class MeData(ApiModel):
+    user: UserInfoResponse
+
+
+class MeResponse(ApiModel):
+    status: str = "success"
+    data: MeData
+
+

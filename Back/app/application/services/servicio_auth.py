@@ -155,3 +155,84 @@ class ServicioAuth:
             data=CambiarPasswordData(auth_token=auth_token),
         )
 
+    async def autenticar_con_token(
+        self, token: str
+    ) -> Union[LoginSuccessResponse, LoginRequiresPasswordChangeResponse]:
+        """Inicia sesión o valida la sesión utilizando un token JWT previamente emitido."""
+        if not token or not token.strip():
+            raise InvalidTokenException("Token de autenticación no proporcionado.")
+
+        payload = self.jwt_handler.decodificar_token(token.strip())
+
+        try:
+            usuario_id = UUID(str(payload.get("sub", "")))
+        except (ValueError, TypeError):
+            raise InvalidTokenException("El identificador del usuario en el token no es válido.")
+
+        usuario = await self.repo_usuarios.obtener_por_id(usuario_id)
+        if not usuario:
+            raise InvalidTokenException("El usuario asociado al token no existe.")
+
+        if usuario.estado != "Activo":
+            raise AuthFailedException("El usuario se encuentra inactivo o bloqueado.")
+
+        rol_nombre = usuario.rol.nombre if usuario.rol else "ADMINISTRATIVO"
+
+        if usuario.requiere_cambio_password:
+            return LoginRequiresPasswordChangeResponse(
+                status="requires_password_change",
+                message="Debe cambiar su contraseña temporal antes de continuar.",
+                data=LoginTempTokenData(
+                    temp_token=token,
+                    requiere_cambio_password=True,
+                ),
+            )
+
+        return LoginSuccessResponse(
+            status="success",
+            data=LoginNormalData(
+                token=token,
+                user=UserInfoResponse(
+                    id=usuario.id,
+                    nombre=usuario.nombre,
+                    dni=usuario.dni,
+                    email=usuario.email,
+                    rol=rol_nombre,
+                    requiere_cambio_password=False,
+                ),
+            ),
+        )
+
+    async def obtener_usuario_por_id(self, usuario_id: UUID) -> LoginSuccessResponse:
+        """Obtiene la información del usuario autenticado actual."""
+        usuario = await self.repo_usuarios.obtener_por_id(usuario_id)
+        if not usuario:
+            raise InvalidTokenException("Usuario no encontrado.")
+
+        if usuario.estado != "Activo":
+            raise AuthFailedException("El usuario se encuentra inactivo o bloqueado.")
+
+        rol_nombre = usuario.rol.nombre if usuario.rol else "ADMINISTRATIVO"
+
+        token = self.jwt_handler.emitir_token(
+            usuario_id=str(usuario.id),
+            rol=rol_nombre,
+            scope=ScopeEnum.FULL_ACCESS.value,
+        )
+
+        return LoginSuccessResponse(
+            status="success",
+            data=LoginNormalData(
+                token=token,
+                user=UserInfoResponse(
+                    id=usuario.id,
+                    nombre=usuario.nombre,
+                    dni=usuario.dni,
+                    email=usuario.email,
+                    rol=rol_nombre,
+                    requiere_cambio_password=usuario.requiere_cambio_password,
+                ),
+            ),
+        )
+
+

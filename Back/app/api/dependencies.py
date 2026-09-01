@@ -12,11 +12,13 @@ from app.application.interfaces.repositorio_usuarios import IRepositorioUsuarios
 from app.application.interfaces.servicio_auth import IServicioAuth
 from app.application.interfaces.servicio_empleados import IServicioEmpleados
 from app.application.interfaces.servicio_envios import IServicioEnvios
+from app.application.interfaces.servicio_roles import IServicioRoles
 from app.application.interfaces.servicio_seguimiento import IServicioSeguimiento
 from app.application.interfaces.servicio_sucursales import IServicioSucursales
 from app.application.services.servicio_auth import ServicioAuth
 from app.application.services.servicio_empleados import ServicioEmpleados
 from app.application.services.servicio_envios import ServicioEnvios
+from app.application.services.servicio_roles import ServicioRoles
 from app.application.services.servicio_seguimiento import ServicioSeguimiento
 from app.application.services.servicio_sucursales import ServicioSucursales
 from app.core.exceptions import (
@@ -97,6 +99,12 @@ def get_servicio_sucursales(
     repo_sucursales: IRepositorioSucursales = Depends(get_repositorio_sucursales),
 ) -> IServicioSucursales:
     return ServicioSucursales(repositorio_sucursales=repo_sucursales)
+
+
+def get_servicio_roles(
+    repo_roles: IRepositorioRoles = Depends(get_repositorio_roles),
+) -> IServicioRoles:
+    return ServicioRoles(repositorio_roles=repo_roles)
 
 
 # --- Inyección de Autenticación y Autorización ---
