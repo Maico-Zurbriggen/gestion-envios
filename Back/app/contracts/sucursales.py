@@ -3,6 +3,9 @@ from app.contracts.common import ApiModel
 
 
 class SucursalData(ApiModel):
+    """Catálogo público de sucursales: alimenta el selector de "retiro en
+    sucursal" de HU03 y, a futuro, la vista de HU09."""
+
     id: int
     nombre: str
     provincia: str

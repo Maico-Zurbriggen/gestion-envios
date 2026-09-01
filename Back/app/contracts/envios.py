@@ -8,6 +8,10 @@ from app.contracts.sucursales import SucursalData
 
 
 class PaqueteRequest(ApiModel):
+    """Un paquete dentro de un envío (HU03). El peso y las dimensiones se
+    validan contra los límites de negocio en `domain/rules/paquete_rules.py`,
+    no acá: este contrato solo exige que los valores sean numéricos y > 0."""
+
     descripcion: str = Field(..., min_length=2, max_length=255, examples=["Ropa y calzado"])
     peso_kg: float = Field(..., gt=0, examples=[3.5])
     largo_cm: float = Field(..., gt=0, examples=[40])
@@ -17,6 +21,10 @@ class PaqueteRequest(ApiModel):
 
 
 class CrearEnvioRequest(ApiModel):
+    """Registro público de un envío (HU03). Agrupa remitente, destinatario,
+    destino y una o más paquetes que viajan juntos bajo un mismo token de
+    seguimiento (uno por envío, no por paquete)."""
+
     # Remitente
     remitente_nombre: str = Field(..., min_length=2, max_length=150)
     remitente_documento: str = Field(..., min_length=6, max_length=20)
@@ -58,6 +66,9 @@ class CrearEnvioRequest(ApiModel):
 
     @model_validator(mode="after")
     def validar_terminos_y_destino(self) -> "CrearEnvioRequest":
+        """`tipo_entrega` decide qué bloque de campos de destino es obligatorio
+        (domicilio vs. sucursal, HU03 Escenario 1); acá se resuelve esa
+        exclusión mutua, ya que no existe como constraint de base de datos."""
         if not self.terminos_aceptados:
             raise ValueError("Debe aceptar los términos y condiciones para registrar el envío.")
 
@@ -87,6 +98,10 @@ class PaqueteCreadoData(ApiModel):
 
 
 class EnvioCreadoData(ApiModel):
+    """Datos de destino y `sucursal_destino` son mutuamente excluyentes según
+    `tipo_entrega`: si es "sucursal", los campos de domicilio quedan en None
+    y viceversa."""
+
     id: UUID
     token_seguimiento: str
     remitente_nombre: str

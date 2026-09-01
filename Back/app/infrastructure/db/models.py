@@ -11,6 +11,11 @@ class Base(DeclarativeBase):
 
 
 class RolModel(Base):
+    """Catálogo fijo de 4 roles (SUPERADMIN, ADMINISTRATIVO, VENDEDOR,
+    REPARTIDOR), sembrado una única vez al iniciar la app. No tiene
+    endpoint de alta/edición: los IDs están fijados en
+    `domain/constants/roles.py:RolIdEnum`."""
+
     __tablename__ = "roles"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -25,6 +30,11 @@ class RolModel(Base):
 
 
 class UsuarioModel(Base):
+    """Empleado o Superadministrador del sistema (HU01/HU02). `dni` y
+    `email` son únicos (base de la validación de duplicados de HU01
+    Escenario 4). `requiere_cambio_password` nace en True para todo alta
+    por `POST /admin/empleados`, y en False para el Superadmin sembrado."""
+
     __tablename__ = "usuarios"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -56,6 +66,9 @@ class UsuarioModel(Base):
 
 
 class SucursalModel(Base):
+    """Catálogo público de sucursales para retiro (soporte de HU03/HU09).
+    Se siembra al iniciar la app; no tiene endpoint de alta."""
+
     __tablename__ = "sucursales"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -73,6 +86,10 @@ class SucursalModel(Base):
 
 
 class EnvioModel(Base):
+    """Registro público de un envío (HU03). `token_seguimiento` vive acá,
+    no en `PaqueteModel`: un mismo token siempre corresponde a todos los
+    paquetes de un mismo envío (HU04 Escenario 2)."""
+
     __tablename__ = "envios"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -126,6 +143,11 @@ class EnvioModel(Base):
 
 
 class PaqueteModel(Base):
+    """Un paquete dentro de un envío (HU03). `numero_paquete` es el valor
+    pensado para el código de barras de la planilla imprimible. `estado`
+    solo toma el valor "Pendiente" en esta etapa del proyecto; las
+    transiciones (en tránsito, entregado, etc.) llegan con HU06/HU10-HU13."""
+
     __tablename__ = "paquetes"
 
     id: Mapped[uuid.UUID] = mapped_column(
