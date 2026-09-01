@@ -5,12 +5,20 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.interfaces.repositorio_envios import IRepositorioEnvios
 from app.application.interfaces.repositorio_roles import IRepositorioRoles
+from app.application.interfaces.repositorio_sucursales import IRepositorioSucursales
 from app.application.interfaces.repositorio_usuarios import IRepositorioUsuarios
 from app.application.interfaces.servicio_auth import IServicioAuth
 from app.application.interfaces.servicio_empleados import IServicioEmpleados
+from app.application.interfaces.servicio_envios import IServicioEnvios
+from app.application.interfaces.servicio_seguimiento import IServicioSeguimiento
+from app.application.interfaces.servicio_sucursales import IServicioSucursales
 from app.application.services.servicio_auth import ServicioAuth
 from app.application.services.servicio_empleados import ServicioEmpleados
+from app.application.services.servicio_envios import ServicioEnvios
+from app.application.services.servicio_seguimiento import ServicioSeguimiento
+from app.application.services.servicio_sucursales import ServicioSucursales
 from app.core.exceptions import (
     ForbiddenAccessException,
     ForbiddenScopeException,
@@ -21,7 +29,9 @@ from app.domain.constants.scopes import ScopeEnum
 from app.infrastructure.auth.jwt_handler import ManejadorJWT
 from app.infrastructure.db.models import UsuarioModel
 from app.infrastructure.db.session import obtener_sesion_db
+from app.infrastructure.repositories.repositorio_envios import RepositorioEnvios
 from app.infrastructure.repositories.repositorio_roles import RepositorioRoles
+from app.infrastructure.repositories.repositorio_sucursales import RepositorioSucursales
 from app.infrastructure.repositories.repositorio_usuarios import RepositorioUsuarios
 
 security_bearer = HTTPBearer(auto_error=False)
@@ -56,6 +66,37 @@ def get_servicio_empleados(
         repositorio_usuarios=repo_usuarios,
         repositorio_roles=repo_roles,
     )
+
+
+def get_repositorio_envios(
+    db: AsyncSession = Depends(obtener_sesion_db),
+) -> IRepositorioEnvios:
+    return RepositorioEnvios(db)
+
+
+def get_repositorio_sucursales(
+    db: AsyncSession = Depends(obtener_sesion_db),
+) -> IRepositorioSucursales:
+    return RepositorioSucursales(db)
+
+
+def get_servicio_envios(
+    repo_envios: IRepositorioEnvios = Depends(get_repositorio_envios),
+    repo_sucursales: IRepositorioSucursales = Depends(get_repositorio_sucursales),
+) -> IServicioEnvios:
+    return ServicioEnvios(repositorio_envios=repo_envios, repositorio_sucursales=repo_sucursales)
+
+
+def get_servicio_seguimiento(
+    repo_envios: IRepositorioEnvios = Depends(get_repositorio_envios),
+) -> IServicioSeguimiento:
+    return ServicioSeguimiento(repositorio_envios=repo_envios)
+
+
+def get_servicio_sucursales(
+    repo_sucursales: IRepositorioSucursales = Depends(get_repositorio_sucursales),
+) -> IServicioSucursales:
+    return ServicioSucursales(repositorio_sucursales=repo_sucursales)
 
 
 # --- Inyección de Autenticación y Autorización ---
