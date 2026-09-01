@@ -22,7 +22,9 @@ export function AuthBootstrap({ children }: AuthBootstrapProps) {
   const status = useAppSelector(selectAuthStatus)
   const token = useAppSelector(selectAuthToken)
   const user = useAppSelector(selectCurrentUser)
-  const isPublicShipmentRoute = window.location.pathname === '/envios/nuevo'
+  const isPublicOperationalRoute = ['/envios/nuevo', '/seguimiento'].includes(
+    window.location.pathname,
+  )
 
   const sessionQuery = useQuery({
     queryKey: ['auth', 'session-validation'],
@@ -61,7 +63,7 @@ export function AuthBootstrap({ children }: AuthBootstrapProps) {
     if (isRejectedSession) dispatch(clearCredentials())
   }, [dispatch, sessionQuery.error, status])
 
-  if (status !== 'checking' || isPublicShipmentRoute) return children
+  if (status !== 'checking' || isPublicOperationalRoute) return children
 
   if (sessionQuery.isError) {
     const isRejectedSession =

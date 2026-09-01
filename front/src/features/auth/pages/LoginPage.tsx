@@ -9,6 +9,7 @@ import {
   LogIn,
   PackageCheck,
   PackagePlus,
+  Search,
   ShieldCheck,
 } from 'lucide-react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
@@ -174,11 +175,17 @@ export function LoginPage() {
             </button>
 
             <div className="login-public-action">
-              <span>¿Querés preparar un paquete?</span>
-              <Link to="/envios/nuevo">
-                <PackagePlus size={18} aria-hidden="true" />
-                Registrar un envío sin iniciar sesión
-              </Link>
+              <span>Acciones públicas</span>
+              <div className="login-public-action__links">
+                <Link to="/envios/nuevo">
+                  <PackagePlus size={18} aria-hidden="true" />
+                  Registrar envío
+                </Link>
+                <Link to="/seguimiento">
+                  <Search size={18} aria-hidden="true" />
+                  Seguir paquete
+                </Link>
+              </div>
             </div>
           </form>
         </div>
