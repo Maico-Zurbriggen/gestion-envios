@@ -4,6 +4,7 @@ import { Provider } from 'react-redux'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { store } from './app/store'
 import { AppRouter } from './router/AppRouter'
+import { AuthBootstrap } from './features/auth/components/AuthBootstrap'
 import { applyTheme, getInitialTheme } from './shared/theme/theme'
 import './styles/theme.css'
 import './styles/forms.css'
@@ -16,7 +17,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
-        <AppRouter />
+        <AuthBootstrap>
+          <AppRouter />
+        </AuthBootstrap>
       </QueryClientProvider>
     </Provider>
   </StrictMode>,

@@ -1,0 +1,124 @@
+.auth-bootstrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background:
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--color-primary) 12%, transparent),
+      transparent 40%
+    ),
+    var(--color-background);
+}
+
+.auth-bootstrap__card {
+  width: min(100%, 32rem);
+  padding: clamp(var(--space-6), 6vw, var(--space-10));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+  background: var(--color-surface);
+}
+
+.auth-bootstrap__card h1 {
+  margin-bottom: var(--space-3);
+  font-size: var(--font-size-2xl);
+}
+
+.auth-bootstrap__card p {
+  margin-bottom: var(--space-6);
+}
+
+.auth-bootstrap__card--loading p {
+  margin-bottom: 0;
+}
+
+.auth-bootstrap__icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  display: inline-grid;
+  place-items: center;
+  margin-bottom: var(--space-5);
+  border-radius: var(--radius-full);
+  color: var(--color-primary);
+  background: var(--color-primary-50);
+}
+
+:root[data-theme='dark'] .auth-bootstrap__icon {
+  background: var(--color-primary-950);
+}
+
+.auth-bootstrap__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+.auth-bootstrap__button {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  background: var(--color-surface);
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.auth-bootstrap__button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: var(--color-surface-subtle);
+}
+
+.auth-bootstrap__button--primary {
+  border-color: var(--color-primary);
+  color: var(--color-text-on-primary);
+  background: var(--color-primary);
+}
+
+.auth-bootstrap__button--primary:hover:not(:disabled) {
+  border-color: var(--color-primary-hover);
+  background: var(--color-primary-hover);
+}
+
+.auth-bootstrap__button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.auth-bootstrap__spinner {
+  flex: 0 0 auto;
+  animation: auth-bootstrap-spin 0.8s linear infinite;
+}
+
+.auth-bootstrap__spinner--large {
+  margin-bottom: var(--space-5);
+  color: var(--color-primary);
+}
+
+@keyframes auth-bootstrap-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 460px) {
+  .auth-bootstrap__actions,
+  .auth-bootstrap__button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-bootstrap__spinner {
+    animation-duration: 1.6s;
+  }
+}

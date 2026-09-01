@@ -19,6 +19,10 @@ Los errores con `detail[]` se convierten en un mensaje visible en el formulario.
 
 Redux conserva el token y el usuario autenticado. La sesión se persiste en `localStorage` para sobrevivir una recarga y `ProtectedRoutes` la utiliza para controlar acceso y roles.
 
+Al iniciar la aplicación, una sesión persistida queda en estado `checking` y se valida con `POST /api/v1/auth/login-token`, enviando `{ "token": string }`. Ninguna ruta privada se muestra hasta recibir una respuesta exitosa. El usuario y el token devueltos reemplazan los datos persistidos para mantener la sesión actualizada.
+
+Una respuesta 4xx elimina la sesión local y conduce al login. Una falla de red o del servidor no elimina las credenciales: se muestra una vista segura para reintentar la validación o cerrar la sesión manualmente.
+
 Esta persistencia debe revisarse si el backend incorpora cookies HttpOnly y renovación de sesión, alternativa preferible para reducir la exposición del token a JavaScript.
 
 El indicador `requiresPasswordChange` se conserva en el usuario y activa el flujo de cambio obligatorio cuando corresponde.

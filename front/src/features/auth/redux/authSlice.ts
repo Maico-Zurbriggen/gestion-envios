@@ -11,6 +11,7 @@ import type {
 
 interface AuthState {
   token: string | null
+  status: 'checking' | 'authenticated' | 'unauthenticated'
   isAuthenticated: boolean
   user: AuthUser | null
   passwordChangeChallenge: PasswordChangeChallenge | null
@@ -23,7 +24,8 @@ const storedPasswordChangeChallenge = storedSession
 
 const initialState: AuthState = {
   token: storedSession?.token ?? null,
-  isAuthenticated: Boolean(storedSession),
+  status: storedSession ? 'checking' : 'unauthenticated',
+  isAuthenticated: false,
   user: storedSession?.user ?? null,
   passwordChangeChallenge: storedPasswordChangeChallenge,
 }
@@ -34,6 +36,7 @@ const authSlice = createSlice({
   reducers: {
     setCredentials: (state, action: PayloadAction<AuthSession>) => {
       state.token = action.payload.token
+      state.status = 'authenticated'
       state.isAuthenticated = true
       state.user = action.payload.user
       state.passwordChangeChallenge = null
@@ -43,12 +46,14 @@ const authSlice = createSlice({
       action: PayloadAction<PasswordChangeChallenge>,
     ) => {
       state.token = null
+      state.status = 'unauthenticated'
       state.isAuthenticated = false
       state.user = null
       state.passwordChangeChallenge = action.payload
     },
     clearCredentials: (state) => {
       state.token = null
+      state.status = 'unauthenticated'
       state.isAuthenticated = false
       state.user = null
       state.passwordChangeChallenge = null
@@ -56,6 +61,7 @@ const authSlice = createSlice({
   },
   selectors: {
     selectAuthToken: (state) => state.token,
+    selectAuthStatus: (state) => state.status,
     selectCurrentUser: (state) => state.user,
     selectIsAuthenticated: (state) => state.isAuthenticated,
     selectPasswordChangeChallenge: (state) => state.passwordChangeChallenge,
@@ -69,6 +75,7 @@ export const {
 } = authSlice.actions
 export const {
   selectAuthToken,
+  selectAuthStatus,
   selectCurrentUser,
   selectIsAuthenticated,
   selectPasswordChangeChallenge,
