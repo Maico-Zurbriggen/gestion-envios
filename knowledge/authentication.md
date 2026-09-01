@@ -23,7 +23,7 @@ Esta persistencia debe revisarse si el backend incorpora cookies HttpOnly y reno
 
 El indicador `requiresPasswordChange` se conserva en el usuario y activa el flujo de cambio obligatorio cuando corresponde.
 
-Después de autenticar, el usuario vuelve a la ruta protegida que había solicitado o a `/` cuando no existe una ruta previa.
+Después de autenticar, todos los usuarios ingresan siempre a `/`. No se restaura una ruta protegida anterior, porque podría pertenecer a otro rol o haber quedado guardada desde una sesión previa.
 
 ## Cambio obligatorio de contraseña
 

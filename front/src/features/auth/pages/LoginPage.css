@@ -13,6 +13,16 @@
     var(--color-background);
 }
 
+:root[data-theme='dark'] .login-page {
+  background:
+    radial-gradient(
+      circle at 10% 10%,
+      color-mix(in srgb, var(--color-primary) 16%, transparent),
+      transparent 32rem
+    ),
+    var(--color-background);
+}
+
 .login-card {
   width: min(960px, 100%);
   min-height: 610px;
@@ -128,70 +138,6 @@
   gap: var(--space-5);
 }
 
-.form-field {
-  display: grid;
-  gap: var(--space-2);
-}
-
-.form-field label {
-  color: var(--color-neutral-700);
-  font-size: var(--font-size-sm);
-  font-weight: 650;
-}
-
-.form-control {
-  width: 100%;
-  min-height: 3rem;
-  padding: 0 var(--space-4);
-  color: var(--color-text);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-
-.form-control::placeholder {
-  color: var(--color-neutral-400);
-}
-
-.form-control:hover {
-  border-color: var(--color-neutral-400);
-}
-
-.form-control:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-100);
-  outline: none;
-}
-
-.input-control {
-  position: relative;
-}
-
-.input-control__icon {
-  position: absolute;
-  z-index: 1;
-  top: 50%;
-  left: var(--space-4);
-  color: var(--color-neutral-400);
-  pointer-events: none;
-  transform: translateY(-50%);
-}
-
-.input-control:focus-within .input-control__icon {
-  color: var(--color-primary);
-}
-
-.form-control--with-icon {
-  padding-left: 2.75rem;
-}
-
-.form-control--with-action {
-  padding-right: 3.25rem;
-}
-
 .password-toggle {
   position: absolute;
   top: 50%;
@@ -213,17 +159,8 @@
   background: var(--color-primary-50);
 }
 
-.login-error {
-  margin: 0;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  color: var(--color-danger-text);
-  background: var(--color-danger-subtle);
-  border: 1px solid var(--color-danger-border);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
+:root[data-theme='dark'] .password-toggle:hover {
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
 }
 
 .login-submit {
@@ -254,21 +191,6 @@
 .login-submit:disabled {
   cursor: wait;
   opacity: 0.7;
-}
-
-.login-error svg {
-  flex: 0 0 auto;
-  margin-top: 0.1rem;
-}
-
-.login-submit__spinner {
-  animation: login-spin 700ms linear infinite;
-}
-
-@keyframes login-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 @media (max-width: 760px) {
@@ -305,8 +227,3 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .login-submit__spinner {
-    animation-duration: 1.5s;
-  }
-}
