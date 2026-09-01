@@ -2,6 +2,7 @@
 
 Este directorio registra criterios compartidos para evitar que las decisiones de arquitectura y producto queden implícitas.
 
+- [Arquitectura general y decisiones técnicas](./general-architecture.md)
 - [Arquitectura del frontend](./frontend-architecture.md)
 - [Desarrollo local del backend](./backend-local-development.md)
 - [Identidad visual](./visual-identity.md)
