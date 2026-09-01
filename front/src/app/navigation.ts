@@ -1,4 +1,4 @@
-import { House, UserPlus, type LucideIcon } from 'lucide-react'
+import { House, PackagePlus, UserPlus, type LucideIcon } from 'lucide-react'
 
 export interface NavigationModule {
   id: string
@@ -25,6 +25,15 @@ export const NAVIGATION_MODULES: NavigationModule[] = [
     section: 'general',
     icon: House,
     showAsQuickAccess: false,
+  },
+  {
+    id: 'create-shipment',
+    label: 'Registrar envío',
+    description: 'Prepará un envío y generá sus etiquetas para imprimir.',
+    path: '/envios/nuevo',
+    section: 'general',
+    icon: PackagePlus,
+    showAsQuickAccess: true,
   },
   {
     id: 'create-user',

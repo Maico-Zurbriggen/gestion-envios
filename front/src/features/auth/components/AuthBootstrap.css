@@ -1,4 +1,6 @@
 .auth-bootstrap {
+  width: 100%;
+  flex: 1 1 100%;
   min-height: 100vh;
   display: grid;
   place-items: center;

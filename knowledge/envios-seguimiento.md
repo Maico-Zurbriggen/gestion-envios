@@ -6,6 +6,7 @@ Endpoints públicos, sin autenticación. Confirmados en Swagger (`/docs`) del ba
 
 - Endpoint: `POST /api/v1/envios`
 - Acceso: público.
+- Ruta del frontend: `/envios/nuevo`, disponible tanto sin sesión como desde el panel autenticado.
 - Un envío tiene un remitente, un destinatario y uno o más paquetes (`paquetes: []`, mínimo 1).
 
 Cuerpo de la solicitud:
@@ -38,9 +39,13 @@ Cuerpo de la solicitud:
 - `domicilio`: requiere `provincia_destino`, `ciudad_destino` y `direccion_destino`. `latitud_destino`/`longitud_destino` son opcionales (marcado en mapa, Escenario 3 de HU03); si no se marca un punto, alcanza con la dirección tipeada.
 - `sucursal`: requiere `sucursal_destino_id` (ver `GET /api/v1/sucursales`).
 
+En el frontend, el domicilio se solicita como provincia, ciudad, calle y altura; calle y altura se combinan en `direccion_destino`. Las coordenadas no se escriben en campos: se obtienen opcionalmente al marcar un punto en un mapa Leaflet con mosaicos de OpenStreetMap. La acción `Ubicar en el mapa` consulta Nominatim únicamente por decisión del usuario, primero con la dirección completa y, si no hay coincidencia, con ciudad y provincia. Las consultas se almacenan temporalmente en memoria y el fallback respeta un intervalo mayor a un segundo entre solicitudes. Para retiro en sucursal, antes de elegir se informa que su ubicación aparecerá en el mapa y, luego de seleccionar, se centra el mapa usando las coordenadas del catálogo.
+
 `terminos_aceptados` debe ser `true` o el backend rechaza la solicitud.
 
 Respuesta exitosa (`201 Created`): devuelve el envío completo, con `token_seguimiento` (uno solo por envío, no por paquete) y cada paquete con su `numero_paquete` propio y estado inicial `"Pendiente"`. Este `numero_paquete` es el valor a codificar en el código de barras de la planilla imprimible (Escenario 4 de HU03); la generación del PDF/planilla es responsabilidad del frontend, el backend solo provee los datos.
+
+El frontend genera una etiqueta por paquete en formato imprimible A4. Cada etiqueta incorpora un código de barras Code 128 construido con `numero_paquete`, además de los datos de remitente, destinatario, destino, peso y medidas. Se puede imprimir desde el navegador o descargar directamente un PDF generado localmente con una página por bulto. El `token_seguimiento` se muestra y puede copiarse, pero no reemplaza al número de paquete utilizado para el escaneo en sucursal.
 
 ```json
 {
