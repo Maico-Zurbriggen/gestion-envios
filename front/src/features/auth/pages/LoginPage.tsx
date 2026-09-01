@@ -8,9 +8,10 @@ import {
   LockKeyhole,
   LogIn,
   PackageCheck,
+  PackagePlus,
   ShieldCheck,
 } from 'lucide-react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAppSelector } from '../../../app/store'
 import { useLogin } from '../hooks/useLogin'
 import { selectIsAuthenticated } from '../redux/authSlice'
@@ -171,6 +172,14 @@ export function LoginPage() {
               )}
               {loginMutation.isPending ? 'Ingresando…' : 'Ingresar'}
             </button>
+
+            <div className="login-public-action">
+              <span>¿Querés preparar un paquete?</span>
+              <Link to="/envios/nuevo">
+                <PackagePlus size={18} aria-hidden="true" />
+                Registrar un envío sin iniciar sesión
+              </Link>
+            </div>
           </form>
         </div>
       </section>

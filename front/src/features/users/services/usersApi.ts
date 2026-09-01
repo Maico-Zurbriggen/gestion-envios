@@ -1,8 +1,11 @@
 import type {
   ApiCreatedUser,
+  ApiRole,
   CreatedUser,
   CreateUserInput,
   CreateUserSuccessResponse,
+  Role,
+  RolesSuccessResponse,
 } from '../types/user.types'
 
 const apiUrl = import.meta.env.VITE_API_URL?.replace(/\/+$/, '')
@@ -33,7 +36,19 @@ function mapCreatedUser(user: ApiCreatedUser): CreatedUser {
   }
 }
 
-function getErrorMessage(payload: unknown, status: number) {
+function mapRole(role: ApiRole): Role {
+  return {
+    id: role.id,
+    name: role.nombre,
+    description: role.descripcion,
+  }
+}
+
+function getErrorMessage(
+  payload: unknown,
+  status: number,
+  fallbackMessage = 'No pudimos registrar el usuario. Revisá los datos ingresados.',
+) {
   if (payload && typeof payload === 'object') {
     const { detail, errors, message } = payload as ApiErrorPayload
 
@@ -56,7 +71,7 @@ function getErrorMessage(payload: unknown, status: number) {
   if (status === 409) return 'Ya existe un usuario con ese DNI o email.'
   if (status >= 500) return 'El servicio no está disponible. Intentá nuevamente.'
 
-  return 'No pudimos registrar el usuario. Revisá los datos ingresados.'
+  return fallbackMessage
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -65,6 +80,43 @@ async function readJson(response: Response): Promise<unknown> {
   } catch {
     return null
   }
+}
+
+export async function getRoles(): Promise<Role[]> {
+  if (!apiUrl) throw new UsersApiError('No se configuró la URL de la API.')
+
+  let response: Response
+
+  try {
+    response = await fetch(`${apiUrl}/roles`, {
+      headers: { Accept: 'application/json' },
+    })
+  } catch {
+    throw new UsersApiError(
+      'No pudimos conectarnos con el servidor para obtener los roles.',
+    )
+  }
+
+  const payload = await readJson(response)
+  if (!response.ok) {
+    throw new UsersApiError(
+      getErrorMessage(
+        payload,
+        response.status,
+        'No pudimos obtener los roles disponibles.',
+      ),
+    )
+  }
+
+  const rolesResponse = payload as RolesSuccessResponse
+  if (
+    rolesResponse?.status !== 'success' ||
+    !Array.isArray(rolesResponse.data)
+  ) {
+    throw new UsersApiError('El servidor devolvió una respuesta inesperada.')
+  }
+
+  return rolesResponse.data.map(mapRole)
 }
 
 export async function createUser(

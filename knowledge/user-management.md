@@ -11,12 +11,8 @@ El formulario trabaja con nombres camelCase y el servicio HTTP transforma el cue
 
 La respuesta exitosa incluye una contraseña temporal. Se muestra una sola vez en el resultado del alta y se ofrece una acción para copiarla; nunca se almacena en Redux ni en almacenamiento local.
 
-## Roles provisionales
+## Roles asignables
 
-Hasta que exista el endpoint de consulta de roles, las opciones asignables se encuentran aisladas en `front/src/features/users/constants/roles.ts`:
+Las opciones se consultan con TanStack Query desde `GET /api/v1/roles`. El contrato remoto en snake_case se transforma a camelCase dentro del servicio y la consulta se mantiene fresca durante cinco minutos.
 
-- `2`: ADMINISTRATIVO
-- `3`: VENDEDOR
-- `4`: REPARTIDOR
-
-`SUPERADMIN` no se ofrece como opción. Cuando esté disponible el endpoint, esta constante debe reemplazarse por una consulta de TanStack Query.
+`SUPERADMIN` no se ofrece como opción en el alta de empleados aunque forme parte de la respuesta. Si la consulta falla, el formulario bloquea el envío y permite reintentar sin perder los datos ingresados.
