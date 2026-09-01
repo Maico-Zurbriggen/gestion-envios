@@ -163,3 +163,53 @@ async def test_hu02_flujo_completo_primer_acceso_y_cambio_password(
     assert login_clave_vieja.status_code == 401
     assert login_clave_vieja.json()["code"] == ErrorCodes.AUTH_FAILED
 
+
+@pytest.mark.asyncio
+async def test_login_con_token_y_endpoint_me(client: AsyncClient, db_session: AsyncSession):
+    """Verifica el login mediante token JWT y la consulta de perfil /me."""
+    # 1. Login inicial de superadmin para obtener token
+    login_resp = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "dni": settings.SUPERADMIN_SEED_DNI,
+            "password": settings.SUPERADMIN_SEED_PASSWORD or "SuperAdmin2026!*",
+        },
+    )
+    assert login_resp.status_code == 200
+    token = login_resp.json()["data"]["token"]
+
+    # 2. Login con token enviándolo en el body JSON
+    resp_token_body = await client.post(
+        "/api/v1/auth/login-token",
+        json={"token": token},
+    )
+    assert resp_token_body.status_code == 200
+    data_token_body = resp_token_body.json()
+    assert data_token_body["status"] == "success"
+    assert data_token_body["data"]["user"]["dni"] == settings.SUPERADMIN_SEED_DNI
+    assert data_token_body["data"]["user"]["rol"] == "SUPERADMIN"
+
+    # 3. Login con token enviándolo en el header Authorization Bearer
+    resp_token_header = await client.post(
+        "/api/v1/auth/login-token",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp_token_header.status_code == 200
+    assert resp_token_header.json()["status"] == "success"
+
+    # 4. Consulta a /api/v1/auth/me
+    resp_me = await client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp_me.status_code == 200
+    data_me = resp_me.json()
+    assert data_me["status"] == "success"
+    assert data_me["data"]["user"]["dni"] == settings.SUPERADMIN_SEED_DNI
+
+    # 5. Error al invocar login-token sin token
+    resp_sin_token = await client.post("/api/v1/auth/login-token", json={})
+    assert resp_sin_token.status_code == 401
+    assert resp_sin_token.json()["code"] == ErrorCodes.INVALID_TOKEN
+
+

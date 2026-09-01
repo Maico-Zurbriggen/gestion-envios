@@ -23,3 +23,12 @@ class IServicioAuth(Protocol):
         confirmacion_password: str,
     ) -> CambiarPasswordResponse: ...
 
+    async def autenticar_con_token(
+        self, token: str
+    ) -> Union[LoginSuccessResponse, LoginRequiresPasswordChangeResponse]: ...
+
+    async def obtener_usuario_por_id(
+        self, usuario_id: UUID
+    ) -> LoginSuccessResponse: ...
+
+
