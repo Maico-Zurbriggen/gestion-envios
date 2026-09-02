@@ -2,6 +2,8 @@
 
 Definido en `app/infrastructure/db/models.py` con SQLAlchemy 2.0 (mapeo declarativo con `Mapped[...]`). En desarrollo corre sobre SQLite (`sqlite+aiosqlite`); el esquema es compatible con PostgreSQL sin cambios de modelo, salvo el tipo UUID nativo (ver nota al final).
 
+**Este documento cubre solo las 5 tablas que usa lógica de aplicación implementada hoy (HU01–HU04).** El esquema completo de `models.py` ya tiene 15 tablas — las otras 10 (repartidores, recorridos, notificaciones, reclamos, entregas, etc.) están creadas para las historias futuras del backlog pero todavía sin servicios que las usen. Ver el diseño completo, con la razón de ser de cada una, en el [Plan completo de base de datos (HU01–HU13)](./plan-base-de-datos-completo.md).
+
 ## Diagrama
 
 ```mermaid
@@ -95,4 +97,4 @@ Los IDs de `usuarios`, `envios` y `paquetes` usan `sqlalchemy.types.Uuid(as_uuid
 
 ## Migraciones
 
-El proyecto tiene Alembic scaffolded (`app/infrastructure/db/migrations/`) pero **todavía sin ninguna migración generada** (`versions/` solo tiene un `.gitkeep`). En desarrollo, las tablas se crean automáticamente al iniciar la app con `Base.metadata.create_all` (`infrastructure/db/session.py:crear_tablas`, llamado desde `seed.py:ejecutar_siembra` en el `lifespan` de `api/main.py`). Esto es válido para SQLite local, pero antes de usar PostgreSQL en un ambiente compartido hay que generar la migración inicial con `alembic revision --autogenerate` y dejar de depender de `create_all`.
+El proyecto ya tiene una migración inicial de Alembic (`app/infrastructure/db/migrations/versions/5c87e509d4e7_esquema_inicial_completo_hu01_hu13.py`), que crea las 15 tablas del esquema completo (ver [Plan completo de base de datos](./plan-base-de-datos-completo.md)). En desarrollo local, las tablas igual se siguen creando automáticamente al iniciar la app con `Base.metadata.create_all` (`infrastructure/db/session.py:crear_tablas`, llamado desde `seed.py:ejecutar_siembra` en el `lifespan` de `api/main.py`) — es idempotente y no choca con Alembic. Contra un ambiente real (Neon), el orden correcto es al revés: correr `alembic upgrade head` primero, y recién después apuntar la app ahí (el `create_all` del arranque queda como no-op). Cualquier cambio de esquema *nuevo* a partir de ahora debe hacerse con una migración de Alembic (`alembic revision --autogenerate`), no ampliando esta migración inicial.

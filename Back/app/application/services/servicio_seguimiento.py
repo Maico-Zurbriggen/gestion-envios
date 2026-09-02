@@ -16,9 +16,13 @@ class ServicioSeguimiento:
 
         if envio.tipo_entrega == "domicilio":
             destino = f"{envio.direccion_destino}, {envio.ciudad_destino}, {envio.provincia_destino}"
+            latitud_destino = envio.latitud_destino
+            longitud_destino = envio.longitud_destino
         else:
             sucursal = envio.sucursal_destino
             destino = f"Sucursal {sucursal.nombre} - {sucursal.direccion}, {sucursal.ciudad}, {sucursal.provincia}"
+            latitud_destino = sucursal.latitud
+            longitud_destino = sucursal.longitud
 
         paquetes = [
             PaqueteSeguimientoData(
@@ -36,6 +40,8 @@ class ServicioSeguimiento:
             data=SeguimientoData(
                 token_seguimiento=envio.token_seguimiento,
                 destino=destino,
+                latitud_destino=latitud_destino,
+                longitud_destino=longitud_destino,
                 paquetes=paquetes,
             )
         )
