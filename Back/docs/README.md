@@ -13,7 +13,8 @@ Esta carpeta (`Back/docs/`) es el "cómo y por qué" del lado del backend: arqui
 
 ### 1. Arquitectura
 - [Capas y estructura del proyecto](./01-arquitectura/capas-y-estructura.md)
-- [Modelo de datos](./01-arquitectura/modelo-de-datos.md)
+- [Modelo de datos](./01-arquitectura/modelo-de-datos.md) — lo que usa la lógica de aplicación hoy (HU01–HU04)
+- [Plan completo de base de datos (HU01–HU13)](./01-arquitectura/plan-base-de-datos-completo.md) — las 15 tablas del esquema completo, ya creadas, y cómo aplicarlas en Neon
 
 ### 2. Configuración
 - [Desarrollo local](./02-configuracion/desarrollo-local.md)

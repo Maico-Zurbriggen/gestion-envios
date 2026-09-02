@@ -7,12 +7,11 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.core.config import settings
+from app.infrastructure.db.engine_utils import obtener_connect_args
 from app.infrastructure.db.models import Base
 
 # Configuración del motor asíncrono
-engine_kwargs = {"echo": settings.DEBUG}
-if "sqlite" in settings.DATABASE_URL:
-    engine_kwargs["connect_args"] = {"check_same_thread": False}
+engine_kwargs = {"echo": settings.DEBUG, "connect_args": obtener_connect_args(settings.DATABASE_URL)}
 
 async_engine: AsyncEngine = create_async_engine(
     settings.DATABASE_URL,

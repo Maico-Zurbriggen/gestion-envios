@@ -25,6 +25,15 @@ else:
 
 Esto cubre tanto el Escenario 1 (mostrar domicilio) como el caso de retiro en sucursal, sin que la vista pública necesite lógica condicional adicional.
 
+## Coordenadas del destino (`latitud_destino` / `longitud_destino`)
+
+Además del string `destino`, la respuesta expone las coordenadas fijas del punto de entrega, para que el frontend pueda dibujar un mapa (Leaflet + OpenStreetMap, mismo componente ya usado en el registro de envíos) sin tener que geocodificar nada de nuevo:
+
+- `tipo_entrega = "domicilio"` → `envio.latitud_destino` / `envio.longitud_destino`, las que el remitente marcó en el mapa al registrar el envío (HU03 Escenario 3). **Pueden ser `None`** si no marcó ningún punto — el domicilio tipeado sigue siendo válido sin coordenadas.
+- `tipo_entrega = "sucursal"` → las coordenadas fijas de `sucursal_destino` (siempre presentes, vienen del catálogo sembrado).
+
+Importante: esto es la ubicación **fija** de destino, no la ubicación en tiempo real del repartidor — ver la sección de Escenarios 5 y 6 más abajo, que sigue sin implementarse.
+
 ## Qué información se expone (y qué no)
 
 La respuesta incluye, por paquete: `numero_paquete`, `estado`, `descripcion`, `observaciones`, `fecha_registro` (`created_at`) y `ultima_actualizacion` (`updated_at`) — exactamente lo que pide el Escenario 1 ("número de paquete, estado, fecha de registro, última actualización, domicilio y observaciones").
@@ -43,7 +52,7 @@ No hay ningún concepto de "rol" ni "quién soy" en este endpoint: quien tenga e
 
 **No implementados todavía.** Dependen de funcionalidad de historias posteriores del backlog:
 
-- HU10 (generación de recorridos) y HU11 (tracking del repartidor en el mapa) son las que producirían los datos de "recorrido" y "ubicación en tiempo real" que estos escenarios necesitan mostrar.
+- HU10 (generación de recorridos) y HU11 (tracking del repartidor en el mapa) son las que producirían los datos de "recorrido" y "ubicación en tiempo real" que estos escenarios necesitan mostrar. `latitud_destino`/`longitud_destino` (ver sección anterior) alcanzan para mostrar **dónde va** el paquete, pero no reemplazan el recorrido ni la posición del repartidor.
 - Por ahora, `estado` de un paquete solo puede valer `"Pendiente"` (el único valor que asigna el registro de HU03) — no hay transiciones de estado que reflejen "en sucursal de origen", "en camino", etc. Cuando se implementen esas historias, este documento y `contracts/seguimiento.py` deben actualizarse para incluir los datos de recorrido/ubicación.
 
 ## Endpoint relacionado: catálogo de sucursales
@@ -52,4 +61,4 @@ No hay ningún concepto de "rol" ni "quién soy" en este endpoint: quien tenga e
 
 ## Tests relevantes
 
-`tests/integration/test_seguimiento.py` (los 5 escenarios de HU04, incluyendo el que confirma qué campos NO se exponen) y `tests/integration/test_sucursales.py`.
+`tests/integration/test_seguimiento.py` (los 5 escenarios de HU04, incluyendo el que confirma qué campos NO se exponen y los que verifican las coordenadas de destino en sus tres casos: domicilio con mapa marcado, domicilio sin marcar y sucursal) y `tests/integration/test_sucursales.py`.
