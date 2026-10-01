@@ -56,6 +56,17 @@ class Settings(BaseSettings):
     SUPERADMIN_SEED_NOMBRE: str = "Admin General"
     SUPERADMIN_SEED_TELEFONO: str = "+5493564000000"
 
+    # Notificaciones y Proveedor de Email (HU05)
+    EMAIL_PROVIDER: str = "mock"  # "mock" | "smtp"
+    SMTP_HOST: str = "localhost"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = True
+    SMTP_FROM_EMAIL: str = "notificaciones@gestionenvios.com"
+    SMTP_FROM_NAME: str = "Sistema de Gestión de Envíos"
+    FRONTEND_BASE_URL: str = "http://localhost:5173"
+
     @field_validator("DEBUG", mode="before")
     @classmethod
     def parse_debug(cls, value: object) -> object:
