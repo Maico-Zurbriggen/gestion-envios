@@ -314,7 +314,11 @@ class HistorialEstadoPaqueteModel(Base):
         Index("idx_historial_estados_paquete_id", "paquete_id", "created_at"),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        primary_key=True,
+        autoincrement=True,
+    )
     paquete_id: Mapped[uuid.UUID] = mapped_column(types.Uuid(as_uuid=True), ForeignKey("paquetes.id"), nullable=False)
     estado_anterior: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     estado_nuevo: Mapped[str] = mapped_column(String(30), nullable=False)

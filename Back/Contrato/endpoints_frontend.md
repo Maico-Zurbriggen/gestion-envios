@@ -22,6 +22,11 @@
    - `POST /api/v1/admin/empleados` (Alta de Empleado por Superadmin)
 6. [Endpoints de Monitoreo (`/health`)](#6-endpoints-de-monitoreo)
    - `GET /health` o `GET /api/v1/health` (Health Check)
+7. [Endpoints de Retiro de Paquetes en Sucursal (`/sucursal/paquetes`) - HU13](#7-endpoints-de-retiro-de-paquetes-en-sucursal-hu13)
+   - `GET /api/v1/sucursal/paquetes/{id_o_codigo}/validar-retiro` (Validar Disponibilidad y Requisitos de Retiro)
+   - `POST /api/v1/sucursal/paquetes/{id}/registrar-retiro` (Registrar Retiro por Titular o Tercero Autorizado)
+8. [Servicio de Notificación de Token por Correo - HU05](#8-servicio-de-notificación-de-token-por-correo-hu05)
+   - Despacho Asíncrono en `POST /api/v1/envios` y Log de Auditoría
 
 ---
 
@@ -430,4 +435,267 @@ Permite al Superadministrador dar de alta nuevos empleados administrativos o de 
                                                  │
                                          [ Ir a Dashboard ]
 ```
+
+---
+
+## 7. Endpoints de Retiro de Paquetes en Sucursal (HU13)
+
+Permite al personal de sucursal autenticado con rol `ADMINISTRATIVO` (o `SUPERADMIN`) consultar y asentar la entrega presencial de paquetes en ventanilla, validando la identidad del titular o la acreditación de un tercero autorizado.
+
+### 7.1. Validar Disponibilidad y Requisitos de Retiro
+Permite verificar el estado actual del paquete y los datos del destinatario para contrastar identidad física.
+
+* **Método:** `GET`
+* **URL:** `/api/v1/sucursal/paquetes/{id_o_codigo}/validar-retiro`
+* **Parámetros de Ruta:**
+  * `id_o_codigo` (string, obligatorio): Puede ser el UUID del paquete (`d476fa8c-...`) o el código de paquete alfanumérico (`PAQ-XXXXXXXXXX`).
+* **Autenticación requerida:** Sí (Header `Authorization: Bearer <JWT_ADMINISTRATIVO>`)
+* **Roles Permitidos:** `ADMINISTRATIVO`, `SUPERADMIN`
+
+#### ✅ Respuesta Exitosa (`200 OK`) - Paquete Listo para Retiro:
+```json
+{
+  "status": "success",
+  "data": {
+    "paquete_id": "d476fa8c-5264-44df-a8b2-6beea61ef1b9",
+    "numero_paquete": "PAQ-ZPC5LB48JJ",
+    "descripcion": "Ropa y calzado",
+    "peso_kg": 2.5,
+    "estado_actual": "LISTO_PARA_RETIRO",
+    "disponible_para_retiro": true,
+    "motivo_no_disponible": null,
+    "tipo_entrega": "sucursal",
+    "sucursal_destino": {
+      "id": 1,
+      "nombre": "Sucursal Córdoba Centro",
+      "provincia": "Córdoba",
+      "ciudad": "Córdoba",
+      "direccion": "Av. Colón 1234",
+      "latitud": -31.4167,
+      "longitud": -64.1833
+    },
+    "sucursal_actual": {
+      "id": 1,
+      "nombre": "Sucursal Córdoba Centro",
+      "provincia": "Córdoba",
+      "ciudad": "Córdoba",
+      "direccion": "Av. Colón 1234",
+      "latitud": -31.4167,
+      "longitud": -64.1833
+    },
+    "datos_destinatario": {
+      "nombre": "María López",
+      "telefono": "+543564333444",
+      "email": "maria.lopez@example.com"
+    },
+    "requisitos_retiro": {
+      "titular": "Presentar documento de identidad original y acreditar ser mayor de 16 años.",
+      "tercero_autorizado": "Presentar documento de identidad propio, copia del documento del titular y constancia/formulario de autorización de retiro firmada por el destinatario."
+    }
+  }
+}
+```
+
+#### ⚠️ Respuesta Exitosa (`200 OK`) - Paquete NO Disponible para Retiro:
+Si el paquete existe pero su estado es `EN_TRANSITO`, `EN_REPARTO` o ya fue entregado previamente (`ENTREGADO_EN_SUCURSAL`, `RETIRADO`):
+```json
+{
+  "status": "success",
+  "data": {
+    "paquete_id": "d476fa8c-5264-44df-a8b2-6beea61ef1b9",
+    "numero_paquete": "PAQ-ZPC5LB48JJ",
+    "descripcion": "Ropa y calzado",
+    "peso_kg": 2.5,
+    "estado_actual": "EN_TRANSITO",
+    "disponible_para_retiro": false,
+    "motivo_no_disponible": "El paquete no se encuentra listo para retiro en sucursal. Estado actual: 'EN_TRANSITO'. Debe estar en sucursal para poder retirarse.",
+    "tipo_entrega": "sucursal",
+    "sucursal_destino": { ... },
+    "sucursal_actual": null,
+    "datos_destinatario": { ... },
+    "requisitos_retiro": { ... }
+  }
+}
+```
+
+#### ❌ Respuestas de Error:
+* **`404 Not Found` (Paquete inexistente):**
+  ```json
+  {
+    "status": "error",
+    "code": "NOT_FOUND",
+    "message": "No se encontró un paquete con el identificador 'PAQ-NOEXISTE'."
+  }
+  ```
+* **`401 Unauthorized` (Token faltante o inválido):**
+  ```json
+  {
+    "status": "error",
+    "code": "INVALID_TOKEN",
+    "message": "Token de autenticación ausente o inválido."
+  }
+  ```
+* **`403 Forbidden` (Rol insuficiente, ej. Repartidor o Vendedor):**
+  ```json
+  {
+    "status": "error",
+    "code": "FORBIDDEN_ACCESS",
+    "message": "Acceso denegado. Se requiere uno de los siguientes roles: ADMINISTRATIVO, SUPERADMIN."
+  }
+  ```
+
+---
+
+### 7.2. Registrar Retiro de Paquete en Sucursal
+Registra de forma definitiva y transaccional la entrega del paquete en la ventanilla de la sucursal.
+
+* **Método:** `POST`
+* **URL:** `/api/v1/sucursal/paquetes/{id}/registrar-retiro`
+* **Parámetros de Ruta:**
+  * `id` (string, obligatorio): UUID del paquete o su código alfanumérico (`PAQ-XXXXXXXXXX`).
+* **Autenticación requerida:** Sí (Header `Authorization: Bearer <JWT_ADMINISTRATIVO>`)
+* **Roles Permitidos:** `ADMINISTRATIVO`, `SUPERADMIN`
+* **Headers:** `Content-Type: application/json`
+
+#### 📦 Caso de Uso A: Retiro por el Titular (Destinatario en persona)
+* **Request Body:**
+```json
+{
+  "tipo_retiro": "TITULAR",
+  "documento_presentado": {
+    "tipo": "DNI",
+    "numero": "40123456"
+  },
+  "destinatario_mayor_16": true,
+  "observaciones": "Entrega realizada en ventanilla 2"
+}
+```
+
+#### 📦 Caso de Uso B: Retiro por Tercero Autorizado
+* **Request Body:**
+```json
+{
+  "tipo_retiro": "TERCERO_AUTORIZADO",
+  "documento_presentado": {
+    "tipo": "DNI",
+    "numero": "38999888"
+  },
+  "destinatario_mayor_16": true,
+  "tercero_autorizado": {
+    "nombre_completo": "Juan Pérez",
+    "documento": "38999888",
+    "posee_copia_dni_titular": true,
+    "posee_nota_autorizacion": true
+  },
+  "observaciones": "Presenta nota firmada y copia de DNI en regla"
+}
+```
+
+#### ✅ Respuesta Exitosa (`200 OK`):
+```json
+{
+  "status": "success",
+  "message": "Retiro del paquete registrado exitosamente en sucursal.",
+  "data": {
+    "paquete_id": "d476fa8c-5264-44df-a8b2-6beea61ef1b9",
+    "numero_paquete": "PAQ-ZPC5LB48JJ",
+    "estado": "ENTREGADO_EN_SUCURSAL",
+    "tipo_retiro": "TITULAR",
+    "receptor_nombre": "María López",
+    "receptor_documento": "40123456",
+    "es_autorizado": false,
+    "usuario_administrativo_id": "c1f7b830-4e4b-4ec5-bca4-d621b764b8a2",
+    "usuario_administrativo_nombre": "Laura Martínez",
+    "fecha_hora_entrega": "2026-10-01T20:15:00.123456Z",
+    "sucursal_id": 1,
+    "observaciones": "Entrega realizada en ventanilla 2"
+  }
+}
+```
+
+#### ❌ Respuestas de Error:
+* **`400 Bad Request` (Destinatario menor de 16 años):**
+  ```json
+  {
+    "status": "error",
+    "code": "VALIDATION_ERROR",
+    "message": "No se cumplen las condiciones o requisitos documentales para el retiro.",
+    "errors": [
+      {
+        "field": "destinatario_mayor_16",
+        "message": "El titular o destinatario debe tener al menos 16 años para retirar o autorizar el retiro."
+      }
+    ]
+  }
+  ```
+* **`400 Bad Request` (Tercero sin copia de DNI del titular):**
+  ```json
+  {
+    "status": "error",
+    "code": "VALIDATION_ERROR",
+    "message": "No se cumplen las condiciones o requisitos documentales para el retiro.",
+    "errors": [
+      {
+        "field": "tercero_autorizado.posee_copia_dni_titular",
+        "message": "Es requisito excluyente presentar una copia física o digital del documento de identidad del destinatario titular."
+      }
+    ]
+  }
+  ```
+* **`400 Bad Request` (Tercero sin nota de autorización):**
+  ```json
+  {
+    "status": "error",
+    "code": "VALIDATION_ERROR",
+    "message": "No se cumplen las condiciones o requisitos documentales para el retiro.",
+    "errors": [
+      {
+        "field": "tercero_autorizado.posee_nota_autorizacion",
+        "message": "Es requisito excluyente presentar el formulario o nota de autorización de retiro firmada por el titular."
+      }
+    ]
+  }
+  ```
+* **`400 Bad Request` (Paquete ya entregado previamente):**
+  ```json
+  {
+    "status": "error",
+    "code": "VALIDATION_ERROR",
+    "message": "El paquete no está en un estado válido para retiro en sucursal.",
+    "errors": [
+      {
+        "field": "estado",
+        "message": "El paquete ya fue entregado o retirado previamente."
+      }
+    ]
+  }
+  ```
+* **`404 Not Found` (Paquete no encontrado):**
+  ```json
+  {
+    "status": "error",
+    "code": "NOT_FOUND",
+    "message": "No se encontró un paquete con el identificador 'PAQ-404'."
+  }
+  ```
+
+---
+
+## 8. Servicio de Notificación de Token por Correo (HU05)
+
+### 8.1. Funcionamiento del Despacho Asíncrono
+Al registrar un envío con éxito mediante `POST /api/v1/envios` (HU03):
+1. El backend crea el registro del envío, asigna el `token_seguimiento` y los números de paquete (`numero_paquete`).
+2. Se encola de inmediato una tarea en segundo plano (`BackgroundTasks`) con el servicio `ServicioNotificaciones` (`NotificationService`).
+3. El endpoint responde `201 Created` al usuario sin bloquearse por la red ni depender de la latencia del proveedor de correos.
+4. El servicio despacha automáticamente:
+   * **Al Remitente (`remitente_email`):** Correo con el token de seguimiento, el detalle de paquetes y el enlace directo a `/seguimiento?token=...`.
+   * **Al Destinatario (`destinatario_email`):** Correo informando que tiene un paquete en camino, con el token de seguimiento y el enlace para rastreo en tiempo real.
+5. Cada despacho se audita en la tabla `notificaciones_envio`:
+   * `canal`: `"EMAIL"`
+   * `destinatario_tipo`: `"REMITENTE"` o `"DESTINATARIO"`
+   * `estado`: `"ENVIADO"` o `"FALLIDO"`
+   * `proveedor_mensaje_id`: Identificador devuelto por el proveedor de correo
+   * `error_detalle`: Texto de error detallado en caso de fallo
+6. **Tolerancia a fallos:** Si el proveedor de correo falla (error SMTP, timeout o caída de red), la creación del envío **nunca se revierte ni falla**; el error queda registrado en `notificaciones_envio` para posterior auditoría y reintento.
 

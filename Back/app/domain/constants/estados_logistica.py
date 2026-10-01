@@ -17,10 +17,30 @@ class EstadoPaqueteEnum(StrEnum):
     EN_SUCURSAL_ORIGEN = "EN_SUCURSAL_ORIGEN"
     EN_TRANSITO = "EN_TRANSITO"
     EN_SUCURSAL_DESTINO = "EN_SUCURSAL_DESTINO"
+    LISTO_PARA_RETIRO = "LISTO_PARA_RETIRO"
+    EN_SUCURSAL = "EN_SUCURSAL"
     EN_REPARTO = "EN_REPARTO"
     ENTREGADO = "ENTREGADO"
     ENTREGA_FALLIDA = "ENTREGA_FALLIDA"
     RETIRADO = "RETIRADO"
+    ENTREGADO_EN_SUCURSAL = "ENTREGADO_EN_SUCURSAL"
+
+
+class TipoRetiroEnum(StrEnum):
+    """HU13: Modalidad de retiro en sucursal."""
+
+    TITULAR = "TITULAR"
+    TERCERO_AUTORIZADO = "TERCERO_AUTORIZADO"
+
+
+class TipoDocumentoEnum(StrEnum):
+    """Tipos de documento válidos para verificación de identidad."""
+
+    DNI = "DNI"
+    PASAPORTE = "PASAPORTE"
+    LC = "LC"
+    LE = "LE"
+    OTRO = "OTRO"
 
 
 class TipoDistanciaEnum(StrEnum):

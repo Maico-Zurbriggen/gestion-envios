@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import StaticPool
 
-from app.api.dependencies import obtener_sesion_db
+from app.api.dependencies import get_session_factory, obtener_sesion_db
 from app.api.main import app
 from app.core.config import settings
 from app.domain.constants.roles import RolEnum, RolIdEnum
@@ -103,6 +103,7 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         yield db_session
 
     app.dependency_overrides[obtener_sesion_db] = override_obtener_sesion_db
+    app.dependency_overrides[get_session_factory] = lambda: TestingSessionLocal
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
@@ -114,10 +115,67 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 @pytest.fixture
 def superadmin_token(db_session: AsyncSession) -> str:
     """Genera un token JWT de superadmin con FULL_ACCESS."""
-    # Sub dummy o el id del superadmin
     return ManejadorJWT.emitir_token(
         usuario_id="00000000-0000-0000-0000-000000000001",
         rol=RolEnum.SUPERADMIN.value,
+        scope=ScopeEnum.FULL_ACCESS.value,
+    )
+
+
+@pytest_asyncio.fixture
+async def administrativo_usuario(db_session: AsyncSession) -> UsuarioModel:
+    """Crea y persiste un usuario con rol ADMINISTRATIVO para pruebas de sucursal."""
+    admin = UsuarioModel(
+        nombre="Laura Martínez",
+        dni="35999888",
+        email="laura.admin@empresa.com",
+        telefono="+543564999888",
+        password_hash=HasherContrasenas.generar_hash("AdminPass123!*"),
+        estado="Activo",
+        requiere_cambio_password=False,
+        rol_id=RolIdEnum.ADMINISTRATIVO.value,
+    )
+    db_session.add(admin)
+    await db_session.commit()
+    await db_session.refresh(admin)
+    return admin
+
+
+@pytest_asyncio.fixture
+async def administrativo_token(administrativo_usuario: UsuarioModel) -> str:
+    """Genera un token JWT con rol ADMINISTRATIVO y FULL_ACCESS."""
+    return ManejadorJWT.emitir_token(
+        usuario_id=str(administrativo_usuario.id),
+        rol=RolEnum.ADMINISTRATIVO.value,
+        scope=ScopeEnum.FULL_ACCESS.value,
+    )
+
+
+@pytest_asyncio.fixture
+async def vendedor_usuario(db_session: AsyncSession) -> UsuarioModel:
+    """Crea y persiste un usuario con rol VENDEDOR para pruebas de autorización."""
+    vendedor = UsuarioModel(
+        nombre="Marcos Vendedor",
+        dni="36111222",
+        email="marcos.vendedor@empresa.com",
+        telefono="+543564111333",
+        password_hash=HasherContrasenas.generar_hash("VendedorPass123!*"),
+        estado="Activo",
+        requiere_cambio_password=False,
+        rol_id=RolIdEnum.VENDEDOR.value,
+    )
+    db_session.add(vendedor)
+    await db_session.commit()
+    await db_session.refresh(vendedor)
+    return vendedor
+
+
+@pytest_asyncio.fixture
+async def vendedor_token(vendedor_usuario: UsuarioModel) -> str:
+    """Genera un token JWT con rol VENDEDOR y FULL_ACCESS para probar autorización."""
+    return ManejadorJWT.emitir_token(
+        usuario_id=str(vendedor_usuario.id),
+        rol=RolEnum.VENDEDOR.value,
         scope=ScopeEnum.FULL_ACCESS.value,
     )
 

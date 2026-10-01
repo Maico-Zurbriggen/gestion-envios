@@ -5,19 +5,25 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.interfaces.repositorio_entregas import IRepositorioEntregas
 from app.application.interfaces.repositorio_envios import IRepositorioEnvios
+from app.application.interfaces.repositorio_notificaciones import IRepositorioNotificaciones
 from app.application.interfaces.repositorio_roles import IRepositorioRoles
 from app.application.interfaces.repositorio_sucursales import IRepositorioSucursales
 from app.application.interfaces.repositorio_usuarios import IRepositorioUsuarios
 from app.application.interfaces.servicio_auth import IServicioAuth
 from app.application.interfaces.servicio_empleados import IServicioEmpleados
 from app.application.interfaces.servicio_envios import IServicioEnvios
+from app.application.interfaces.servicio_notificaciones import IServicioNotificaciones
+from app.application.interfaces.servicio_retiro_sucursal import IServicioRetiroSucursal
 from app.application.interfaces.servicio_roles import IServicioRoles
 from app.application.interfaces.servicio_seguimiento import IServicioSeguimiento
 from app.application.interfaces.servicio_sucursales import IServicioSucursales
 from app.application.services.servicio_auth import ServicioAuth
 from app.application.services.servicio_empleados import ServicioEmpleados
 from app.application.services.servicio_envios import ServicioEnvios
+from app.application.services.servicio_notificaciones import ServicioNotificaciones
+from app.application.services.servicio_retiro_sucursal import ServicioRetiroSucursal
 from app.application.services.servicio_roles import ServicioRoles
 from app.application.services.servicio_seguimiento import ServicioSeguimiento
 from app.application.services.servicio_sucursales import ServicioSucursales
@@ -30,8 +36,11 @@ from app.domain.constants.roles import RolEnum
 from app.domain.constants.scopes import ScopeEnum
 from app.infrastructure.auth.jwt_handler import ManejadorJWT
 from app.infrastructure.db.models import UsuarioModel
-from app.infrastructure.db.session import obtener_sesion_db
+from app.infrastructure.db.session import AsyncSessionLocal, obtener_sesion_db
+from app.infrastructure.email.email_provider import obtener_proveedor_email
+from app.infrastructure.repositories.repositorio_entregas import RepositorioEntregas
 from app.infrastructure.repositories.repositorio_envios import RepositorioEnvios
+from app.infrastructure.repositories.repositorio_notificaciones import RepositorioNotificaciones
 from app.infrastructure.repositories.repositorio_roles import RepositorioRoles
 from app.infrastructure.repositories.repositorio_sucursales import RepositorioSucursales
 from app.infrastructure.repositories.repositorio_usuarios import RepositorioUsuarios
@@ -105,6 +114,40 @@ def get_servicio_roles(
     repo_roles: IRepositorioRoles = Depends(get_repositorio_roles),
 ) -> IServicioRoles:
     return ServicioRoles(repositorio_roles=repo_roles)
+
+
+def get_repositorio_notificaciones(
+    db: AsyncSession = Depends(obtener_sesion_db),
+) -> IRepositorioNotificaciones:
+    return RepositorioNotificaciones(db)
+
+
+def get_session_factory() -> Callable[[], AsyncSession]:
+    """Provee la fábrica de sesiones asíncronas para tareas en segundo plano."""
+    return AsyncSessionLocal
+
+
+def get_servicio_notificaciones(
+    session_factory: Callable[[], AsyncSession] = Depends(get_session_factory),
+    repo_notificaciones: IRepositorioNotificaciones = Depends(get_repositorio_notificaciones),
+) -> IServicioNotificaciones:
+    return ServicioNotificaciones(
+        email_provider=obtener_proveedor_email(),
+        session_factory=session_factory,
+        repo_notificaciones=repo_notificaciones,
+    )
+
+
+def get_repositorio_entregas(
+    db: AsyncSession = Depends(obtener_sesion_db),
+) -> IRepositorioEntregas:
+    return RepositorioEntregas(db)
+
+
+def get_servicio_retiro_sucursal(
+    repo_entregas: IRepositorioEntregas = Depends(get_repositorio_entregas),
+) -> IServicioRetiroSucursal:
+    return ServicioRetiroSucursal(repositorio_entregas=repo_entregas)
 
 
 # --- Inyección de Autenticación y Autorización ---
@@ -197,4 +240,36 @@ def requerir_rol(rol_requerido: RolEnum) -> Callable:
         return usuario
 
     return validador_rol
+
+
+def requerir_roles(roles_permitidos: list[RolEnum]) -> Callable:
+    """Fabrica una dependencia que valida que el usuario posea alguno de los roles indicados y acceso pleno."""
+    async def validador_roles(
+        payload: Dict[str, Any] = Depends(obtener_token_payload),
+        repo_usuarios: IRepositorioUsuarios = Depends(get_repositorio_usuarios),
+    ) -> UsuarioModel:
+        if payload.get("scope") == ScopeEnum.PASSWORD_RESET_ONLY.value:
+            raise ForbiddenScopeException("Debe completar el cambio de contraseña antes de operar.")
+
+        try:
+            user_id = uuid.UUID(payload.get("sub", ""))
+        except (ValueError, TypeError):
+            raise InvalidTokenException("El identificador del usuario en el token no es válido.")
+
+        usuario = await repo_usuarios.obtener_por_id(user_id)
+        if not usuario:
+            raise InvalidTokenException("El usuario asociado al token no existe.")
+
+        if usuario.estado != "Activo":
+            raise ForbiddenAccessException("La cuenta de usuario se encuentra inactiva o bloqueada.")
+
+        rol_actual = usuario.rol.nombre if usuario.rol else ""
+        nombres_permitidos = [r.value for r in roles_permitidos]
+        if rol_actual not in nombres_permitidos:
+            raise ForbiddenAccessException(
+                f"Acceso denegado. Se requiere uno de los siguientes roles: {', '.join(nombres_permitidos)}."
+            )
+        return usuario
+
+    return validador_roles
 
