@@ -21,7 +21,7 @@ import {
   Trash2,
   UserRound,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAppSelector } from '../../../app/store'
 import { selectIsAuthenticated } from '../../auth/redux/authSlice'
 import { useTheme } from '../../../shared/hooks/useTheme'
@@ -94,7 +94,17 @@ function createEmptyPackage(): PackageForm {
 }
 
 export function CreateShipmentPage() {
-  const [form, setForm] = useState(INITIAL_FORM)
+  const [searchParams] = useSearchParams()
+  const [form, setForm] = useState<ShipmentForm>(() => {
+    const branchId = Number(searchParams.get('sucursal'))
+    return searchParams.get('modalidad') === 'sucursal'
+      ? {
+          ...INITIAL_FORM,
+          deliveryType: 'sucursal',
+          destinationBranchId: Number.isInteger(branchId) && branchId > 0 ? branchId : '',
+        }
+      : INITIAL_FORM
+  })
   const [packages, setPackages] = useState<PackageForm[]>(() => [
     createEmptyPackage(),
   ])
@@ -474,12 +484,15 @@ export function CreateShipmentPage() {
               <div className="branch-destination">
                 <div className="form-field">
                 <label htmlFor="destination-branch">Sucursal de destino</label>
+                <p className="shipment-field-note">Consultá todas las sucursales disponibles, sus direcciones y ubicación antes de elegir.</p>
+                <Link className="shipment-inline-action" to="/sucursales" target="_blank" rel="noopener noreferrer"><MapPinned size={15} aria-hidden="true" /> Ver sucursales disponibles</Link>
                 <select className="form-control" id="destination-branch" value={form.destinationBranchId} onChange={(event) => updateForm('destinationBranchId', event.target.value ? Number(event.target.value) : '')} disabled={branchesQuery.isPending || branchesQuery.isError} required>
                   <option value="" disabled>
                     {branchesQuery.isPending ? 'Cargando sucursales…' : branchesQuery.isError ? 'No se pudieron cargar las sucursales' : 'Seleccioná una sucursal'}
                   </option>
                   {branchesQuery.data?.map((branch) => <option key={branch.id} value={branch.id}>{branch.name} — {branch.city}, {branch.province}</option>)}
                 </select>
+                {branchesQuery.data?.length === 0 && <span className="shipment-field-note" role="status">No hay sucursales disponibles para retiro en este momento.</span>}
                 {branchesQuery.isError ? (
                   <button className="shipment-inline-action" type="button" onClick={() => void branchesQuery.refetch()} disabled={branchesQuery.isFetching}>
                     {branchesQuery.isFetching ? <LoaderCircle className="loading-icon" size={15} /> : <RefreshCw size={15} aria-hidden="true" />}

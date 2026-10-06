@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import L, { type CircleMarker, type Map as LeafletMap } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import './ShipmentMap.css'
 
 interface ShipmentMapProps {
   latitude: number | null

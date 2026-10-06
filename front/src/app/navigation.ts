@@ -1,5 +1,6 @@
 import {
   House,
+  ClipboardCheck,
   PackagePlus,
   Route,
   UserPlus,
@@ -48,6 +49,16 @@ export const NAVIGATION_MODULES: NavigationModule[] = [
     path: '/seguimiento',
     section: 'general',
     icon: Route,
+    showAsQuickAccess: true,
+  },
+  {
+    id: 'pickup',
+    label: 'Registrar retiro',
+    description: 'Verificá la identidad y registrá la entrega de un paquete en sucursal.',
+    path: '/sucursal/retiros',
+    section: 'general',
+    icon: ClipboardCheck,
+    allowedRoles: ['ADMINISTRATIVO', 'SUPERADMIN'],
     showAsQuickAccess: true,
   },
   {
