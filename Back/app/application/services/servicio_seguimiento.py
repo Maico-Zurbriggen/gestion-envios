@@ -1,6 +1,10 @@
 from app.application.interfaces.repositorio_envios import IRepositorioEnvios
 from app.contracts.seguimiento import PaqueteSeguimientoData, SeguimientoData, SeguimientoResponse
 from app.core.exceptions import NotFoundException
+from app.domain.rules.destino_rules import (
+    formatear_destino_domicilio,
+    formatear_destino_sucursal,
+)
 
 
 class ServicioSeguimiento:
@@ -15,12 +19,21 @@ class ServicioSeguimiento:
             raise NotFoundException("No se encontró un envío asociado a ese código de seguimiento.")
 
         if envio.tipo_entrega == "domicilio":
-            destino = f"{envio.direccion_destino}, {envio.ciudad_destino}, {envio.provincia_destino}"
+            destino = formatear_destino_domicilio(
+                direccion=envio.direccion_destino,
+                ciudad=envio.ciudad_destino,
+                provincia=envio.provincia_destino,
+            )
             latitud_destino = envio.latitud_destino
             longitud_destino = envio.longitud_destino
         else:
             sucursal = envio.sucursal_destino
-            destino = f"Sucursal {sucursal.nombre} - {sucursal.direccion}, {sucursal.ciudad}, {sucursal.provincia}"
+            destino = formatear_destino_sucursal(
+                nombre=sucursal.nombre,
+                direccion=sucursal.direccion,
+                ciudad=sucursal.ciudad,
+                provincia=sucursal.provincia,
+            )
             latitud_destino = sucursal.latitud
             longitud_destino = sucursal.longitud
 

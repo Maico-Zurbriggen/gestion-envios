@@ -27,6 +27,12 @@
    - `POST /api/v1/sucursal/paquetes/{id}/registrar-retiro` (Registrar Retiro por Titular o Tercero Autorizado)
 8. [Servicio de Notificación de Token por Correo - HU05](#8-servicio-de-notificación-de-token-por-correo-hu05)
    - Despacho Asíncrono en `POST /api/v1/envios` y Log de Auditoría
+9. [Endpoints de Recepción de Paquetes en Terminal (`/terminal/paquetes`) - HU06](#9-endpoints-de-recepción-de-paquetes-en-terminal-hu06)
+   - `GET /api/v1/terminal/paquetes/{codigo}/escanear` (Identificar Paquete por Código de Barras)
+   - `POST /api/v1/terminal/paquetes/{codigo}/recepcionar` (Registrar Recepción en la Terminal)
+10. [Endpoints de Sucursales Disponibles para Retiro (`/sucursales`) - HU09](#10-endpoints-de-sucursales-disponibles-para-retiro-hu09)
+    - `GET /api/v1/sucursales` (Catálogo Público con Filtros por Provincia y Ciudad)
+    - `GET /api/v1/sucursales/opciones-retiro/{token}` (Opciones de Retiro de un Envío)
 
 ---
 
@@ -699,3 +705,352 @@ Al registrar un envío con éxito mediante `POST /api/v1/envios` (HU03):
    * `error_detalle`: Texto de error detallado en caso de fallo
 6. **Tolerancia a fallos:** Si el proveedor de correo falla (error SMTP, timeout o caída de red), la creación del envío **nunca se revierte ni falla**; el error queda registrado en `notificaciones_envio` para posterior auditoría y reintento.
 
+
+---
+
+## 9. Endpoints de Recepción de Paquetes en Terminal (HU06)
+
+Permite al personal de terminal autenticado con rol `VENDEDOR` (o `ADMINISTRATIVO` / `SUPERADMIN`) identificar un paquete precargado escaneando el código de barras de su planilla, y dejarlo registrado en la terminal como listo para su envío.
+
+**Qué se escanea:** la planilla imprimible que genera HU03 lleva un código de barras **CODE128** que codifica el `numero_paquete` (formato `PAQ-XXXXXXXXXX`). Ese valor es el que va en el parámetro `{codigo}` de la URL. También se acepta el UUID del paquete.
+
+**Normalización:** el backend limpia el valor antes de buscarlo (quita espacios, saltos de línea y el Enter final que agregan los lectores, y pasa a mayúsculas). El frontend **no** necesita sanitizar la lectura del scanner: puede mandar lo que llegó del lector tal cual, URL-encodeado.
+
+**Flujo recomendado en pantalla:**
+1. El vendedor dispara el lector → `GET .../escanear`.
+2. La pantalla muestra los datos del paquete y del envío para que el vendedor los contraste con el bulto físico.
+3. Si `disponible_para_recepcion` es `true`, se habilita el botón de confirmar → `POST .../recepcionar` con la sucursal.
+
+### 9.1. Identificar Paquete por Código de Barras
+Consulta de **solo lectura**: no modifica el paquete. Se puede llamar tantas veces como se escanee.
+
+* **Método:** `GET`
+* **URL:** `/api/v1/terminal/paquetes/{codigo}/escanear`
+* **Parámetros de Ruta:**
+  * `codigo` (string, obligatorio): valor leído del código de barras (`PAQ-XXXXXXXXXX`) o UUID del paquete.
+* **Autenticación requerida:** Sí (Header `Authorization: Bearer <JWT>`)
+* **Roles Permitidos:** `VENDEDOR`, `ADMINISTRATIVO`, `SUPERADMIN`
+
+#### ✅ Respuesta Exitosa (`200 OK`) - Paquete Listo para Recibir:
+```json
+{
+  "status": "success",
+  "data": {
+    "paquete_id": "d476fa8c-5264-44df-a8b2-6beea61ef1b9",
+    "numero_paquete": "PAQ-ZPC5LB48JJ",
+    "descripcion": "Caja con repuestos",
+    "peso_kg": 4.5,
+    "largo_cm": 40.0,
+    "ancho_cm": 30.0,
+    "alto_cm": 20.0,
+    "observaciones": "Frágil",
+    "estado_actual": "Pendiente",
+    "disponible_para_recepcion": true,
+    "motivo_no_disponible": null,
+    "fecha_registro": "2026-10-12T14:03:11",
+    "sucursal_actual": null,
+    "envio": {
+      "envio_id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      "token_seguimiento": "ENV-4KD9XM2P7Q",
+      "remitente_nombre": "Carlos Pérez",
+      "remitente_documento": "30111222",
+      "remitente_telefono": "+543564111222",
+      "destinatario_nombre": "Ana López",
+      "destinatario_telefono": "+543564333444",
+      "tipo_entrega": "sucursal",
+      "destino": "Sucursal Rosario Sur - Bv. Oroño 2456, Rosario, Santa Fe",
+      "sucursal_destino": {
+        "id": 2,
+        "nombre": "Sucursal Rosario Sur",
+        "provincia": "Santa Fe",
+        "ciudad": "Rosario",
+        "direccion": "Bv. Oroño 2456",
+        "latitud": -32.9587,
+        "longitud": -60.6931
+      }
+    }
+  }
+}
+```
+
+> `sucursal_actual` es `null` hasta que el paquete se recibe por primera vez. `destino` ya viene armado como texto legible (domicilio completo o sucursal + dirección), con el **mismo formato** que devuelve `GET /api/v1/seguimiento/{token}` (HU04), así que la pantalla no necesita decidir el formato.
+>
+> **Formato de fechas:** `fecha_registro` viene de la base y se serializa sin sufijo de zona (`"2026-10-12T14:03:11"`); `fecha_hora_recepcion` (sección 9.2) la genera el backend en UTC y sí lleva `Z`.
+
+#### ⚠️ Respuesta Exitosa (`200 OK`) - Paquete NO Disponible para Recepción:
+Si el paquete ya fue recibido antes (`EN_SUCURSAL_ORIGEN`, `EN_TRANSITO`, `EN_REPARTO`, …) o ya cerró su ciclo (`ENTREGADO`, `ENTREGADO_EN_SUCURSAL`, `RETIRADO`), el escaneo **no falla**: devuelve `200` con el motivo, para que el vendedor vea en pantalla qué pasó con ese bulto.
+```json
+{
+  "status": "success",
+  "data": {
+    "numero_paquete": "PAQ-ZPC5LB48JJ",
+    "estado_actual": "EN_TRANSITO",
+    "disponible_para_recepcion": false,
+    "motivo_no_disponible": "El paquete ya fue recibido y está circulando en la red. Estado actual: 'EN_TRANSITO'.",
+    "...": "resto de los campos igual que arriba"
+  }
+}
+```
+
+#### ❌ Respuestas de Error:
+* **`400 Bad Request` (Código con formato inválido — por ejemplo, se escaneó un token `ENV-`):**
+  ```json
+  {
+    "status": "error",
+    "code": "VALIDATION_ERROR",
+    "message": "El código de barras escaneado no es válido.",
+    "errors": [
+      {
+        "field": "codigo",
+        "message": "El código escaneado no tiene un formato válido. Se espera el número de paquete 'PAQ-XXXXXXXXXX' impreso en la planilla o el identificador interno del paquete."
+      }
+    ]
+  }
+  ```
+* **`404 Not Found` (La planilla no corresponde a un envío registrado):**
+  ```json
+  {
+    "status": "error",
+    "code": "NOT_FOUND",
+    "message": "No se encontró un paquete precargado con el código 'PAQ-NOEXISTE1'. Verificá que la planilla corresponda a un envío registrado en el sistema."
+  }
+  ```
+* **`401 Unauthorized`:** token ausente, inválido o expirado (`INVALID_TOKEN`).
+* **`403 Forbidden`:** rol no habilitado, por ejemplo `REPARTIDOR` (`FORBIDDEN_ACCESS`), o token con scope `PASSWORD_RESET_ONLY` (`FORBIDDEN_SCOPE`).
+
+---
+
+### 9.2. Registrar Recepción en la Terminal
+Confirma la recepción física del paquete: pasa su estado a `EN_SUCURSAL_ORIGEN`, lo ubica en la sucursal indicada y deja la entrada correspondiente en el historial de estados. Todo en una sola transacción.
+
+* **Método:** `POST`
+* **URL:** `/api/v1/terminal/paquetes/{codigo}/recepcionar`
+* **Parámetros de Ruta:**
+  * `codigo` (string, obligatorio): mismo valor que en `escanear`.
+* **Autenticación requerida:** Sí (Header `Authorization: Bearer <JWT>`)
+* **Roles Permitidos:** `VENDEDOR`, `ADMINISTRATIVO`, `SUPERADMIN`
+* **Headers:** `Content-Type: application/json`
+* **Request Body:**
+```json
+{
+  "sucursal_id": 1,
+  "observaciones": "Caja en buen estado, sin golpes."
+}
+```
+
+| Campo | Tipo | Obligatorio | Detalle |
+|:---|:---|:---:|:---|
+| `sucursal_id` | `int` | Sí | Terminal donde se recibe físicamente el paquete. Debe existir en `GET /api/v1/sucursales`. Debe ser mayor que 0. |
+| `observaciones` | `string` o `null` | No | Observaciones del vendedor (máx. 500 caracteres). Se anexan a la observación del historial. |
+
+#### ✅ Respuesta Exitosa (`200 OK`):
+```json
+{
+  "status": "success",
+  "message": "Paquete recibido y registrado en la terminal como listo para su envío.",
+  "data": {
+    "paquete_id": "d476fa8c-5264-44df-a8b2-6beea61ef1b9",
+    "numero_paquete": "PAQ-ZPC5LB48JJ",
+    "estado_anterior": "Pendiente",
+    "estado": "EN_SUCURSAL_ORIGEN",
+    "sucursal_id": 1,
+    "sucursal_nombre": "Sucursal Córdoba Centro",
+    "usuario_receptor_id": "b1ffcd88-7a1b-4de9-9c2e-1aa8bc471c02",
+    "usuario_receptor_nombre": "Marcos Vendedor",
+    "fecha_hora_recepcion": "2026-10-12T14:07:52.119Z",
+    "observaciones": "Caja en buen estado, sin golpes.",
+    "token_seguimiento": "ENV-4KD9XM2P7Q"
+  }
+}
+```
+
+> Tras esta llamada, la consulta pública de seguimiento (`GET /api/v1/seguimiento/{token}`, HU04) ya muestra el paquete en `EN_SUCURSAL_ORIGEN`.
+
+#### ❌ Respuestas de Error:
+* **`400 Bad Request` (El paquete ya fue recibido):**
+  ```json
+  {
+    "status": "error",
+    "code": "VALIDATION_ERROR",
+    "message": "El paquete no se puede recibir en la terminal en su estado actual.",
+    "errors": [
+      {
+        "field": "estado",
+        "message": "El paquete ya fue recibido y está circulando en la red. Estado actual: 'EN_SUCURSAL_ORIGEN'."
+      }
+    ]
+  }
+  ```
+* **`400 Bad Request` (El paquete ya fue entregado o retirado):** mismo formato, con el mensaje `"El paquete ya completó su ciclo de entrega y no puede volver a recibirse en la terminal."`.
+* **`400 Bad Request` (Sucursal inexistente):**
+  ```json
+  {
+    "status": "error",
+    "code": "VALIDATION_ERROR",
+    "message": "La sucursal indicada para la recepción no existe.",
+    "errors": [
+      { "field": "sucursal_id", "message": "No existe una sucursal con id 9999." }
+    ]
+  }
+  ```
+  En este caso el paquete **no se modifica**: se puede reintentar con la sucursal correcta.
+* **`400 Bad Request` (Body inválido):** falta `sucursal_id` o es menor o igual a 0 → `VALIDATION_ERROR`.
+* **`404 Not Found` / `401` / `403`:** igual que en `9.1`.
+
+---
+
+## 10. Endpoints de Sucursales Disponibles para Retiro (HU09)
+
+Ambos endpoints son **públicos, sin autenticación**: forman parte de la experiencia pública, igual que la consulta de seguimiento de HU04.
+
+### 10.1. Catálogo Público con Filtros por Provincia y Ciudad
+Catálogo de sucursales de la red. Alimenta el selector de "retiro en sucursal" del formulario de registro (HU03) y la pantalla de sucursales disponibles (HU09).
+
+* **Método:** `GET`
+* **URL:** `/api/v1/sucursales`
+* **Autenticación requerida:** No (Público)
+* **Query Params (opcionales):**
+
+| Param | Tipo | Detalle |
+|:---|:---|:---|
+| `provincia` | `string` | Filtra por provincia. Comparación sin distinguir mayúsculas y tolerante a espacios sobrantes (máx. 100 caracteres). |
+| `ciudad` | `string` | Filtra por ciudad, con el mismo criterio de comparación (máx. 100 caracteres). |
+
+> **Compatibilidad:** sin query params, el comportamiento y la forma de la respuesta son idénticos a los anteriores a HU09. El código de frontend que ya consumía este endpoint no requiere ningún cambio.
+
+#### ✅ Respuesta Exitosa (`200 OK`):
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": 1,
+      "nombre": "Sucursal Córdoba Centro",
+      "provincia": "Córdoba",
+      "ciudad": "Córdoba",
+      "direccion": "Av. Colón 1234",
+      "latitud": -31.4167,
+      "longitud": -64.1833
+    }
+  ]
+}
+```
+
+El resultado viene ordenado por `nombre`. Una zona sin sucursales devuelve `200` con `"data": []` — **no** un `404`.
+
+---
+
+### 10.2. Opciones de Retiro de un Envío
+Dado el token de seguimiento de un envío, devuelve dónde se retira el paquete, si ya llegó y qué hay que llevar. Usa el mismo token que `GET /api/v1/seguimiento/{token}`, así que el usuario no necesita ningún dato nuevo.
+
+* **Método:** `GET`
+* **URL:** `/api/v1/sucursales/opciones-retiro/{token}`
+* **Parámetros de Ruta:**
+  * `token` (string, obligatorio): token de seguimiento del envío (`ENV-XXXXXXXXXX`).
+* **Autenticación requerida:** No (Público)
+
+#### ✅ Respuesta Exitosa (`200 OK`) - Envío para Retiro en Sucursal:
+```json
+{
+  "status": "success",
+  "data": {
+    "token_seguimiento": "ENV-4KD9XM2P7Q",
+    "tipo_entrega": "sucursal",
+    "aplica_retiro": true,
+    "motivo_no_aplica": null,
+    "sucursal_asignada": {
+      "id": 2,
+      "nombre": "Sucursal Rosario Sur",
+      "provincia": "Santa Fe",
+      "ciudad": "Rosario",
+      "direccion": "Bv. Oroño 2456",
+      "latitud": -32.9587,
+      "longitud": -60.6931,
+      "es_sucursal_asignada": true
+    },
+    "sucursales_disponibles": [
+      {
+        "id": 2,
+        "nombre": "Sucursal Rosario Sur",
+        "provincia": "Santa Fe",
+        "ciudad": "Rosario",
+        "direccion": "Bv. Oroño 2456",
+        "latitud": -32.9587,
+        "longitud": -60.6931,
+        "es_sucursal_asignada": true
+      },
+      {
+        "id": 7,
+        "nombre": "Sucursal Rosario Norte",
+        "provincia": "Santa Fe",
+        "ciudad": "Rosario",
+        "direccion": "Av. Alberdi 1500",
+        "latitud": -32.92,
+        "longitud": -60.68,
+        "es_sucursal_asignada": false
+      }
+    ],
+    "paquetes": [
+      {
+        "numero_paquete": "PAQ-ZPC5LB48JJ",
+        "descripcion": "Caja con repuestos",
+        "estado": "LISTO_PARA_RETIRO",
+        "disponible_para_retirar": true
+      },
+      {
+        "numero_paquete": "PAQ-8HT3MN6RW1",
+        "descripcion": "Sobre con documentación",
+        "estado": "EN_TRANSITO",
+        "disponible_para_retirar": false
+      }
+    ],
+    "requisitos_retiro": {
+      "titular": "Presentar documento de identidad original y acreditar ser mayor de 16 años.",
+      "tercero_autorizado": "Presentar documento de identidad propio, copia del documento del titular y constancia/formulario de autorización de retiro firmada por el destinatario."
+    }
+  }
+}
+```
+
+**Cómo interpretar la respuesta en pantalla:**
+
+| Campo | Qué significa para la UI |
+|:---|:---|
+| `aplica_retiro` | Si es `false`, mostrar `motivo_no_aplica` y ocultar el resto. |
+| `sucursal_asignada` | **El único lugar donde se entrega el paquete.** Es la sucursal que se eligió al registrar el envío. Destacarla. |
+| `sucursales_disponibles` | La asignada viene **primero** (con `es_sucursal_asignada: true`) y después las otras de la misma ciudad, como referencia de la red cercana. Sirve para dibujarlas todas en el mapa. |
+| `disponible_para_retirar` | `true` solo si el paquete ya está físicamente en la sucursal de destino (`LISTO_PARA_RETIRO`, `EN_SUCURSAL`, `EN_SUCURSAL_DESTINO`). Un paquete `Pendiente`, `EN_SUCURSAL_ORIGEN` o `EN_TRANSITO` viene en `false`: mostrar "en camino", no invitar al usuario a ir a buscarlo. |
+| `requisitos_retiro` | Mismos requisitos que exige el mostrador en HU13. Mostrarlos antes de que la persona viaje. |
+
+#### ⚠️ Respuesta Exitosa (`200 OK`) - Envío a Domicilio:
+Si el envío **no** es para retiro, la respuesta sigue siendo `200`: el token es válido, simplemente ese envío se entrega en el domicilio.
+```json
+{
+  "status": "success",
+  "data": {
+    "token_seguimiento": "ENV-4KD9XM2P7Q",
+    "tipo_entrega": "domicilio",
+    "aplica_retiro": false,
+    "motivo_no_aplica": "Este envío se entrega en el domicilio del destinatario, por lo que no requiere retiro en sucursal.",
+    "sucursal_asignada": null,
+    "sucursales_disponibles": [],
+    "paquetes": [],
+    "requisitos_retiro": { "...": "textos de requisitos" }
+  }
+}
+```
+
+> El frontend solo tiene que mirar `aplica_retiro`: no hace falta distinguir este caso leyendo mensajes de error.
+
+#### ❌ Respuestas de Error:
+* **`404 Not Found` (Token inexistente):**
+  ```json
+  {
+    "status": "error",
+    "code": "NOT_FOUND",
+    "message": "No se encontró un envío asociado a ese código de seguimiento."
+  }
+  ```
+
+#### 🔒 Nota de privacidad
+Como el endpoint es público, **no expone** email, teléfono ni documento del remitente o del destinatario — mismo criterio que la vista pública de HU04. Si la pantalla necesita datos de contacto, tienen que venir de un endpoint autenticado.

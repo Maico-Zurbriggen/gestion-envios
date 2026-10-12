@@ -202,10 +202,11 @@ class EnvioModel(Base):
 
 
 class PaqueteModel(Base):
-    """Un paquete dentro de un envío (HU03). `numero_paquete` es el valor
-    pensado para el código de barras de la planilla imprimible. `estado`
-    solo toma el valor "Pendiente" en esta etapa del proyecto; las
-    transiciones (en tránsito, entregado, etc.) llegan con HU06/HU10-HU13."""
+    """Un paquete dentro de un envío (HU03). `numero_paquete` es el valor que
+    la planilla imprimible codifica en el código de barras y con el que HU06 lo
+    identifica al recibirlo en la terminal. `estado` arranca en "Pendiente" y
+    hoy transiciona a `EN_SUCURSAL_ORIGEN` (HU06) y a `ENTREGADO_EN_SUCURSAL`
+    (HU13); las transiciones de reparto llegan con HU10-HU12."""
 
     __tablename__ = "paquetes"
 

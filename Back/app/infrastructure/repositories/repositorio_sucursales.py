@@ -1,5 +1,4 @@
-
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.db.models import SucursalModel
@@ -11,16 +10,33 @@ class RepositorioSucursales:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def listar_todas(self) -> list[SucursalModel]:
-        """Catálogo completo para `GET /sucursales`, ordenado por nombre
-        para que el selector del frontend salga ya ordenado."""
-        stmt = select(SucursalModel).order_by(SucursalModel.nombre)
+    async def listar_todas(
+        self,
+        provincia: str | None = None,
+        ciudad: str | None = None,
+    ) -> list[SucursalModel]:
+        """Catálogo para `GET /sucursales`, ordenado por nombre para que el
+        selector del frontend salga ya ordenado.
+
+        Los filtros `provincia` y `ciudad` son opcionales (HU09: el usuario que
+        espera un paquete filtra por su zona) y comparan sin distinguir
+        mayúsculas ni espacios sobrantes. Sin filtros devuelve el catálogo
+        completo, igual que antes de HU09.
+        """
+        stmt = select(SucursalModel)
+
+        if provincia and provincia.strip():
+            stmt = stmt.where(func.lower(SucursalModel.provincia) == provincia.strip().lower())
+        if ciudad and ciudad.strip():
+            stmt = stmt.where(func.lower(SucursalModel.ciudad) == ciudad.strip().lower())
+
+        stmt = stmt.order_by(SucursalModel.nombre)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def obtener_por_id(self, id: int) -> SucursalModel | None:
         """Valida el `sucursal_destino_id` de un envío con retiro en
-        sucursal (HU03) antes de persistirlo."""
+        sucursal (HU03) y la terminal de recepción de HU06 antes de persistir."""
         stmt = select(SucursalModel).where(SucursalModel.id == id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
