@@ -179,3 +179,32 @@ async def vendedor_token(vendedor_usuario: UsuarioModel) -> str:
         scope=ScopeEnum.FULL_ACCESS.value,
     )
 
+
+@pytest_asyncio.fixture
+async def repartidor_usuario(db_session: AsyncSession) -> UsuarioModel:
+    """Crea y persiste un usuario con rol REPARTIDOR para pruebas de autorización."""
+    repartidor = UsuarioModel(
+        nombre="Diego Repartidor",
+        dni="37222333",
+        email="diego.repartidor@empresa.com",
+        telefono="+543564222333",
+        password_hash=HasherContrasenas.generar_hash("RepartidorPass123!*"),
+        estado="Activo",
+        requiere_cambio_password=False,
+        rol_id=RolIdEnum.REPARTIDOR.value,
+    )
+    db_session.add(repartidor)
+    await db_session.commit()
+    await db_session.refresh(repartidor)
+    return repartidor
+
+
+@pytest_asyncio.fixture
+async def repartidor_token(repartidor_usuario: UsuarioModel) -> str:
+    """Genera un token JWT con rol REPARTIDOR y FULL_ACCESS para probar autorización."""
+    return ManejadorJWT.emitir_token(
+        usuario_id=str(repartidor_usuario.id),
+        rol=RolEnum.REPARTIDOR.value,
+        scope=ScopeEnum.FULL_ACCESS.value,
+    )
+

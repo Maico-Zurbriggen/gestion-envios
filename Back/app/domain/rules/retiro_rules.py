@@ -1,8 +1,12 @@
-"""Reglas de dominio para el retiro de paquetes en sucursal (HU13).
+"""Reglas de dominio para el retiro de paquetes en sucursal (HU09 y HU13).
 
 Contiene validaciones puras de negocio sobre condiciones de retiro, mayoría
 de edad del titular (>= 16 años), requisitos de presentación para terceros
 autorizados y estados válidos del paquete.
+
+HU13 las usa para habilitar el registro del retiro en ventanilla; HU09 reusa
+las mismas reglas de estado para informar, en la vista pública, si el paquete
+ya está disponible para que el destinatario lo pase a buscar.
 """
 
 from typing import Any, Dict, List, Optional
@@ -123,3 +127,56 @@ def validar_requisitos_retiro(
             })
 
     return errores
+
+
+# --- HU09: opciones de retiro en sucursal desde la experiencia pública ---
+
+TIPO_ENTREGA_SUCURSAL = "sucursal"
+TIPO_ENTREGA_DOMICILIO = "domicilio"
+"""Valores que `EnvioModel.tipo_entrega` toma desde el registro de HU03."""
+
+
+def envio_habilita_retiro_en_sucursal(tipo_entrega: str) -> tuple[bool, Optional[str]]:
+    """Evalúa si un envío se gestiona para retiro en sucursal (HU09 Escenario 1).
+
+    Es la condición "DADO que el envío se gestiona para retiro y no para
+    entrega a domicilio" del criterio de aceptación. Retorna
+    `(aplica, motivo_no_aplica)`.
+    """
+    tipo_normalizado = (tipo_entrega or "").strip().lower()
+
+    if tipo_normalizado == TIPO_ENTREGA_SUCURSAL:
+        return True, None
+
+    if tipo_normalizado == TIPO_ENTREGA_DOMICILIO:
+        return False, (
+            "Este envío se entrega en el domicilio del destinatario, "
+            "por lo que no requiere retiro en sucursal."
+        )
+
+    return False, (
+        f"No se puede determinar la modalidad de entrega del envío (tipo_entrega: '{tipo_entrega}')."
+    )
+
+
+ESTADOS_YA_EN_SUCURSAL_DESTINO: set[str] = {
+    EstadoPaqueteEnum.LISTO_PARA_RETIRO.value,
+    EstadoPaqueteEnum.EN_SUCURSAL.value,
+    EstadoPaqueteEnum.EN_SUCURSAL_DESTINO.value,
+}
+"""Estados en los que el paquete está físicamente en la sucursal de destino.
+
+Es deliberadamente más estricto que `ESTADOS_VALIDOS_PARA_RETIRO`: esa lista
+habilita el mostrador de HU13 e incluye "Pendiente" para no bloquear los
+envíos precargados antes de que existiera la recepción en terminal (HU06).
+Para la vista pública de HU09 eso sería engañoso — anunciaría que el paquete
+se puede pasar a buscar cuando todavía no salió de la terminal de origen.
+"""
+
+
+def paquete_disponible_en_sucursal(estado_actual: str) -> bool:
+    """Indica si el paquete ya llegó a la sucursal y se puede pasar a buscar.
+
+    Alimenta el campo `disponible_para_retirar` de la vista pública de HU09.
+    """
+    return (estado_actual or "").strip() in ESTADOS_YA_EN_SUCURSAL_DESTINO

@@ -1,17 +1,20 @@
 """Constantes de dominio para las tablas de logística/seguimiento planificadas
 en Back/docs/01-arquitectura/plan-base-de-datos-completo.md (HU05-HU13).
 
-Ningún servicio las usa todavía (esas historias no están implementadas), pero
-ya se definen acá para que el esquema de base de datos (CHECK constraints en
-infrastructure/db/models.py) tenga una única fuente de verdad para los
-valores válidos, en vez de repetir los strings sueltos en cada lugar."""
+Se definen acá para que el esquema de base de datos (CHECK constraints en
+infrastructure/db/models.py), las reglas de dominio y los servicios tengan una
+única fuente de verdad para los valores válidos, en vez de repetir los strings
+sueltos en cada lugar. Las que ya se usan en código son las de HU05
+(notificaciones), HU06 (recepción en terminal), HU09 (opciones de retiro) y
+HU13 (retiro en sucursal); el resto quedan reservadas para HU07/HU10-HU12."""
 
 from enum import StrEnum
 
 
 class EstadoPaqueteEnum(StrEnum):
     """Máquina de estados de un paquete. Ver diagrama en el plan de base de
-    datos. Hoy (HU03/HU04) un paquete solo llega a PENDIENTE."""
+    datos. Transiciones implementadas hoy: PENDIENTE (HU03) ->
+    EN_SUCURSAL_ORIGEN (HU06) y -> ENTREGADO_EN_SUCURSAL (HU13)."""
 
     PENDIENTE = "PENDIENTE"
     EN_SUCURSAL_ORIGEN = "EN_SUCURSAL_ORIGEN"

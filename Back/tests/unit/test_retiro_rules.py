@@ -2,7 +2,9 @@ import pytest
 
 from app.domain.constants.estados_logistica import EstadoPaqueteEnum, TipoRetiroEnum
 from app.domain.rules.retiro_rules import (
+    envio_habilita_retiro_en_sucursal,
     evaluar_disponibilidad_retiro,
+    paquete_disponible_en_sucursal,
     validar_requisitos_retiro,
 )
 
@@ -105,3 +107,66 @@ def test_validar_requisitos_tercero_sin_nota_autorizacion_falla():
     )
     assert len(errores) == 1
     assert errores[0]["field"] == "tercero_autorizado.posee_nota_autorizacion"
+
+
+# --- HU09: opciones de retiro desde la experiencia pública ---
+
+
+def test_hu09_envio_a_sucursal_habilita_retiro():
+    """HU09 Escenario 1: el envío se gestiona para retiro, no para domicilio."""
+    aplica, motivo = envio_habilita_retiro_en_sucursal("sucursal")
+    assert aplica is True
+    assert motivo is None
+
+
+def test_hu09_envio_a_domicilio_no_habilita_retiro():
+    """Un envío a domicilio no se retira por sucursal: se informa el motivo."""
+    aplica, motivo = envio_habilita_retiro_en_sucursal("domicilio")
+    assert aplica is False
+    assert motivo is not None
+    assert "domicilio" in motivo
+
+
+@pytest.mark.parametrize("tipo_entrega", ["SUCURSAL", "  sucursal  ", "Sucursal"])
+def test_hu09_tipo_entrega_se_normaliza(tipo_entrega):
+    """La regla no depende de mayúsculas ni espacios sobrantes."""
+    aplica, _ = envio_habilita_retiro_en_sucursal(tipo_entrega)
+    assert aplica is True
+
+
+@pytest.mark.parametrize("tipo_entrega", ["", None, "otra_cosa"])
+def test_hu09_tipo_entrega_desconocido_no_habilita_retiro(tipo_entrega):
+    aplica, motivo = envio_habilita_retiro_en_sucursal(tipo_entrega)
+    assert aplica is False
+    assert motivo is not None
+
+
+@pytest.mark.parametrize(
+    "estado",
+    [
+        EstadoPaqueteEnum.LISTO_PARA_RETIRO.value,
+        EstadoPaqueteEnum.EN_SUCURSAL.value,
+        EstadoPaqueteEnum.EN_SUCURSAL_DESTINO.value,
+    ],
+)
+def test_hu09_paquete_en_sucursal_destino_esta_disponible(estado):
+    """Solo si el paquete ya llegó a la sucursal se avisa que se puede retirar."""
+    assert paquete_disponible_en_sucursal(estado) is True
+
+
+@pytest.mark.parametrize(
+    "estado",
+    [
+        "Pendiente",
+        EstadoPaqueteEnum.PENDIENTE.value,
+        EstadoPaqueteEnum.EN_SUCURSAL_ORIGEN.value,
+        EstadoPaqueteEnum.EN_TRANSITO.value,
+        EstadoPaqueteEnum.ENTREGADO_EN_SUCURSAL.value,
+        EstadoPaqueteEnum.RETIRADO.value,
+    ],
+)
+def test_hu09_paquete_que_no_llego_a_sucursal_no_esta_disponible(estado):
+    """La vista pública es más estricta que el mostrador de HU13: un paquete
+    "Pendiente" todavía no salió de la terminal de origen, así que no se
+    anuncia como retirable aunque `evaluar_disponibilidad_retiro` lo acepte."""
+    assert paquete_disponible_en_sucursal(estado) is False

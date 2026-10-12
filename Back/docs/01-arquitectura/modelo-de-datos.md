@@ -79,16 +79,19 @@ erDiagram
 - `requiere_cambio_password` nace en `True` para todo empleado dado de alta por `POST /admin/empleados`, y en `False` para el Superadministrador sembrado por `sembrar_superadmin` (no le aplica el flujo de primer acceso de HU02).
 - La relación `usuarios.rol` se carga siempre (`lazy="joined"`) porque casi todo flujo de autenticación necesita el nombre del rol.
 
-### `sucursales` (soporte de HU03 y futura HU09)
+### `sucursales` (soporte de HU03, HU06 y HU09)
 
 - Se siembran 6 sucursales de ejemplo al iniciar la app (`sembrar_sucursales`), sin endpoint de alta — es un catálogo de solo lectura desde la API pública.
+- `GET /sucursales` acepta filtros opcionales `provincia` y `ciudad` (HU09). Sin filtros devuelve el catálogo completo, que es lo que consume el selector de retiro en sucursal de HU03.
+- La tabla es además el catálogo contra el que se valida la terminal donde se recibe un paquete en HU06 (`sucursal_id` del request) y el punto de retiro que HU09 informa en la vista pública.
 
 ### `envios` / `paquetes` (HU03 / HU04)
 
 - Un `Envio` es la unidad de la relación remitente-destinatario-destino; puede contener uno o más `Paquete`. El `token_seguimiento` vive en `Envio`, no en `Paquete`: **un token siempre corresponde a todos los paquetes de un mismo envío** (HU04, Escenario 2).
 - `tipo_entrega` decide qué bloque de columnas de destino aplica: si es `"domicilio"`, se completan `provincia_destino`/`ciudad_destino`/`direccion_destino` (y opcionalmente lat/long si el usuario marcó un punto en el mapa); si es `"sucursal"`, se completa `sucursal_destino_id` y los campos de domicilio quedan en `NULL`. Esta exclusión mutua se valida a nivel de contrato (`contracts/envios.py`), no con una constraint SQL — ver [HU03](../04-historias-de-usuario/hu03-registro-envios.md).
 - `paquetes.numero_paquete` es único por paquete (para el código de barras de la planilla); `envios.token_seguimiento` es único por envío. Ambos se generan con el mismo esquema (`domain/rules/codigos_rules.py`) pero con prefijos distintos (`ENV-` / `PAQ-`).
-- `paquetes.estado` solo tiene el valor `"Pendiente"` en esta etapa del proyecto (recién registrado). Las transiciones de estado (en tránsito, entregado, etc.) quedan para cuando se implementen HU06/HU10/HU11/HU12/HU13.
+- `paquetes.estado` nace en `"Pendiente"` (recién registrado por HU03) y hoy tiene dos transiciones implementadas: `EN_SUCURSAL_ORIGEN` cuando el vendedor lo recibe en la terminal ([HU06](../04-historias-de-usuario/hu06-recepcion-terminal.md)) y `ENTREGADO_EN_SUCURSAL` cuando se registra su retiro (HU13). Las transiciones de reparto (en tránsito, en reparto, entregado) quedan para HU10/HU11/HU12.
+- `paquetes.sucursal_actual_id` se completa por primera vez en la recepción de HU06 (la terminal donde quedó el paquete) y se actualiza en el mismo commit que la fila nueva de `historial_estados_paquete`, para que la lectura pública de HU04 no necesite un JOIN.
 - Los `cascade="all, delete-orphan"` en `Envio.paquetes` significa que si algún día se borra un envío, sus paquetes se borran con él — hoy no existe ningún endpoint de borrado, es solo la regla de integridad del modelo.
 
 ## Nota sobre UUID en SQLite vs. PostgreSQL

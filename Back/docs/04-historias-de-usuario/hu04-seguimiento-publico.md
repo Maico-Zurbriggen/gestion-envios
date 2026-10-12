@@ -14,16 +14,27 @@ Ver también el contrato orientado a frontend en [`knowledge/envios-seguimiento.
 
 ## Armado del campo `destino`
 
-En vez de que el frontend tenga que decidir si mostrar dirección o sucursal, `ServicioSeguimiento` arma un único string legible según `tipo_entrega`:
+En vez de que el frontend tenga que decidir si mostrar dirección o sucursal, `ServicioSeguimiento` arma un único string legible según `tipo_entrega`, delegando el formato a [`domain/rules/destino_rules.py`](../../app/domain/rules/destino_rules.py):
 
 ```python
 if envio.tipo_entrega == "domicilio":
-    destino = f"{envio.direccion_destino}, {envio.ciudad_destino}, {envio.provincia_destino}"
+    destino = formatear_destino_domicilio(
+        direccion=envio.direccion_destino,
+        ciudad=envio.ciudad_destino,
+        provincia=envio.provincia_destino,
+    )
 else:
-    destino = f"Sucursal {sucursal.nombre} - {sucursal.direccion}, {sucursal.ciudad}, {sucursal.provincia}"
+    destino = formatear_destino_sucursal(
+        nombre=sucursal.nombre,
+        direccion=sucursal.direccion,
+        ciudad=sucursal.ciudad,
+        provincia=sucursal.provincia,
+    )
 ```
 
 Esto cubre tanto el Escenario 1 (mostrar domicilio) como el caso de retiro en sucursal, sin que la vista pública necesite lógica condicional adicional.
+
+**Nota sobre el formato (cambió al implementar HU06):** originalmente el string se armaba inline con `f"Sucursal {sucursal.nombre} - …"`, lo que duplicaba el prefijo —`"Sucursal Sucursal Rosario Sur"`— porque todas las sucursales del catálogo ya se llaman "Sucursal …". Al necesitar el mismo renglón en la pantalla de recepción de [HU06](./hu06-recepcion-terminal.md), el formato se extrajo a un módulo de dominio compartido y se corrigió la duplicación. El helper además omite las partes vacías en vez de imprimir `None`. La respuesta de este endpoint cambió en consecuencia, y ahora coincide exactamente con el `destino` que devuelve HU06 para el mismo envío.
 
 ## Coordenadas del destino (`latitud_destino` / `longitud_destino`)
 

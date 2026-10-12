@@ -1,6 +1,6 @@
 # Documentación técnica del backend
 
-Esta carpeta documenta, en detalle, lo que efectivamente se construyó en `Back/` a medida que avanza el Sprint 1 (HU01–HU04). Es documentación de implementación, pensada para cualquiera del equipo que necesite entender **cómo funciona el backend por dentro** — no solo qué endpoints expone.
+Esta carpeta documenta, en detalle, lo que efectivamente se construyó en `Back/` a medida que avanza el proyecto (Sprint 1: HU01–HU04; después, las historias que se van incorporando). Es documentación de implementación, pensada para cualquiera del equipo que necesite entender **cómo funciona el backend por dentro** — no solo qué endpoints expone.
 
 Se complementa con otras dos carpetas del repositorio, que tienen un propósito distinto:
 
@@ -13,7 +13,7 @@ Esta carpeta (`Back/docs/`) es el "cómo y por qué" del lado del backend: arqui
 
 ### 1. Arquitectura
 - [Capas y estructura del proyecto](./01-arquitectura/capas-y-estructura.md)
-- [Modelo de datos](./01-arquitectura/modelo-de-datos.md) — lo que usa la lógica de aplicación hoy (HU01–HU04)
+- [Modelo de datos](./01-arquitectura/modelo-de-datos.md) — lo que usa la lógica de aplicación hoy
 - [Plan completo de base de datos (HU01–HU13)](./01-arquitectura/plan-base-de-datos-completo.md) — las 15 tablas del esquema completo, ya creadas, y cómo aplicarlas en Neon
 
 ### 2. Configuración
@@ -29,6 +29,8 @@ Esta carpeta (`Back/docs/`) es el "cómo y por qué" del lado del backend: arqui
 - [HU02 — Primer acceso y cambio obligatorio de contraseña](./04-historias-de-usuario/hu02-primer-acceso.md)
 - [HU03 — Registro de envíos](./04-historias-de-usuario/hu03-registro-envios.md)
 - [HU04 — Seguimiento público por token](./04-historias-de-usuario/hu04-seguimiento-publico.md)
+- [HU06 — Recepción de paquetes en terminal por escaneo del código de barras](./04-historias-de-usuario/hu06-recepcion-terminal.md)
+- [HU09 — Sucursales disponibles para retiro](./04-historias-de-usuario/hu09-sucursales-retiro.md)
 
 ### 5. Testing
 - [Estrategia de pruebas](./05-testing/estrategia-de-pruebas.md)

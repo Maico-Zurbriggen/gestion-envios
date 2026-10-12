@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.application.interfaces.repositorio_entregas import IRepositorioEntregas
 from app.application.interfaces.repositorio_envios import IRepositorioEnvios
 from app.application.interfaces.repositorio_notificaciones import IRepositorioNotificaciones
+from app.application.interfaces.repositorio_recepciones import IRepositorioRecepciones
 from app.application.interfaces.repositorio_roles import IRepositorioRoles
 from app.application.interfaces.repositorio_sucursales import IRepositorioSucursales
 from app.application.interfaces.repositorio_usuarios import IRepositorioUsuarios
@@ -15,6 +16,7 @@ from app.application.interfaces.servicio_auth import IServicioAuth
 from app.application.interfaces.servicio_empleados import IServicioEmpleados
 from app.application.interfaces.servicio_envios import IServicioEnvios
 from app.application.interfaces.servicio_notificaciones import IServicioNotificaciones
+from app.application.interfaces.servicio_recepcion_terminal import IServicioRecepcionTerminal
 from app.application.interfaces.servicio_retiro_sucursal import IServicioRetiroSucursal
 from app.application.interfaces.servicio_roles import IServicioRoles
 from app.application.interfaces.servicio_seguimiento import IServicioSeguimiento
@@ -23,6 +25,7 @@ from app.application.services.servicio_auth import ServicioAuth
 from app.application.services.servicio_empleados import ServicioEmpleados
 from app.application.services.servicio_envios import ServicioEnvios
 from app.application.services.servicio_notificaciones import ServicioNotificaciones
+from app.application.services.servicio_recepcion_terminal import ServicioRecepcionTerminal
 from app.application.services.servicio_retiro_sucursal import ServicioRetiroSucursal
 from app.application.services.servicio_roles import ServicioRoles
 from app.application.services.servicio_seguimiento import ServicioSeguimiento
@@ -41,6 +44,7 @@ from app.infrastructure.email.email_provider import obtener_proveedor_email
 from app.infrastructure.repositories.repositorio_entregas import RepositorioEntregas
 from app.infrastructure.repositories.repositorio_envios import RepositorioEnvios
 from app.infrastructure.repositories.repositorio_notificaciones import RepositorioNotificaciones
+from app.infrastructure.repositories.repositorio_recepciones import RepositorioRecepciones
 from app.infrastructure.repositories.repositorio_roles import RepositorioRoles
 from app.infrastructure.repositories.repositorio_sucursales import RepositorioSucursales
 from app.infrastructure.repositories.repositorio_usuarios import RepositorioUsuarios
@@ -106,8 +110,14 @@ def get_servicio_seguimiento(
 
 def get_servicio_sucursales(
     repo_sucursales: IRepositorioSucursales = Depends(get_repositorio_sucursales),
+    repo_envios: IRepositorioEnvios = Depends(get_repositorio_envios),
 ) -> IServicioSucursales:
-    return ServicioSucursales(repositorio_sucursales=repo_sucursales)
+    """Además del catálogo (HU03), el servicio resuelve las opciones de retiro de
+    un envío por su token de seguimiento (HU09), por eso recibe ambos repositorios."""
+    return ServicioSucursales(
+        repositorio_sucursales=repo_sucursales,
+        repositorio_envios=repo_envios,
+    )
 
 
 def get_servicio_roles(
@@ -148,6 +158,24 @@ def get_servicio_retiro_sucursal(
     repo_entregas: IRepositorioEntregas = Depends(get_repositorio_entregas),
 ) -> IServicioRetiroSucursal:
     return ServicioRetiroSucursal(repositorio_entregas=repo_entregas)
+
+
+def get_repositorio_recepciones(
+    db: AsyncSession = Depends(obtener_sesion_db),
+) -> IRepositorioRecepciones:
+    return RepositorioRecepciones(db)
+
+
+def get_servicio_recepcion_terminal(
+    repo_recepciones: IRepositorioRecepciones = Depends(get_repositorio_recepciones),
+    repo_sucursales: IRepositorioSucursales = Depends(get_repositorio_sucursales),
+) -> IServicioRecepcionTerminal:
+    """Recepción de paquetes en terminal (HU06). Necesita el catálogo de
+    sucursales para validar la terminal donde se recibe el paquete."""
+    return ServicioRecepcionTerminal(
+        repositorio_recepciones=repo_recepciones,
+        repositorio_sucursales=repo_sucursales,
+    )
 
 
 # --- Inyección de Autenticación y Autorización ---
