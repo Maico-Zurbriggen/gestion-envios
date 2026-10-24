@@ -455,6 +455,16 @@ class RecorridoModel(Base):
     fecha: Mapped[date] = mapped_column(Date, nullable=False)
     estado: Mapped[str] = mapped_column(String(15), nullable=False, default=EstadoRecorridoEnum.GENERADO.value)
     generado_automaticamente: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    orientacion_calles_grados: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0.0, server_default="0"
+    )
+    """Ángulo de la cuadrícula de calles usado para medir distancias urbanas
+    (HU10 Escenario 1). Se guarda para que las estimaciones y la
+    re-optimización tras una edición manual usen la misma métrica que la
+    generación original."""
+    distancia_estimada_km: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    duracion_estimada_min: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    """Estimaciones del recorrido en su orden actual; se recalculan en cada edición."""
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False
@@ -483,6 +493,7 @@ class RecorridoPaqueteModel(Base):
     __table_args__ = (
         UniqueConstraint("recorrido_id", "paquete_id", name="uq_recorrido_paquetes_recorrido_paquete"),
         UniqueConstraint("recorrido_id", "orden", name="uq_recorrido_paquetes_recorrido_orden"),
+        Index("idx_recorrido_paquetes_paquete", "paquete_id"),
         CheckConstraint(
             f"estado_en_recorrido IN {_lista_sql(EstadoRecorridoPaqueteEnum)}",
             name="ck_recorrido_paquetes_estado",
