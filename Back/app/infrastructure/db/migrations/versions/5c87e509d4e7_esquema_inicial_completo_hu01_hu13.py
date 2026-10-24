@@ -163,7 +163,9 @@ def upgrade() -> None:
     )
     op.create_index('idx_eventos_entrega_paquete', 'eventos_entrega', ['paquete_id', 'created_at'], unique=False)
     op.create_table('historial_estados_paquete',
-    sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
+    # Misma variante que el modelo: en SQLite solo `INTEGER PRIMARY KEY` autoincrementa
+    # (un `BIGINT PRIMARY KEY` rechaza todo insert sin id). En PostgreSQL sigue siendo BIGSERIAL.
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
     sa.Column('paquete_id', sa.Uuid(), nullable=False),
     sa.Column('estado_anterior', sa.String(length=30), nullable=True),
     sa.Column('estado_nuevo', sa.String(length=30), nullable=False),
