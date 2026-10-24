@@ -151,26 +151,86 @@ def misma_ciudad(
     return True
 
 
+@dataclass(frozen=True)
+class SucursalUbicada:
+    """Lo mínimo de una sucursal que necesitan las reglas de reparto."""
+
+    id: int
+    ciudad: str | None
+    provincia: str | None
+    latitud: float | None = None
+    longitud: float | None = None
+
+    @property
+    def punto(self) -> Punto | None:
+        if self.latitud is None or self.longitud is None:
+            return None
+        return (self.latitud, self.longitud)
+
+
+def elegir_sucursal_de_entrega(
+    ciudad_destino: str | None,
+    provincia_destino: str | None,
+    punto_destino: Punto | None,
+    sucursales: Sequence[SucursalUbicada],
+    sucursal_actual_id: int | None = None,
+) -> int | None:
+    """Sucursal desde la que sale el repartidor de corta distancia hacia un domicilio.
+
+    1. Si la sucursal actual está en la ciudad del destino, es ella (no tiene
+       sentido trasladar el paquete a otra sucursal de la misma ciudad).
+    2. Si no, una sucursal de esa ciudad: la más cercana al domicilio si hay
+       coordenadas, o la de menor id.
+    3. Si la ciudad no tiene sucursal, la más cercana al domicilio (atiende las
+       localidades vecinas).
+    4. Sin sucursal en la ciudad ni coordenadas para medir: `None`.
+    """
+    en_ciudad = [s for s in sucursales if misma_ciudad(s.ciudad, s.provincia, ciudad_destino, provincia_destino)]
+    if en_ciudad:
+        if any(s.id == sucursal_actual_id for s in en_ciudad):
+            return sucursal_actual_id
+        return _mas_cercana(en_ciudad, punto_destino) or min(s.id for s in en_ciudad)
+    return _mas_cercana(sucursales, punto_destino)
+
+
+def _mas_cercana(sucursales: Sequence[SucursalUbicada], punto: Punto | None) -> int | None:
+    if punto is None:
+        return None
+    con_ubicacion = [s for s in sucursales if s.punto is not None]
+    if not con_ubicacion:
+        return None
+    return min(con_ubicacion, key=lambda s: (distancia_haversine_km(punto, s.punto), s.id)).id
+
+
 def determinar_tipo_reparto(
     tipo_entrega: str,
-    destino_en_misma_ciudad: bool,
-    sucursal_destino_id: int | None,
+    sucursal_entrega_id: int | None,
     sucursal_actual_id: int | None,
+    destino_en_misma_ciudad: bool = False,
 ) -> str | None:
     """Decide qué tipo de recorrido necesita un paquete que está en una sucursal (HU10 Escenario 4).
 
-    - Entrega a domicilio en la misma ciudad de la sucursal: `CORTA`.
-    - Entrega a domicilio en otra ciudad: `LARGA` (se traslada a la sucursal de
-      esa ciudad, desde donde sale después en un recorrido corto).
-    - Retiro en una sucursal distinta de la actual: `LARGA` (se deja en esa sucursal).
+    `sucursal_entrega_id` es la última sucursal de la red antes del
+    destinatario: la elegida para el retiro, o la que atiende el domicilio
+    (`elegir_sucursal_de_entrega`).
+
     - Retiro en la misma sucursal donde ya está: `None`, no hay nada que repartir.
+    - Retiro en otra sucursal: `LARGA` (se deja en esa sucursal).
+    - Domicilio atendido por la sucursal actual: `CORTA`.
+    - Domicilio atendido por otra sucursal: `LARGA`; desde allá saldrá en un
+      recorrido corto.
+    - Domicilio sin sucursal que lo atienda identificable: se decide por ciudad.
     """
     tipo = (tipo_entrega or "").strip().lower()
-    if tipo == "domicilio":
-        return TipoDistanciaEnum.CORTA.value if destino_en_misma_ciudad else TipoDistanciaEnum.LARGA.value
     if tipo == "sucursal":
-        if sucursal_destino_id is not None and sucursal_destino_id == sucursal_actual_id:
+        if sucursal_entrega_id is not None and sucursal_entrega_id == sucursal_actual_id:
             return None
+        return TipoDistanciaEnum.LARGA.value
+    if tipo == "domicilio":
+        if sucursal_entrega_id is None:
+            return TipoDistanciaEnum.CORTA.value if destino_en_misma_ciudad else TipoDistanciaEnum.LARGA.value
+        if sucursal_entrega_id == sucursal_actual_id:
+            return TipoDistanciaEnum.CORTA.value
         return TipoDistanciaEnum.LARGA.value
     return None
 

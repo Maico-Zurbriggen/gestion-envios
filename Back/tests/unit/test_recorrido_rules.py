@@ -13,10 +13,12 @@ from app.domain.rules.recorrido_rules import (
     FACTOR_SINUOSIDAD_RUTA,
     MINUTOS_POR_PARADA_DOMICILIO,
     ParadaPlanificable,
+    SucursalUbicada,
     costo_recorrido,
     determinar_tipo_reparto,
     distancia_haversine_km,
     distancia_urbana_km,
+    elegir_sucursal_de_entrega,
     estado_paquete_al_iniciar,
     estimar_recorrido,
     funcion_distancia,
@@ -42,24 +44,60 @@ def _parada(clave: str, dlat: float, dlon: float, paquetes: int = 1) -> ParadaPl
 # --- Escenario 4: tipos de reparto ---
 
 
-def test_domicilio_en_la_misma_ciudad_es_corta_distancia():
-    assert determinar_tipo_reparto("domicilio", True, None, 1) == CORTA
+def test_domicilio_atendido_por_la_sucursal_actual_es_corta_distancia():
+    assert determinar_tipo_reparto("domicilio", sucursal_entrega_id=1, sucursal_actual_id=1) == CORTA
 
 
-def test_domicilio_en_otra_ciudad_es_larga_distancia():
-    assert determinar_tipo_reparto("domicilio", False, None, 1) == LARGA
+def test_domicilio_atendido_por_otra_sucursal_es_larga_distancia():
+    assert determinar_tipo_reparto("domicilio", sucursal_entrega_id=2, sucursal_actual_id=1) == LARGA
+
+
+def test_domicilio_sin_sucursal_que_lo_atienda_se_decide_por_ciudad():
+    assert determinar_tipo_reparto("domicilio", None, 1, destino_en_misma_ciudad=True) == CORTA
+    assert determinar_tipo_reparto("domicilio", None, 1, destino_en_misma_ciudad=False) == LARGA
 
 
 def test_retiro_en_otra_sucursal_es_larga_distancia():
-    assert determinar_tipo_reparto("sucursal", False, 2, 1) == LARGA
+    assert determinar_tipo_reparto("sucursal", sucursal_entrega_id=2, sucursal_actual_id=1) == LARGA
 
 
 def test_retiro_en_la_sucursal_donde_ya_esta_no_se_reparte():
-    assert determinar_tipo_reparto("sucursal", True, 1, 1) is None
+    assert determinar_tipo_reparto("sucursal", sucursal_entrega_id=1, sucursal_actual_id=1) is None
 
 
 def test_tipo_de_entrega_desconocido_no_se_reparte():
-    assert determinar_tipo_reparto("drone", True, None, 1) is None
+    assert determinar_tipo_reparto("drone", 1, 1, True) is None
+
+
+SUCURSALES = [
+    SucursalUbicada(1, "Córdoba", "Córdoba", -31.4167, -64.1833),
+    SucursalUbicada(2, "Rosario", "Santa Fe", -32.9587, -60.6931),
+    SucursalUbicada(3, "Rosario", "Santa Fe", -32.9200, -60.6800),
+    SucursalUbicada(4, "Mendoza", "Mendoza", None, None),
+]
+
+
+def test_sucursal_de_entrega_prefiere_la_actual_si_esta_en_la_ciudad():
+    assert elegir_sucursal_de_entrega("Rosario", "Santa Fe", (-32.92, -60.68), SUCURSALES, sucursal_actual_id=2) == 2
+
+
+def test_sucursal_de_entrega_elige_la_mas_cercana_de_la_ciudad():
+    assert elegir_sucursal_de_entrega("rosario", "santa fe", (-32.921, -60.681), SUCURSALES, sucursal_actual_id=1) == 3
+    # Sin coordenadas del domicilio: la de menor id de la ciudad
+    assert elegir_sucursal_de_entrega("Rosario", "Santa Fe", None, SUCURSALES, sucursal_actual_id=1) == 2
+
+
+def test_sucursal_de_entrega_para_ciudad_sin_sucursal_es_la_mas_cercana():
+    # Villa Carlos Paz no tiene sucursal: la atiende Córdoba
+    assert elegir_sucursal_de_entrega("Villa Carlos Paz", "Córdoba", (-31.42, -64.50), SUCURSALES) == 1
+
+
+def test_sucursal_de_entrega_sin_ciudad_conocida_ni_coordenadas():
+    assert elegir_sucursal_de_entrega("Ushuaia", "Tierra del Fuego", None, SUCURSALES) is None
+
+
+def test_ciudad_con_sucursal_sin_coordenadas_igual_se_elige():
+    assert elegir_sucursal_de_entrega("Mendoza", "Mendoza", (-32.89, -68.83), SUCURSALES) == 4
 
 
 def test_misma_ciudad_ignora_tildes_y_exige_provincia_si_ambas_la_informan():
