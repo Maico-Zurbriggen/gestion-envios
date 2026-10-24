@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.application.interfaces.repositorio_entregas import IRepositorioEntregas
 from app.application.interfaces.repositorio_envios import IRepositorioEnvios
 from app.application.interfaces.repositorio_notificaciones import IRepositorioNotificaciones
+from app.application.interfaces.repositorio_preguntas_frecuentes import IRepositorioPreguntasFrecuentes
 from app.application.interfaces.repositorio_recepciones import IRepositorioRecepciones
 from app.application.interfaces.repositorio_roles import IRepositorioRoles
 from app.application.interfaces.repositorio_sucursales import IRepositorioSucursales
@@ -16,6 +17,7 @@ from app.application.interfaces.servicio_auth import IServicioAuth
 from app.application.interfaces.servicio_empleados import IServicioEmpleados
 from app.application.interfaces.servicio_envios import IServicioEnvios
 from app.application.interfaces.servicio_notificaciones import IServicioNotificaciones
+from app.application.interfaces.servicio_preguntas_frecuentes import IServicioPreguntasFrecuentes
 from app.application.interfaces.servicio_recepcion_terminal import IServicioRecepcionTerminal
 from app.application.interfaces.servicio_retiro_sucursal import IServicioRetiroSucursal
 from app.application.interfaces.servicio_roles import IServicioRoles
@@ -25,6 +27,7 @@ from app.application.services.servicio_auth import ServicioAuth
 from app.application.services.servicio_empleados import ServicioEmpleados
 from app.application.services.servicio_envios import ServicioEnvios
 from app.application.services.servicio_notificaciones import ServicioNotificaciones
+from app.application.services.servicio_preguntas_frecuentes import ServicioPreguntasFrecuentes
 from app.application.services.servicio_recepcion_terminal import ServicioRecepcionTerminal
 from app.application.services.servicio_retiro_sucursal import ServicioRetiroSucursal
 from app.application.services.servicio_roles import ServicioRoles
@@ -44,6 +47,7 @@ from app.infrastructure.email.email_provider import obtener_proveedor_email
 from app.infrastructure.repositories.repositorio_entregas import RepositorioEntregas
 from app.infrastructure.repositories.repositorio_envios import RepositorioEnvios
 from app.infrastructure.repositories.repositorio_notificaciones import RepositorioNotificaciones
+from app.infrastructure.repositories.repositorio_preguntas_frecuentes import RepositorioPreguntasFrecuentes
 from app.infrastructure.repositories.repositorio_recepciones import RepositorioRecepciones
 from app.infrastructure.repositories.repositorio_roles import RepositorioRoles
 from app.infrastructure.repositories.repositorio_sucursales import RepositorioSucursales
@@ -176,6 +180,19 @@ def get_servicio_recepcion_terminal(
         repositorio_recepciones=repo_recepciones,
         repositorio_sucursales=repo_sucursales,
     )
+
+
+def get_repositorio_preguntas_frecuentes(
+    db: AsyncSession = Depends(obtener_sesion_db),
+) -> IRepositorioPreguntasFrecuentes:
+    return RepositorioPreguntasFrecuentes(db)
+
+
+def get_servicio_preguntas_frecuentes(
+    repo_preguntas: IRepositorioPreguntasFrecuentes = Depends(get_repositorio_preguntas_frecuentes),
+) -> IServicioPreguntasFrecuentes:
+    """Sección pública de preguntas frecuentes y administración de su contenido (HU08)."""
+    return ServicioPreguntasFrecuentes(repositorio_preguntas=repo_preguntas)
 
 
 # --- Inyección de Autenticación y Autorización ---
