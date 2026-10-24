@@ -10,6 +10,7 @@ from app.application.interfaces.repositorio_envios import IRepositorioEnvios
 from app.application.interfaces.repositorio_notificaciones import IRepositorioNotificaciones
 from app.application.interfaces.repositorio_preguntas_frecuentes import IRepositorioPreguntasFrecuentes
 from app.application.interfaces.repositorio_recepciones import IRepositorioRecepciones
+from app.application.interfaces.repositorio_reclamos import IRepositorioReclamos
 from app.application.interfaces.repositorio_roles import IRepositorioRoles
 from app.application.interfaces.repositorio_sucursales import IRepositorioSucursales
 from app.application.interfaces.repositorio_usuarios import IRepositorioUsuarios
@@ -19,6 +20,7 @@ from app.application.interfaces.servicio_envios import IServicioEnvios
 from app.application.interfaces.servicio_notificaciones import IServicioNotificaciones
 from app.application.interfaces.servicio_preguntas_frecuentes import IServicioPreguntasFrecuentes
 from app.application.interfaces.servicio_recepcion_terminal import IServicioRecepcionTerminal
+from app.application.interfaces.servicio_reclamos import IServicioReclamos
 from app.application.interfaces.servicio_retiro_sucursal import IServicioRetiroSucursal
 from app.application.interfaces.servicio_roles import IServicioRoles
 from app.application.interfaces.servicio_seguimiento import IServicioSeguimiento
@@ -29,6 +31,7 @@ from app.application.services.servicio_envios import ServicioEnvios
 from app.application.services.servicio_notificaciones import ServicioNotificaciones
 from app.application.services.servicio_preguntas_frecuentes import ServicioPreguntasFrecuentes
 from app.application.services.servicio_recepcion_terminal import ServicioRecepcionTerminal
+from app.application.services.servicio_reclamos import ServicioReclamos
 from app.application.services.servicio_retiro_sucursal import ServicioRetiroSucursal
 from app.application.services.servicio_roles import ServicioRoles
 from app.application.services.servicio_seguimiento import ServicioSeguimiento
@@ -49,6 +52,7 @@ from app.infrastructure.repositories.repositorio_envios import RepositorioEnvios
 from app.infrastructure.repositories.repositorio_notificaciones import RepositorioNotificaciones
 from app.infrastructure.repositories.repositorio_preguntas_frecuentes import RepositorioPreguntasFrecuentes
 from app.infrastructure.repositories.repositorio_recepciones import RepositorioRecepciones
+from app.infrastructure.repositories.repositorio_reclamos import RepositorioReclamos
 from app.infrastructure.repositories.repositorio_roles import RepositorioRoles
 from app.infrastructure.repositories.repositorio_sucursales import RepositorioSucursales
 from app.infrastructure.repositories.repositorio_usuarios import RepositorioUsuarios
@@ -193,6 +197,21 @@ def get_servicio_preguntas_frecuentes(
 ) -> IServicioPreguntasFrecuentes:
     """Sección pública de preguntas frecuentes y administración de su contenido (HU08)."""
     return ServicioPreguntasFrecuentes(repositorio_preguntas=repo_preguntas)
+
+
+def get_repositorio_reclamos(
+    db: AsyncSession = Depends(obtener_sesion_db),
+) -> IRepositorioReclamos:
+    return RepositorioReclamos(db)
+
+
+def get_servicio_reclamos(
+    repo_reclamos: IRepositorioReclamos = Depends(get_repositorio_reclamos),
+    repo_envios: IRepositorioEnvios = Depends(get_repositorio_envios),
+) -> IServicioReclamos:
+    """Reclamos desde la vista pública del token (HU07). Resuelve el envío con
+    el mismo repositorio que el seguimiento de HU04."""
+    return ServicioReclamos(repositorio_reclamos=repo_reclamos, repositorio_envios=repo_envios)
 
 
 # --- Inyección de Autenticación y Autorización ---
