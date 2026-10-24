@@ -135,3 +135,20 @@ async def test_hu04_seguimiento_a_sucursal_muestra_nombre_y_direccion(client: As
     assert "Sucursal Test Norte" in seguimiento["destino"]
     assert seguimiento["latitud_destino"] == -32.95
     assert seguimiento["longitud_destino"] == -60.69
+
+
+@pytest.mark.asyncio
+async def test_hu04_token_en_minusculas_o_con_espacios_resuelve_el_envio(client: AsyncClient):
+    """Un token copiado de un correo (con espacios) o tipeado en minúsculas encuentra el envío."""
+    registro = await client.post("/api/v1/envios", json=_payload_domicilio())
+    token = registro.json()["data"]["token_seguimiento"]
+
+    resp = await client.get(f"/api/v1/seguimiento/{token.lower()}")
+    assert resp.status_code == 200
+    assert resp.json()["data"]["token_seguimiento"] == token
+
+    resp_espacios = await client.get(f"/api/v1/seguimiento/%20{token}%20")
+    assert resp_espacios.status_code == 200
+
+    resp_retiro = await client.get(f"/api/v1/sucursales/opciones-retiro/{token.lower()}")
+    assert resp_retiro.status_code == 200

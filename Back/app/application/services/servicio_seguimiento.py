@@ -1,6 +1,7 @@
 from app.application.interfaces.repositorio_envios import IRepositorioEnvios
 from app.contracts.seguimiento import PaqueteSeguimientoData, SeguimientoData, SeguimientoResponse
 from app.core.exceptions import NotFoundException
+from app.domain.rules.codigos_rules import normalizar_token_seguimiento
 from app.domain.rules.destino_rules import (
     formatear_destino_domicilio,
     formatear_destino_sucursal,
@@ -14,7 +15,7 @@ class ServicioSeguimiento:
         self.repo_envios = repositorio_envios
 
     async def obtener_seguimiento(self, token: str) -> SeguimientoResponse:
-        envio = await self.repo_envios.obtener_por_token(token)
+        envio = await self.repo_envios.obtener_por_token(normalizar_token_seguimiento(token))
         if not envio:
             raise NotFoundException("No se encontró un envío asociado a ese código de seguimiento.")
 
