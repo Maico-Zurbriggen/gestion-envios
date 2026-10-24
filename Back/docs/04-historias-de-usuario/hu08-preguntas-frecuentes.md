@@ -54,7 +54,7 @@ Solo `ADMINISTRATIVO` y `SUPERADMIN` editan contenido público.
 
 ## Contenido inicial
 
-`seed.py:sembrar_preguntas_frecuentes` carga 13 preguntas en 6 categorías (Envíos, Seguimiento, Retiro en sucursal, Entregas a domicilio, Reclamos) al arrancar la app. Dos decisiones:
+`seed.py:sembrar_preguntas_frecuentes` carga 13 preguntas en 5 categorías (Envíos, Seguimiento, Retiro en sucursal, Entregas a domicilio, Reclamos) al arrancar la app. Dos decisiones:
 
 1. **Solo siembra si la tabla está vacía.** Las sucursales se siembran comparando por nombre, pero acá eso sería un error: si un administrador borra o reescribe una pregunta, re-sembrar por texto la volvería a crear en cada arranque.
 2. **Las respuestas usan las constantes del dominio.** Los límites de peso y medidas salen de `paquete_rules` (`PESO_MAX_KG`, `DIMENSION_MAX_CM`, `SUMA_DIMENSIONES_MAX_CM`), así la respuesta no queda desactualizada si cambian las reglas de HU03. Hay un test que lo verifica contra la respuesta servida.
