@@ -11,6 +11,7 @@ from app.application.interfaces.repositorio_notificaciones import IRepositorioNo
 from app.application.interfaces.repositorio_preguntas_frecuentes import IRepositorioPreguntasFrecuentes
 from app.application.interfaces.repositorio_recepciones import IRepositorioRecepciones
 from app.application.interfaces.repositorio_reclamos import IRepositorioReclamos
+from app.application.interfaces.repositorio_recorridos import IRepositorioRecorridos
 from app.application.interfaces.repositorio_repartidores import IRepositorioRepartidores
 from app.application.interfaces.repositorio_roles import IRepositorioRoles
 from app.application.interfaces.repositorio_sucursales import IRepositorioSucursales
@@ -22,6 +23,7 @@ from app.application.interfaces.servicio_notificaciones import IServicioNotifica
 from app.application.interfaces.servicio_preguntas_frecuentes import IServicioPreguntasFrecuentes
 from app.application.interfaces.servicio_recepcion_terminal import IServicioRecepcionTerminal
 from app.application.interfaces.servicio_reclamos import IServicioReclamos
+from app.application.interfaces.servicio_recorridos import IServicioRecorridos
 from app.application.interfaces.servicio_repartidores import IServicioRepartidores
 from app.application.interfaces.servicio_retiro_sucursal import IServicioRetiroSucursal
 from app.application.interfaces.servicio_roles import IServicioRoles
@@ -34,6 +36,7 @@ from app.application.services.servicio_notificaciones import ServicioNotificacio
 from app.application.services.servicio_preguntas_frecuentes import ServicioPreguntasFrecuentes
 from app.application.services.servicio_recepcion_terminal import ServicioRecepcionTerminal
 from app.application.services.servicio_reclamos import ServicioReclamos
+from app.application.services.servicio_recorridos import ServicioRecorridos
 from app.application.services.servicio_repartidores import ServicioRepartidores
 from app.application.services.servicio_retiro_sucursal import ServicioRetiroSucursal
 from app.application.services.servicio_roles import ServicioRoles
@@ -56,6 +59,7 @@ from app.infrastructure.repositories.repositorio_notificaciones import Repositor
 from app.infrastructure.repositories.repositorio_preguntas_frecuentes import RepositorioPreguntasFrecuentes
 from app.infrastructure.repositories.repositorio_recepciones import RepositorioRecepciones
 from app.infrastructure.repositories.repositorio_reclamos import RepositorioReclamos
+from app.infrastructure.repositories.repositorio_recorridos import RepositorioRecorridos
 from app.infrastructure.repositories.repositorio_repartidores import RepositorioRepartidores
 from app.infrastructure.repositories.repositorio_roles import RepositorioRoles
 from app.infrastructure.repositories.repositorio_sucursales import RepositorioSucursales
@@ -230,6 +234,21 @@ def get_servicio_repartidores(
 ) -> IServicioRepartidores:
     """Perfiles operativos de repartidor (sucursal base y tipo de reparto), soporte de HU10."""
     return ServicioRepartidores(repositorio_repartidores=repo_repartidores, repositorio_sucursales=repo_sucursales)
+
+
+def get_repositorio_recorridos(
+    db: AsyncSession = Depends(obtener_sesion_db),
+) -> IRepositorioRecorridos:
+    return RepositorioRecorridos(db)
+
+
+def get_servicio_recorridos(
+    repo_recorridos: IRepositorioRecorridos = Depends(get_repositorio_recorridos),
+    repo_sucursales: IRepositorioSucursales = Depends(get_repositorio_sucursales),
+) -> IServicioRecorridos:
+    """Generación, visualización y edición de recorridos (HU10). Necesita el
+    catálogo de sucursales para ubicar el origen y las paradas de larga distancia."""
+    return ServicioRecorridos(repositorio_recorridos=repo_recorridos, repositorio_sucursales=repo_sucursales)
 
 
 # --- Inyección de Autenticación y Autorización ---
