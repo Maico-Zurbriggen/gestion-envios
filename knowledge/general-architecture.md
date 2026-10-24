@@ -177,6 +177,10 @@ Las validaciones que representan decisiones del negocio —política de contrase
 | Registrar envío | Público | `POST /api/v1/envios` | Reunir datos, mapa, paquetes y generar planilla | Validar y persistir envío y paquetes; emitir token de seguimiento |
 | Listar sucursales | Público | `GET /api/v1/sucursales` | Mostrar opciones y marcadores | Entregar ubicaciones disponibles |
 | Seguimiento | Público por token | `GET /api/v1/seguimiento/{token}` | Mostrar resumen y estados por paquete | Resolver token y limitar la información expuesta |
+| Reclamo | Público por token | `GET`/`POST /api/v1/reclamos/seguimiento/{token}` | Ofrecer el formulario desde el seguimiento y listar reclamos | Validar contacto, paquete y duplicados; asociar el reclamo al envío |
+| Gestionar reclamos | Administrativo | `/api/v1/admin/reclamos` | Bandeja y cambio de estado | Máquina de estados y resolución obligatoria al cerrar |
+| Preguntas frecuentes | Público | `GET /api/v1/preguntas-frecuentes` | Mostrar y filtrar por categoría o texto | Servir el contenido publicado; administrarlo en `/api/v1/admin/preguntas-frecuentes` |
+| Recorridos | Administrativo | `POST /api/v1/recorridos/generar` y `/api/v1/recorridos/{id}...` | Generar, ver en el mapa, editar e iniciar; mostrar alertas | Reparto equitativo, orden optimizado, validación de ediciones, alertas y transición de estados |
 
 ## 6. Decisiones técnicas principales
 
@@ -216,7 +220,7 @@ Estas decisiones son válidas para el alcance actual, pero no deben confundirse 
 - El cierre de sesión no revoca tokens. Si se necesita invalidación inmediata, será necesario registrar sesiones o versiones de token en el backend.
 - CORS está abierto para facilitar el desarrollo local; en ambientes desplegados debe limitarse a los orígenes conocidos.
 - La geocodificación consulta Nominatim desde el navegador. Para más volumen conviene incorporar caché, límites de uso o un proveedor/servicio intermedio acorde con su política.
-- La ubicación en tiempo real, la ruta del repartidor y el mapa de tránsito no forman parte de este sprint.
+- Los recorridos se generan y se ven en el mapa (HU10), pero la ubicación en tiempo real del repartidor y el avance del recorrido llegan con HU11/HU12.
 - La creación automática de tablas resulta útil localmente; en ambientes compartidos los cambios de esquema deben ejecutarse exclusivamente mediante migraciones Alembic controladas.
 - Los nombres de roles que interpreta el frontend deben mantenerse alineados con el catálogo del backend; a futuro puede formalizarse una matriz de permisos basada en capacidades en lugar de strings de rol.
 

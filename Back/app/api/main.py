@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+
 from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,7 +9,13 @@ from app.api.v1.routers.admin import router as admin_router
 from app.api.v1.routers.auth import router as auth_router
 from app.api.v1.routers.envios import router as envios_router
 from app.api.v1.routers.health import router as health_router
+from app.api.v1.routers.preguntas_frecuentes import router as preguntas_frecuentes_router
+from app.api.v1.routers.preguntas_frecuentes import router_admin as preguntas_frecuentes_admin_router
 from app.api.v1.routers.recepcion_terminal import router as recepcion_terminal_router
+from app.api.v1.routers.reclamos import router as reclamos_router
+from app.api.v1.routers.reclamos import router_admin as reclamos_admin_router
+from app.api.v1.routers.recorridos import router as recorridos_router
+from app.api.v1.routers.repartidores import router as repartidores_router
 from app.api.v1.routers.roles import router as roles_router
 from app.api.v1.routers.seguimiento import router as seguimiento_router
 from app.api.v1.routers.sucursal_retiro import router as sucursal_retiro_router
@@ -68,6 +75,12 @@ def crear_aplicacion() -> FastAPI:
     app.include_router(roles_router, prefix=settings.API_V1_STR)
     app.include_router(sucursal_retiro_router, prefix=settings.API_V1_STR)
     app.include_router(recepcion_terminal_router, prefix=settings.API_V1_STR)
+    app.include_router(preguntas_frecuentes_router, prefix=settings.API_V1_STR)
+    app.include_router(preguntas_frecuentes_admin_router, prefix=settings.API_V1_STR)
+    app.include_router(reclamos_router, prefix=settings.API_V1_STR)
+    app.include_router(reclamos_admin_router, prefix=settings.API_V1_STR)
+    app.include_router(repartidores_router, prefix=settings.API_V1_STR)
+    app.include_router(recorridos_router, prefix=settings.API_V1_STR)
 
     # Health check también en la raíz
     app.include_router(health_router)

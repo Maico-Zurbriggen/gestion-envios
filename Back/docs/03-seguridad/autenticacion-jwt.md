@@ -30,12 +30,12 @@ Esto evita que alguien con una contraseña temporal pueda operar el sistema sin 
 Todas viven en `app/api/dependencies.py`:
 
 - `obtener_token_payload`: extrae el header `Authorization: Bearer <token>` y lo decodifica. Si falta o es inválido, `InvalidTokenException` (401).
-- `obtener_usuario_actual`: además de decodificar, busca al usuario en base y valida que `estado == "Activo"`. Pensada para endpoints que necesitan el usuario completo sin exigir un rol específico.
+- `obtener_usuario_actual`: además de decodificar, busca al usuario en base y valida que `estado == "Activo"`. Pensada para endpoints que necesitan el usuario completo sin exigir un rol específico. No restringe el scope, por eso `GET /auth/me` (que la usa y devuelve un token renovado) emite ese token con `PASSWORD_RESET_ONLY` mientras el usuario tenga `requiere_cambio_password=True`: antes emitía siempre `FULL_ACCESS`, lo que permitía saltear el cambio obligatorio de HU02 (test `test_hu02_me_no_permite_saltear_el_cambio_obligatorio_de_password`).
 - `requerir_scope(scope)`: fábrica de dependencia que exige un scope exacto en el token. Usada, por ejemplo, si un endpoint debiera ser accesible *solo* durante el flujo de cambio de contraseña.
 - `validar_token_para_cambio_password`: caso especial para `POST /auth/cambiar-password`, que acepta tanto `PASSWORD_RESET_ONLY` como `FULL_ACCESS` (un usuario con sesión plena también puede cambiar su contraseña voluntariamente).
 - `requerir_rol(rol)`: fábrica de dependencia que exige, en este orden: (1) que el scope no sea `PASSWORD_RESET_ONLY`, (2) que el usuario exista y esté activo, (3) que su rol coincida exactamente con `rol`. Es la que protege `POST /admin/empleados` exigiendo `RolEnum.SUPERADMIN`.
 
-Los endpoints públicos (`POST /envios`, `GET /seguimiento/{token}`, `GET /sucursales`) no usan ninguna de estas dependencias — son accesibles sin token, por diseño de HU03/HU04.
+Los endpoints públicos (`POST /envios`, `GET /seguimiento/{token}`, `GET /sucursales`, `GET /sucursales/opciones-retiro/{token}`, `GET|POST /reclamos/seguimiento/{token}`, `GET /preguntas-frecuentes`) no usan ninguna de estas dependencias — son accesibles sin token, por diseño de HU03/HU04/HU07/HU08/HU09. Los endpoints con varios roles habilitados usan `requerir_roles([...])`, que aplica los mismos tres chequeos que `requerir_rol`.
 
 ## Hashing de contraseñas
 
@@ -51,4 +51,15 @@ Los endpoints públicos (`POST /envios`, `GET /seguimiento/{token}`, `GET /sucur
 
 ## Roles
 
-`domain/constants/roles.py` define los 4 roles del sistema con IDs fijos (`RolIdEnum`) usados en el seed, y sus nombres (`RolEnum`) usados para comparar contra el claim `rol`/la relación `usuario.rol.nombre`. Por ahora solo `SUPERADMIN` tiene un endpoint que lo exige explícitamente (`POST /admin/empleados`); `ADMINISTRATIVO`, `VENDEDOR` y `REPARTIDOR` están definidos para historias de usuario futuras (HU06, HU10-HU13) que todavía no tienen endpoints propios.
+`domain/constants/roles.py` define los 4 roles del sistema con IDs fijos (`RolIdEnum`) usados en el seed, y sus nombres (`RolEnum`) usados para comparar contra el claim `rol`/la relación `usuario.rol.nombre`. Matriz actual de acceso a los endpoints protegidos:
+
+| Endpoints | SUPERADMIN | ADMINISTRATIVO | VENDEDOR | REPARTIDOR |
+|:---|:---:|:---:|:---:|:---:|
+| `POST /admin/empleados` (HU01) | ✔ | | | |
+| `/terminal/paquetes/...` (HU06) | ✔ | ✔ | ✔ | |
+| `/sucursal/paquetes/...` (HU13) | ✔ | ✔ | | |
+| `/admin/reclamos...` (HU07) | ✔ | ✔ | | |
+| `/admin/preguntas-frecuentes...` (HU08) | ✔ | ✔ | | |
+| `/repartidores...`, `/recorridos...` (HU10) | ✔ | ✔ | | |
+
+`REPARTIDOR` todavía no tiene endpoints propios: su aplicación móvil llega con HU11/HU12. Cada router declara su lista de roles en una constante (`ROLES_TERMINAL`, `ROLES_LOGISTICA`, etc.) para que los endpoints de un mismo recurso no puedan divergir.

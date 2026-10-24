@@ -142,6 +142,14 @@ async def test_hu13_validar_retiro_por_uuid_y_por_numero_paquete(
     assert data_cod["numero_paquete"] == "PAQ-BUSQUEDA1"
     assert data_cod["disponible_para_retiro"] is True
 
+    # Igual que en HU06: lo que emite el lector (minúsculas, espacios) se normaliza
+    resp_lector = await client.get(
+        "/api/v1/sucursal/paquetes/%20paq-busqueda1%20/validar-retiro",
+        headers=headers,
+    )
+    assert resp_lector.status_code == 200
+    assert resp_lector.json()["data"]["paquete_id"] == str(paquete.id)
+
 
 @pytest.mark.asyncio
 async def test_hu13_validar_retiro_paquete_no_encontrado(

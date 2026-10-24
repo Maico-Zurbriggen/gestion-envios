@@ -11,6 +11,7 @@ from app.contracts.sucursales import (
     SucursalRetiroData,
 )
 from app.core.exceptions import NotFoundException
+from app.domain.rules.codigos_rules import normalizar_token_seguimiento
 from app.domain.rules.retiro_rules import (
     envio_habilita_retiro_en_sucursal,
     paquete_disponible_en_sucursal,
@@ -53,7 +54,7 @@ class ServicioSucursales:
         motivo, en vez de un error: el token es válido, solo que ese envío no se
         retira por sucursal.
         """
-        envio = await self.repo_envios.obtener_por_token(token)
+        envio = await self.repo_envios.obtener_por_token(normalizar_token_seguimiento(token))
         if not envio:
             raise NotFoundException(
                 "No se encontró un envío asociado a ese código de seguimiento."

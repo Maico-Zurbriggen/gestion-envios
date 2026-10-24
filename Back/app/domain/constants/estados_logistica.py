@@ -5,8 +5,9 @@ Se definen acá para que el esquema de base de datos (CHECK constraints en
 infrastructure/db/models.py), las reglas de dominio y los servicios tengan una
 única fuente de verdad para los valores válidos, en vez de repetir los strings
 sueltos en cada lugar. Las que ya se usan en código son las de HU05
-(notificaciones), HU06 (recepción en terminal), HU09 (opciones de retiro) y
-HU13 (retiro en sucursal); el resto quedan reservadas para HU07/HU10-HU12."""
+(notificaciones), HU06 (recepción en terminal), HU07 (reclamos), HU09
+(opciones de retiro), HU10 (recorridos) y HU13 (retiro en sucursal); el resto
+quedan reservadas para HU11-HU12."""
 
 from enum import StrEnum
 
@@ -14,7 +15,8 @@ from enum import StrEnum
 class EstadoPaqueteEnum(StrEnum):
     """Máquina de estados de un paquete. Ver diagrama en el plan de base de
     datos. Transiciones implementadas hoy: PENDIENTE (HU03) ->
-    EN_SUCURSAL_ORIGEN (HU06) y -> ENTREGADO_EN_SUCURSAL (HU13)."""
+    EN_SUCURSAL_ORIGEN (HU06) -> EN_TRANSITO | EN_REPARTO (inicio de un
+    recorrido de HU10) y -> ENTREGADO_EN_SUCURSAL (HU13)."""
 
     PENDIENTE = "PENDIENTE"
     EN_SUCURSAL_ORIGEN = "EN_SUCURSAL_ORIGEN"
@@ -95,6 +97,19 @@ class EstadoRecorridoEnum(StrEnum):
     EN_EDICION = "EN_EDICION"
     EN_CURSO = "EN_CURSO"
     FINALIZADO = "FINALIZADO"
+
+
+class MotivoAlertaRecorridoEnum(StrEnum):
+    """HU10 Escenario 3: por qué un paquete quedó fuera de todo recorrido.
+
+    `alertas_recorrido.motivo` no tiene CHECK constraint (nació con un único
+    valor por defecto), así que sumar un motivo nuevo no requiere migración.
+    """
+
+    SIN_RECORRIDO_ASIGNADO = "SIN_RECORRIDO_ASIGNADO"
+    SIN_REPARTIDOR_DISPONIBLE = "SIN_REPARTIDOR_DISPONIBLE"
+    SIN_UBICACION_DESTINO = "SIN_UBICACION_DESTINO"
+    SIN_SUCURSAL_DESTINO = "SIN_SUCURSAL_DESTINO"
 
 
 class EstadoRecorridoPaqueteEnum(StrEnum):

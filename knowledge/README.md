@@ -9,5 +9,6 @@ Este directorio registra criterios compartidos para evitar que las decisiones de
 - [Administración de usuarios](./user-management.md)
 - [Autenticación](./authentication.md)
 - [Registro de envíos y seguimiento público](./envios-seguimiento.md)
+- [Reclamos, preguntas frecuentes y recorridos](./reclamos-preguntas-recorridos.md)
 
 Los documentos describen el estado actual y deben actualizarse cuando cambie un contrato o una decisión transversal.

@@ -42,7 +42,9 @@ class ServicioEmpleados:
         if usuario_dni:
             errores_duplicados.append({"field": "dni", "message": "El DNI ingresado ya está registrado."})
 
-        usuario_email = await self.repo_usuarios.obtener_por_email(datos.email)
+        # Se busca con la misma normalización con la que se guarda (minúsculas):
+        # si no, "Laura@..." pasaba la validación y chocaba con el UNIQUE de la base (500).
+        usuario_email = await self.repo_usuarios.obtener_por_email(datos.email.strip().lower())
         if usuario_email:
             errores_duplicados.append({"field": "email", "message": "El Email ingresado ya está registrado."})
 

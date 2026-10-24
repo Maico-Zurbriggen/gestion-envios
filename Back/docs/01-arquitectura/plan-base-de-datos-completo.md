@@ -4,7 +4,7 @@ Este documento diseña el modelo de datos para **todo** el Product Backlog (HU01
 
 Se apoya en dos fuentes: el Product Backlog completo (HU01–HU13, con sus escenarios BDD) y lo que ya está implementado y probado en `Back/app/infrastructure/db/models.py` (ver [Modelo de datos](./modelo-de-datos.md), que documenta el estado *actual*; este documento describe el estado *objetivo*).
 
-**Estado: ya aplicado.** Las 15 tablas están definidas en `models.py`, cubiertas por la migración `app/infrastructure/db/migrations/versions/5c87e509d4e7_esquema_inicial_completo_hu01_hu13.py`, y probadas (`alembic upgrade head` / `downgrade base` de punta a punta, `pytest` completo). Ver la sección 8 para aplicarla contra Neon.
+**Estado: ya aplicado.** Las 15 tablas están definidas en `models.py`, cubiertas por la migración `app/infrastructure/db/migrations/versions/5c87e509d4e7_esquema_inicial_completo_hu01_hu13.py`, y probadas (`alembic upgrade head` / `downgrade base` de punta a punta, `pytest` completo). Ver la sección 8 para aplicarla contra Neon. Desde entonces se agregó una sola migración, `b7d41e9a2c63` (HU10: estimaciones y orientación de calles en `recorridos`, índice por paquete en `recorrido_paquetes`); ver [HU10](../04-historias-de-usuario/hu10-recorridos.md#cambios-de-esquema).
 
 ---
 

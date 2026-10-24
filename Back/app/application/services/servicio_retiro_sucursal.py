@@ -21,6 +21,7 @@ from app.domain.constants.estados_logistica import (
     TipoEventoEntregaEnum,
     TipoRetiroEnum,
 )
+from app.domain.rules.recepcion_rules import normalizar_codigo_escaneado
 from app.domain.rules.retiro_rules import (
     evaluar_disponibilidad_retiro,
     validar_requisitos_retiro,
@@ -36,7 +37,7 @@ class ServicioRetiroSucursal(IServicioRetiroSucursal):
 
     async def validar_retiro(self, id_o_codigo: str) -> ValidarRetiroResponse:
         """Verifica la existencia, estado y condiciones previas para el retiro de un paquete."""
-        paquete = await self.repo_entregas.buscar_paquete_por_id_o_codigo(id_o_codigo)
+        paquete = await self.repo_entregas.buscar_paquete_por_id_o_codigo(normalizar_codigo_escaneado(id_o_codigo))
         if not paquete:
             raise NotFoundException(
                 message=f"No se encontró un paquete con el identificador '{id_o_codigo}'."
@@ -76,7 +77,7 @@ class ServicioRetiroSucursal(IServicioRetiroSucursal):
         usuario_admin: Any,
     ) -> RegistrarRetiroResponse:
         """Valida identidades/autorizaciones y registra el retiro físico del paquete."""
-        paquete = await self.repo_entregas.buscar_paquete_por_id_o_codigo(id_o_codigo)
+        paquete = await self.repo_entregas.buscar_paquete_por_id_o_codigo(normalizar_codigo_escaneado(id_o_codigo))
         if not paquete:
             raise NotFoundException(
                 message=f"No se encontró un paquete con el identificador '{id_o_codigo}'."

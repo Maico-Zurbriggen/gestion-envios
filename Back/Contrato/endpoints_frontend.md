@@ -33,6 +33,20 @@
 10. [Endpoints de Sucursales Disponibles para Retiro (`/sucursales`) - HU09](#10-endpoints-de-sucursales-disponibles-para-retiro-hu09)
     - `GET /api/v1/sucursales` (Catálogo Público con Filtros por Provincia y Ciudad)
     - `GET /api/v1/sucursales/opciones-retiro/{token}` (Opciones de Retiro de un Envío)
+11. [Endpoints de Reclamos desde la Vista Pública del Token - HU07](#11-endpoints-de-reclamos-desde-la-vista-pública-del-token-hu07)
+    - `GET /api/v1/reclamos/seguimiento/{token}` (Habilitar el Inicio de un Reclamo)
+    - `POST /api/v1/reclamos/seguimiento/{token}` (Iniciar un Reclamo)
+    - `GET|PATCH /api/v1/admin/reclamos...` (Gestión Interna)
+12. [Endpoints de Preguntas Frecuentes - HU08](#12-endpoints-de-preguntas-frecuentes-hu08)
+    - `GET /api/v1/preguntas-frecuentes` (Sección Pública)
+    - `GET|POST|PATCH|DELETE /api/v1/admin/preguntas-frecuentes...` (Administración del Contenido)
+13. [Endpoints de Recorridos de Reparto - HU10](#13-endpoints-de-recorridos-de-reparto-hu10)
+    - `GET|PUT /api/v1/repartidores...` (Perfiles de Repartidor)
+    - `POST /api/v1/recorridos/generar` (Generación Automática)
+    - `GET /api/v1/recorridos` y `GET /api/v1/recorridos/{id}` (Visualización)
+    - `PUT|DELETE /api/v1/recorridos/{id}/paquetes...`, `POST .../optimizar`, `PATCH .../repartidor`, `DELETE /api/v1/recorridos/{id}` (Edición)
+    - `POST /api/v1/recorridos/{id}/iniciar` (Inicio)
+    - `GET /api/v1/recorridos/alertas` y `PATCH .../alertas/{id}/resolver` (Alertas)
 
 ---
 
@@ -92,9 +106,9 @@ El frontend debe utilizar los siguientes IDs numéricos para la asignación y fi
 | `id` (int) | `nombre` (string) | Descripción | Permisos Principales |
 |:---:|:---|:---|:---|
 | **1** | `SUPERADMIN` | Administrador general del sistema | Alta de empleados, acceso total |
-| **2** | `ADMINISTRATIVO` | Usuario administrativo operativo | Gestión y seguimiento de envíos |
+| **2** | `ADMINISTRATIVO` | Usuario administrativo operativo | Retiros (HU13), reclamos (HU07), preguntas frecuentes (HU08) y recorridos (HU10) |
 | **3** | `VENDEDOR` | Personal de terminal / venta | Registro de órdenes y ventas |
-| **4** | `REPARTIDOR` | Personal de reparto | Gestión de rutas y entregas |
+| **4** | `REPARTIDOR` | Personal de reparto | Recibe recorridos (HU10); su app móvil llega con HU11/HU12 |
 
 ---
 
@@ -1054,3 +1068,423 @@ Si el envío **no** es para retiro, la respuesta sigue siendo `200`: el token es
 
 #### 🔒 Nota de privacidad
 Como el endpoint es público, **no expone** email, teléfono ni documento del remitente o del destinatario — mismo criterio que la vista pública de HU04. Si la pantalla necesita datos de contacto, tienen que venir de un endpoint autenticado.
+
+
+---
+
+## 11. Endpoints de Reclamos desde la Vista Pública del Token (HU07)
+
+El reclamo se inicia **sin sesión**, desde la misma vista de seguimiento de HU04, con el mismo token (`ENV-XXXXXXXXXX`). El token se acepta en minúsculas o con espacios (el backend lo normaliza). La gestión interna del reclamo es para `ADMINISTRATIVO` / `SUPERADMIN`.
+
+**Flujo recomendado en pantalla:**
+1. En la vista de seguimiento, el botón "Iniciar reclamo" llama a `GET /api/v1/reclamos/seguimiento/{token}`.
+2. Si `puede_iniciar` es `true`, mostrar el formulario con `tipos_reclamo` y `paquetes`; si es `false`, mostrar `motivo_no_habilitado`.
+3. Enviar con `POST` al mismo path. Mostrar la lista `reclamos` para que el usuario vea el estado y la respuesta.
+
+### 11.1. Habilitar el Inicio de un Reclamo
+* **Método:** `GET`
+* **URL:** `/api/v1/reclamos/seguimiento/{token}`
+* **Autenticación requerida:** No (Público)
+
+#### ✅ Respuesta Exitosa (`200 OK`):
+```json
+{
+  "status": "success",
+  "data": {
+    "token_seguimiento": "ENV-4KD9XM2P7Q",
+    "puede_iniciar": true,
+    "motivo_no_habilitado": null,
+    "max_reclamos_activos": 5,
+    "tipos_reclamo": [
+      { "codigo": "DEMORA", "descripcion": "El envío está demorado o no avanza en el seguimiento." },
+      { "codigo": "DANIO", "descripcion": "El paquete llegó dañado o con signos de apertura." },
+      { "codigo": "EXTRAVIO", "descripcion": "El paquete se perdió o no aparece." },
+      { "codigo": "OTRO", "descripcion": "Cualquier otro inconveniente relacionado con el envío." }
+    ],
+    "paquetes": [
+      { "numero_paquete": "PAQ-ZPC5LB48JJ", "descripcion": "Caja con repuestos", "estado": "EN_REPARTO" }
+    ],
+    "reclamos": [
+      {
+        "id": "3f0c2a8e-6a4b-4d0e-9a51-7c1d2e3f4a5b",
+        "numero_paquete": "PAQ-ZPC5LB48JJ",
+        "tipo": "DEMORA",
+        "estado": "RESUELTO",
+        "descripcion": "El paquete figura en reparto desde temprano y todavía no llegó.",
+        "resolucion": "El repartidor confirmó la entrega para la tarde.",
+        "fecha_creacion": "2026-10-24T12:03:11",
+        "ultima_actualizacion": "2026-10-24T15:40:02"
+      }
+    ]
+  }
+}
+```
+
+> `reclamos` viene del más reciente al más antiguo. **No** incluye los datos de contacto de quien reclamó (el token lo comparten remitente y destinatario).
+
+#### ❌ Respuestas de Error:
+* **`404 Not Found`:** token inexistente → `"No se encontró un envío asociado a ese código de seguimiento."`
+
+### 11.2. Iniciar un Reclamo
+* **Método:** `POST`
+* **URL:** `/api/v1/reclamos/seguimiento/{token}`
+* **Autenticación requerida:** No (Público)
+* **Request Body:**
+```json
+{
+  "tipo": "DEMORA",
+  "descripcion": "El paquete figura en reparto desde temprano y todavía no llegó.",
+  "numero_paquete": "PAQ-ZPC5LB48JJ",
+  "contacto_nombre": "María Gómez",
+  "contacto_email": "maria.gomez@example.com",
+  "contacto_telefono": "+54 9 3564 222222"
+}
+```
+
+| Campo | Tipo | Obligatorio | Detalle |
+|:---|:---|:---:|:---|
+| `tipo` | `string` | Sí | `DEMORA`, `DANIO`, `EXTRAVIO` u `OTRO` (no distingue mayúsculas). |
+| `descripcion` | `string` | Sí | 20 a 2000 caracteres. |
+| `numero_paquete` | `string` o `null` | No | Paquete afectado. Debe ser de este envío. Si se omite, el reclamo es por el envío completo. |
+| `contacto_nombre` | `string` | Sí | 2 a 150 caracteres. |
+| `contacto_email` | `string` o `null` | * | Email válido. |
+| `contacto_telefono` | `string` o `null` | * | Dígitos, espacios, guiones, paréntesis y `+` inicial; mínimo 6 dígitos. |
+
+\* Es obligatorio **al menos uno** de los dos medios de contacto.
+
+#### ✅ Respuesta Exitosa (`201 Created`):
+```json
+{
+  "status": "success",
+  "message": "Reclamo registrado. Vas a poder seguir su estado con tu código de seguimiento.",
+  "data": {
+    "id": "3f0c2a8e-6a4b-4d0e-9a51-7c1d2e3f4a5b",
+    "numero_paquete": "PAQ-ZPC5LB48JJ",
+    "tipo": "DEMORA",
+    "estado": "ABIERTO",
+    "descripcion": "El paquete figura en reparto desde temprano y todavía no llegó.",
+    "resolucion": null,
+    "fecha_creacion": "2026-10-24T12:03:11",
+    "ultima_actualizacion": "2026-10-24T12:03:11"
+  }
+}
+```
+
+#### ❌ Respuestas de Error:
+* **`400 VALIDATION_ERROR`:** campos inválidos; `field: "contacto"` si no hay email ni teléfono; `field: "numero_paquete"` si el paquete no es del envío; `field: "token"` si el envío ya tiene 5 reclamos abiertos o en revisión.
+* **`409 DUPLICATE_ENTRY`:** ya hay un reclamo abierto o en revisión del mismo `tipo` sobre el mismo paquete (o sobre el envío completo). Mostrar el reclamo existente de la lista `reclamos`.
+* **`404 Not Found`:** token inexistente.
+
+### 11.3. Gestión Interna de Reclamos
+* **Autenticación requerida:** Sí (Bearer JWT) · **Roles:** `ADMINISTRATIVO`, `SUPERADMIN`
+
+| Método | URL | Detalle |
+|:---|:---|:---|
+| `GET` | `/api/v1/admin/reclamos?estado=&tipo=&token=` | Bandeja, del más reciente al más antiguo. Filtros opcionales. Responde `{ "status", "total", "data": [...] }`. |
+| `GET` | `/api/v1/admin/reclamos/{id}` | Detalle de un reclamo. |
+| `PATCH` | `/api/v1/admin/reclamos/{id}/estado` | Cambio de estado. Body: `{ "estado": "RESUELTO", "resolucion": "..." }`. |
+
+Cada reclamo de la bandeja incluye, además de lo público: `envio_id`, `token_seguimiento`, `remitente_nombre`, `destinatario_nombre`, `contacto_nombre`, `contacto_email`, `contacto_telefono`, `usuario_resolucion_id`, `usuario_resolucion_nombre`, `created_at`, `updated_at`.
+
+**Transiciones válidas:** `ABIERTO → EN_REVISION | RESUELTO | RECHAZADO` y `EN_REVISION → RESUELTO | RECHAZADO`. Para `RESUELTO`/`RECHAZADO` la `resolucion` es obligatoria (mínimo 10 caracteres) y se muestra en la vista pública. Un reclamo cerrado no admite cambios (`400`, `field: "estado"`).
+
+* **Errores:** `400` (filtro o transición inválida, resolución faltante), `401`, `403` (rol no habilitado o scope `PASSWORD_RESET_ONLY`), `404` (reclamo inexistente).
+
+
+---
+
+## 12. Endpoints de Preguntas Frecuentes (HU08)
+
+### 12.1. Sección Pública de Preguntas Frecuentes
+* **Método:** `GET`
+* **URL:** `/api/v1/preguntas-frecuentes`
+* **Autenticación requerida:** No (Público)
+* **Query Params (opcionales):**
+
+| Param | Tipo | Detalle |
+|:---|:---|:---|
+| `categoria` | `string` | Filtra por categoría, sin distinguir mayúsculas ni tildes (`envios` encuentra `Envíos`). Máx. 80. |
+| `q` | `string` | Búsqueda libre: cada palabra debe aparecer en la pregunta, la respuesta o la categoría, sin distinguir mayúsculas ni tildes. Máx. 100. |
+
+#### ✅ Respuesta Exitosa (`200 OK`):
+```json
+{
+  "status": "success",
+  "data": {
+    "total": 2,
+    "categorias": [
+      { "nombre": "Envíos", "cantidad": 4 },
+      { "nombre": "Seguimiento", "cantidad": 3 },
+      { "nombre": "Retiro en sucursal", "cantidad": 2 },
+      { "nombre": "Entregas a domicilio", "cantidad": 2 },
+      { "nombre": "Reclamos", "cantidad": 2 }
+    ],
+    "preguntas": [
+      {
+        "id": 12,
+        "categoria": "Reclamos",
+        "pregunta": "¿Cómo inicio un reclamo?",
+        "respuesta": "Consultá tu envío con el código de seguimiento y elegí la opción para iniciar un reclamo...",
+        "orden": 120
+      }
+    ]
+  }
+}
+```
+
+**Cómo usarlo en pantalla:** `categorias` trae **todas** las categorías publicadas aunque se haya filtrado (sirve para los chips o pestañas de filtro); `preguntas` y `total` respetan los filtros. Las preguntas vienen ya ordenadas; para agruparlas, usar `categoria` (nunca viene vacía: las que no tienen se muestran como `"General"`). Sin resultados responde `200` con `"preguntas": []`.
+
+### 12.2. Administración del Contenido
+* **Autenticación requerida:** Sí (Bearer JWT) · **Roles:** `ADMINISTRATIVO`, `SUPERADMIN`
+
+| Método | URL | Detalle |
+|:---|:---|:---|
+| `GET` | `/api/v1/admin/preguntas-frecuentes` | Todas, incluidas las no publicadas. |
+| `GET` | `/api/v1/admin/preguntas-frecuentes/{id}` | Detalle. |
+| `POST` | `/api/v1/admin/preguntas-frecuentes` | Alta (`201`). |
+| `PATCH` | `/api/v1/admin/preguntas-frecuentes/{id}` | Modificación parcial: solo los campos enviados. `"categoria": null` la quita. |
+| `DELETE` | `/api/v1/admin/preguntas-frecuentes/{id}` | Baja. Para ocultar sin borrar, `PATCH` con `publicada: false`. |
+
+Body de alta:
+```json
+{
+  "categoria": "Pagos",
+  "pregunta": "¿Qué medios de pago aceptan?",
+  "respuesta": "Efectivo y tarjetas de débito o crédito en sucursal.",
+  "orden": 140,
+  "publicada": true
+}
+```
+
+| Campo | Tipo | Obligatorio | Detalle |
+|:---|:---|:---:|:---|
+| `categoria` | `string` o `null` | No | Máx. 80. Se recortan espacios. |
+| `pregunta` | `string` | Sí | 5 a 255. |
+| `respuesta` | `string` | Sí | 10 a 5000. |
+| `orden` | `int` | No | 0 a 10000 (default 0). Menor = primero. |
+| `publicada` | `bool` | No | Default `true`. |
+
+Respuesta (alta, detalle y modificación):
+```json
+{
+  "status": "success",
+  "message": "Pregunta frecuente creada correctamente.",
+  "data": {
+    "id": 14,
+    "categoria": "Pagos",
+    "pregunta": "¿Qué medios de pago aceptan?",
+    "respuesta": "Efectivo y tarjetas de débito o crédito en sucursal.",
+    "orden": 140,
+    "publicada": true,
+    "created_at": "2026-10-24T12:00:00",
+    "updated_at": "2026-10-24T12:00:00"
+  }
+}
+```
+
+* **Errores:** `400` (validación; body vacío en `PATCH`), `409 DUPLICATE_ENTRY` (la pregunta ya existe, aunque difiera en tildes o signos), `404` (id inexistente), `401`, `403`.
+
+
+---
+
+## 13. Endpoints de Recorridos de Reparto (HU10)
+
+Todos requieren **Bearer JWT** con rol `ADMINISTRATIVO` o `SUPERADMIN` (personal de logística). `VENDEDOR` y `REPARTIDOR` reciben `403 FORBIDDEN_ACCESS`; un token `PASSWORD_RESET_ONLY`, `403 FORBIDDEN_SCOPE`.
+
+**Flujo recomendado en pantalla:**
+1. Configurar una vez a cada repartidor (13.1).
+2. Elegir sucursal, tipo (`CORTA`/`LARGA`) y fecha → generar (13.2). Mostrar los recorridos en el mapa y las `alertas`.
+3. Revisar/editar cada recorrido (13.4). Mostrar las `alertas` que devuelve cada edición.
+4. Iniciar el recorrido cuando sale el repartidor (13.5).
+
+### 13.1. Perfiles de Repartidor
+| Método | URL | Detalle |
+|:---|:---|:---|
+| `GET` | `/api/v1/repartidores?sucursal_id=&tipo_reparto=&activo=` | Usuarios con rol REPARTIDOR. Con filtros, solo los que tienen perfil. |
+| `GET` | `/api/v1/repartidores/{usuario_id}` | Detalle. |
+| `PUT` | `/api/v1/repartidores/{usuario_id}/perfil` | Crea o reemplaza el perfil. |
+
+Body del `PUT`:
+```json
+{ "sucursal_base_id": 1, "tipo_reparto": "CORTA", "activo": true }
+```
+
+Respuesta (`200`):
+```json
+{
+  "status": "success",
+  "message": "Perfil de repartidor creado.",
+  "data": {
+    "usuario_id": "7c53315c-a2d8-4b54-936d-1e12bcf9b1c5",
+    "nombre": "Diego Repartidor",
+    "dni": "37222333",
+    "email": "diego.repartidor@empresa.com",
+    "telefono": "+543564222333",
+    "estado_usuario": "Activo",
+    "perfil_configurado": true,
+    "sucursal_base": { "id": 1, "nombre": "Sucursal Córdoba Centro", "provincia": "Córdoba", "ciudad": "Córdoba", "direccion": "Av. Colón 1234", "latitud": -31.4167, "longitud": -64.1833 },
+    "tipo_reparto": "CORTA",
+    "activo": true,
+    "disponible_para_recorridos": true
+  }
+}
+```
+
+* **Errores:** `400` (tipo inválido, sucursal inexistente, el usuario no es REPARTIDOR), `404` (usuario inexistente), `409` (tiene recorridos activos y se intenta cambiar sucursal, tipo o desactivarlo).
+
+### 13.2. Generar Recorridos Automáticamente
+* **Método:** `POST`
+* **URL:** `/api/v1/recorridos/generar`
+* **Request Body:**
+```json
+{
+  "sucursal_id": 1,
+  "tipo_distancia": "CORTA",
+  "fecha": "2026-10-24",
+  "orientacion_calles_grados": 20,
+  "repartidor_ids": null,
+  "reemplazar_existentes": false
+}
+```
+
+| Campo | Tipo | Obligatorio | Detalle |
+|:---|:---|:---:|:---|
+| `sucursal_id` | `int` | Sí | Sucursal de partida. Debe tener coordenadas. |
+| `tipo_distancia` | `string` | Sí | `CORTA`: entregas a domicilio en la ciudad. `LARGA`: traslados a otras sucursales. |
+| `fecha` | `date` | No | Default: hoy. |
+| `orientacion_calles_grados` | `float` | No | Desde 0 y menor que 90. Ángulo de la cuadrícula de calles respecto del norte; solo afecta a `CORTA`. Default `0`. |
+| `repartidor_ids` | `uuid[]` | No | Subconjunto de repartidores. Default: todos los disponibles de la sucursal y el tipo sin otro recorrido activo ese día. |
+| `reemplazar_existentes` | `bool` | No | Si ya hay recorridos sin iniciar para esa sucursal/fecha/tipo, los descarta y genera de nuevo. Sin esto, `409`. |
+
+#### ✅ Respuesta Exitosa (`200 OK`):
+```json
+{
+  "status": "success",
+  "message": "Se generaron 2 recorrido(s) con 6 paquete(s). 1 paquete(s) quedaron sin recorrido: revisá las alertas.",
+  "data": {
+    "sucursal_id": 1,
+    "fecha": "2026-10-24",
+    "tipo_distancia": "CORTA",
+    "orientacion_calles_grados": 20.0,
+    "resumen": {
+      "paquetes_pendientes": 7,
+      "paquetes_asignados": 6,
+      "paquetes_sin_recorrido": 1,
+      "repartidores_disponibles": 2,
+      "recorridos_generados": 2,
+      "recorridos_reemplazados": 0
+    },
+    "recorridos": [ { "...": "mismo formato que el detalle de 13.3" } ],
+    "alertas": [
+      {
+        "id": "b1e6c0d4-...",
+        "paquete_id": "d476fa8c-...",
+        "numero_paquete": "PAQ-8HT3MN6RW1",
+        "token_seguimiento": "ENV-4KD9XM2P7Q",
+        "destino": "Colón 900, Córdoba, Córdoba",
+        "motivo": "SIN_UBICACION_DESTINO",
+        "descripcion_motivo": "El destino no tiene coordenadas: no se puede ubicar en el mapa y debe asignarse manualmente.",
+        "sucursal_actual_id": 1,
+        "recorrido_id": null,
+        "resuelta": false,
+        "created_at": "2026-10-24T09:15:39",
+        "resuelta_at": null
+      }
+    ]
+  }
+}
+```
+
+**Motivos de alerta:** `SIN_UBICACION_DESTINO`, `SIN_SUCURSAL_DESTINO`, `SIN_REPARTIDOR_DISPONIBLE`, `SIN_RECORRIDO_ASIGNADO`. Mostrar `descripcion_motivo`. Sin paquetes pendientes la respuesta es `200` con `recorridos: []`.
+
+* **Errores:** `400` (sucursal inexistente o sin coordenadas, tipo inválido, orientación fuera de rango, `repartidor_ids[i]` no disponible), `409 DUPLICATE_ENTRY` (ya hay recorridos sin iniciar: reenviar con `reemplazar_existentes: true`).
+
+### 13.3. Visualizar Recorridos
+| Método | URL | Detalle |
+|:---|:---|:---|
+| `GET` | `/api/v1/recorridos?sucursal_id=&fecha=&tipo_distancia=&estado=&repartidor_id=` | Resumen. `{ "status", "total", "data": [...] }`. |
+| `GET` | `/api/v1/recorridos/{id}` | Detalle para el mapa. `{ "status", "message", "data", "alertas" }`. |
+
+Detalle (`data`):
+```json
+{
+  "id": "0b8f1c2e-...",
+  "fecha": "2026-10-24",
+  "tipo_distancia": "CORTA",
+  "estado": "GENERADO",
+  "generado_automaticamente": true,
+  "sucursal_origen_id": 1,
+  "sucursal_origen_nombre": "Sucursal Córdoba Centro",
+  "repartidor": { "usuario_id": "7c53315c-...", "nombre": "Diego Repartidor", "telefono": "+543564222333" },
+  "cantidad_paradas": 1,
+  "cantidad_paquetes": 1,
+  "distancia_estimada_km": 1.62,
+  "duracion_estimada_min": 9,
+  "created_at": "2026-10-24T09:16:20",
+  "updated_at": "2026-10-24T09:16:20",
+  "orientacion_calles_grados": 20.0,
+  "vuelve_a_sucursal": true,
+  "sucursal_origen": { "id": 1, "nombre": "Sucursal Córdoba Centro", "provincia": "Córdoba", "ciudad": "Córdoba", "direccion": "Av. Colón 1234", "latitud": -31.4167, "longitud": -64.1833 },
+  "paradas": [
+    {
+      "orden": 1,
+      "tipo_parada": "DOMICILIO",
+      "destino": "San Martín 100, Córdoba, Córdoba",
+      "latitud": -31.41,
+      "longitud": -64.19,
+      "sucursal_destino": null,
+      "paquetes": [
+        {
+          "paquete_id": "d476fa8c-...",
+          "numero_paquete": "PAQ-ZPC5LB48JJ",
+          "orden": 1,
+          "descripcion": "Libros",
+          "peso_kg": 3.0,
+          "estado": "EN_SUCURSAL_ORIGEN",
+          "estado_en_recorrido": "PENDIENTE",
+          "token_seguimiento": "ENV-4KD9XM2P7Q",
+          "destinatario_nombre": "María Gómez",
+          "destinatario_telefono": "+543564222222"
+        }
+      ]
+    }
+  ],
+  "trazado": [
+    { "latitud": -31.4167, "longitud": -64.1833 },
+    { "latitud": -31.41, "longitud": -64.19 },
+    { "latitud": -31.4167, "longitud": -64.1833 }
+  ],
+  "paquetes_sin_ubicacion": 0
+}
+```
+
+**Cómo dibujarlo:** `trazado` es la polilínea en orden de visita (sucursal, paradas y vuelta a la sucursal si `vuelve_a_sucursal`). En `LARGA`, `tipo_parada` es `SUCURSAL`, `sucursal_destino` viene poblado y no hay vuelta. Una parada con `latitud: null` es un domicilio sin coordenadas agregado a mano: listarla, pero no tiene punto en el mapa.
+
+### 13.4. Editar un Recorrido (solo `GENERADO` o `EN_EDICION`)
+| Método | URL | Body | Detalle |
+|:---|:---|:---|:---|
+| `PUT` | `/api/v1/recorridos/{id}/paquetes` | `{ "paquetes": ["PAQ-...", "PAQ-..."] }` | Lista completa en orden de visita (números o UUID). Agrega, quita y reordena. |
+| `DELETE` | `/api/v1/recorridos/{id}/paquetes/{codigo}` | — | Quita un paquete. No se puede quitar el último. |
+| `POST` | `/api/v1/recorridos/{id}/optimizar` | — | Recalcula el mejor orden de los paquetes actuales. |
+| `PATCH` | `/api/v1/recorridos/{id}/repartidor` | `{ "repartidor_id": "uuid" }` | Reasigna a otro repartidor disponible de la misma sucursal y tipo. |
+| `DELETE` | `/api/v1/recorridos/{id}` | — | Descarta el recorrido; sus paquetes quedan libres (y se alertan). Responde `{ "status", "message", "alertas" }`. |
+
+Las primeras cuatro devuelven el detalle actualizado (formato 13.3) y `alertas` con los paquetes de la sucursal que siguen sin recorrido de ese tipo. Una edición manual deja el recorrido en `EN_EDICION` con `generado_automaticamente: false`.
+
+* **Errores:** `400` con `field: "paquetes[i]"` por cada paquete inválido (inexistente, repetido, en otra sucursal, no listo, en otro recorrido activo o de otro tipo de reparto); `400` con `field: "estado"` si el recorrido ya no es editable; `404` (recorrido inexistente o paquete que no forma parte del recorrido); `409` (el repartidor ya tiene otro recorrido activo ese día).
+
+### 13.5. Iniciar un Recorrido
+* **Método:** `POST`
+* **URL:** `/api/v1/recorridos/{id}/iniciar`
+
+Pasa el recorrido a `EN_CURSO` y cada paquete a `EN_REPARTO` (`CORTA`) o `EN_TRANSITO` (`LARGA`), visible enseguida en `GET /api/v1/seguimiento/{token}`. Desde ahí no se edita ni se elimina.
+
+* **Errores:** `400` (no está `GENERADO`/`EN_EDICION`, no tiene paquetes, o algún paquete ya no está listo en la sucursal: quitarlo antes).
+
+### 13.6. Alertas de Paquetes sin Recorrido
+| Método | URL | Detalle |
+|:---|:---|:---|
+| `GET` | `/api/v1/recorridos/alertas?sucursal_id=&incluir_resueltas=false` | Alertas pendientes (o todas). `{ "status", "total", "data": [...] }`. |
+| `PATCH` | `/api/v1/recorridos/alertas/{id}/resolver` | Marca como resuelta una alerta atendida por fuera del sistema. `400` si ya estaba resuelta. |
+
+Las alertas también se resuelven solas cuando el paquete entra en un recorrido o sale de la sucursal.
