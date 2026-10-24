@@ -175,7 +175,7 @@ class ServicioRecorridos(IServicioRecorridos):
         ids_generados: list[uuid.UUID] = []
         if paradas and repartidores:
             grupos = planificar_recorridos(origen, paradas, len(repartidores), tipo, orientacion)
-            for repartidor, grupo in zip(repartidores, grupos):
+            for repartidor, grupo in zip(repartidores, grupos, strict=True):
                 if not grupo:
                     continue
                 recorrido = RecorridoModel(

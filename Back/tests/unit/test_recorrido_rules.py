@@ -197,11 +197,11 @@ def test_particion_es_optima_contra_fuerza_bruta():
     cargas = [3, 1, 4, 1, 5, 9, 2, 6]
     k = 3
     inicios = particionar_equitativamente(cargas, k)
-    tramos = [cargas[a:b] for a, b in zip(inicios, inicios[1:] + [len(cargas)])]
+    tramos = [cargas[a:b] for a, b in zip(inicios, inicios[1:] + [len(cargas)], strict=True)]
     maximo = max(sum(t) for t in tramos)
 
     mejor = min(
-        max(sum(cargas[a:b]) for a, b in zip((0, *cortes), (*cortes, len(cargas))))
+        max(sum(cargas[a:b]) for a, b in zip((0, *cortes), (*cortes, len(cargas)), strict=True))
         for cortes in itertools.combinations(range(1, len(cargas)), k - 1)
     )
     assert maximo == mejor
