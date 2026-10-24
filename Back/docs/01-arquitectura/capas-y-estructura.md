@@ -7,7 +7,8 @@ El backend sigue una Clean Architecture adaptada a Python: en vez de separar en 
 ```text
 app/
 ├── api/                       # Capa de presentación (HTTP)
-│   ├── v1/routers/            # Un router por recurso: auth, admin, envios, seguimiento, sucursales, health
+│   ├── v1/routers/            # Un router por recurso: auth, admin, envios, seguimiento, sucursales, recepcion_terminal,
+│   │                          #   sucursal_retiro, reclamos, preguntas_frecuentes, repartidores, recorridos, health
 │   ├── dependencies.py        # Depends() reutilizables: inyección de servicios/repos, auth, roles, scopes
 │   ├── middleware.py          # Manejadores de excepciones globales → respuestas JSON uniformes
 │   └── main.py                # Fábrica de la app FastAPI, wiring de routers y middlewares

@@ -31,7 +31,7 @@ Hay dos mecanismos que convergen en el mismo formato, registrados en `app/api/mi
 |---|---|---|---|
 | `AUTH_FAILED` | 401 | `AuthFailedException` | DNI o contraseña incorrectos, o usuario inactivo, en el login. |
 | `VALIDATION_ERROR` | 400 | `ValidationException` (o automático de Pydantic) | Payload con formato inválido o que incumple una regla de negocio (ej. dimensiones de paquete). |
-| `DUPLICATE_ENTRY` | 409 | `DuplicateEntryException` | DNI o email ya registrados al dar de alta un empleado. |
+| `DUPLICATE_ENTRY` | 409 | `DuplicateEntryException` | Conflicto con un dato existente: DNI o email ya registrados (HU01), pregunta frecuente repetida (HU08), reclamo igual en curso (HU07), recorridos sin iniciar al generar o repartidor ocupado (HU10). |
 | `PASSWORD_POLICY_ERROR` | 400 | `PasswordPolicyException` | La nueva contraseña no cumple la política, no coincide con la confirmación, o la contraseña actual es incorrecta. |
 | `INVALID_TOKEN` | 401 | `InvalidTokenException` | Token ausente, expirado, mal formado, o que referencia un usuario inexistente. |
 | `FORBIDDEN_SCOPE` | 403 | `ForbiddenScopeException` | El token es válido pero su `scope` no alcanza para la operación (ej. token `PASSWORD_RESET_ONLY` usado fuera del cambio de clave). |

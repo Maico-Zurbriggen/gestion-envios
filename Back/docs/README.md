@@ -30,7 +30,10 @@ Esta carpeta (`Back/docs/`) es el "cómo y por qué" del lado del backend: arqui
 - [HU03 — Registro de envíos](./04-historias-de-usuario/hu03-registro-envios.md)
 - [HU04 — Seguimiento público por token](./04-historias-de-usuario/hu04-seguimiento-publico.md)
 - [HU06 — Recepción de paquetes en terminal por escaneo del código de barras](./04-historias-de-usuario/hu06-recepcion-terminal.md)
+- [HU07 — Reclamos desde la vista pública del token](./04-historias-de-usuario/hu07-reclamos.md)
+- [HU08 — Sección de preguntas frecuentes](./04-historias-de-usuario/hu08-preguntas-frecuentes.md)
 - [HU09 — Sucursales disponibles para retiro](./04-historias-de-usuario/hu09-sucursales-retiro.md)
+- [HU10 — Generación, visualización y edición de recorridos](./04-historias-de-usuario/hu10-recorridos.md)
 
 ### 5. Testing
 - [Estrategia de pruebas](./05-testing/estrategia-de-pruebas.md)
