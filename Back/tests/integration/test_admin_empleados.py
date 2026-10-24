@@ -143,3 +143,27 @@ async def test_hu01_escenario_4_alta_empleado_datos_invalidos(
     assert resp2.status_code == 400
     assert resp2.json()["code"] == ErrorCodes.VALIDATION_ERROR
 
+
+
+@pytest.mark.asyncio
+async def test_hu01_escenario_4_email_duplicado_con_otras_mayusculas(client: AsyncClient):
+    """El email se guarda en minúsculas: un duplicado que solo cambia mayúsculas
+    tiene que rechazarse con 409, no romper con un 500 por la restricción UNIQUE."""
+    login_super = await client.post(
+        "/api/v1/auth/login",
+        json={"dni": settings.SUPERADMIN_SEED_DNI, "password": settings.SUPERADMIN_SEED_PASSWORD or "SuperAdmin2026!*"},
+    )
+    headers = {"Authorization": f"Bearer {login_super.json()['data']['token']}"}
+    base = {"nombre": "Laura Martínez", "telefono": "+543564998877", "rol_id": RolIdEnum.ADMINISTRATIVO.value}
+
+    primero = await client.post(
+        "/api/v1/admin/empleados", headers=headers, json={**base, "dni": "38123456", "email": "laura@empresa.com"}
+    )
+    assert primero.status_code == 201
+
+    duplicado = await client.post(
+        "/api/v1/admin/empleados", headers=headers, json={**base, "dni": "38123457", "email": "Laura@empresa.com"}
+    )
+    assert duplicado.status_code == 409
+    assert duplicado.json()["code"] == ErrorCodes.DUPLICATE_ENTRY
+    assert duplicado.json()["errors"][0]["field"] == "email"
