@@ -214,10 +214,18 @@ class ServicioAuth:
 
         rol_nombre = usuario.rol.nombre if usuario.rol else "ADMINISTRATIVO"
 
+        # `/auth/me` acepta también el token temporal del primer acceso: si el
+        # usuario todavía debe cambiar su contraseña, el token renovado tiene que
+        # seguir restringido, o se podría saltear el cambio obligatorio (HU02).
+        scope = (
+            ScopeEnum.PASSWORD_RESET_ONLY.value
+            if usuario.requiere_cambio_password
+            else ScopeEnum.FULL_ACCESS.value
+        )
         token = self.jwt_handler.emitir_token(
             usuario_id=str(usuario.id),
             rol=rol_nombre,
-            scope=ScopeEnum.FULL_ACCESS.value,
+            scope=scope,
         )
 
         return LoginSuccessResponse(

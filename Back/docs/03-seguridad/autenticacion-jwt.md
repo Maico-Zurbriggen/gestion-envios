@@ -30,7 +30,7 @@ Esto evita que alguien con una contraseña temporal pueda operar el sistema sin 
 Todas viven en `app/api/dependencies.py`:
 
 - `obtener_token_payload`: extrae el header `Authorization: Bearer <token>` y lo decodifica. Si falta o es inválido, `InvalidTokenException` (401).
-- `obtener_usuario_actual`: además de decodificar, busca al usuario en base y valida que `estado == "Activo"`. Pensada para endpoints que necesitan el usuario completo sin exigir un rol específico.
+- `obtener_usuario_actual`: además de decodificar, busca al usuario en base y valida que `estado == "Activo"`. Pensada para endpoints que necesitan el usuario completo sin exigir un rol específico. No restringe el scope, por eso `GET /auth/me` (que la usa y devuelve un token renovado) emite ese token con `PASSWORD_RESET_ONLY` mientras el usuario tenga `requiere_cambio_password=True`: antes emitía siempre `FULL_ACCESS`, lo que permitía saltear el cambio obligatorio de HU02 (test `test_hu02_me_no_permite_saltear_el_cambio_obligatorio_de_password`).
 - `requerir_scope(scope)`: fábrica de dependencia que exige un scope exacto en el token. Usada, por ejemplo, si un endpoint debiera ser accesible *solo* durante el flujo de cambio de contraseña.
 - `validar_token_para_cambio_password`: caso especial para `POST /auth/cambiar-password`, que acepta tanto `PASSWORD_RESET_ONLY` como `FULL_ACCESS` (un usuario con sesión plena también puede cambiar su contraseña voluntariamente).
 - `requerir_rol(rol)`: fábrica de dependencia que exige, en este orden: (1) que el scope no sea `PASSWORD_RESET_ONLY`, (2) que el usuario exista y esté activo, (3) que su rol coincida exactamente con `rol`. Es la que protege `POST /admin/empleados` exigiendo `RolEnum.SUPERADMIN`.
