@@ -33,6 +33,10 @@
 10. [Endpoints de Sucursales Disponibles para Retiro (`/sucursales`) - HU09](#10-endpoints-de-sucursales-disponibles-para-retiro-hu09)
     - `GET /api/v1/sucursales` (Catálogo Público con Filtros por Provincia y Ciudad)
     - `GET /api/v1/sucursales/opciones-retiro/{token}` (Opciones de Retiro de un Envío)
+11. [Endpoints de Reclamos desde la Vista Pública del Token - HU07](#11-endpoints-de-reclamos-desde-la-vista-pública-del-token-hu07)
+    - `GET /api/v1/reclamos/seguimiento/{token}` (Habilitar el Inicio de un Reclamo)
+    - `POST /api/v1/reclamos/seguimiento/{token}` (Iniciar un Reclamo)
+    - `GET|PATCH /api/v1/admin/reclamos...` (Gestión Interna)
 
 ---
 
@@ -1054,3 +1058,124 @@ Si el envío **no** es para retiro, la respuesta sigue siendo `200`: el token es
 
 #### 🔒 Nota de privacidad
 Como el endpoint es público, **no expone** email, teléfono ni documento del remitente o del destinatario — mismo criterio que la vista pública de HU04. Si la pantalla necesita datos de contacto, tienen que venir de un endpoint autenticado.
+
+
+---
+
+## 11. Endpoints de Reclamos desde la Vista Pública del Token (HU07)
+
+El reclamo se inicia **sin sesión**, desde la misma vista de seguimiento de HU04, con el mismo token (`ENV-XXXXXXXXXX`). El token se acepta en minúsculas o con espacios (el backend lo normaliza). La gestión interna del reclamo es para `ADMINISTRATIVO` / `SUPERADMIN`.
+
+**Flujo recomendado en pantalla:**
+1. En la vista de seguimiento, el botón "Iniciar reclamo" llama a `GET /api/v1/reclamos/seguimiento/{token}`.
+2. Si `puede_iniciar` es `true`, mostrar el formulario con `tipos_reclamo` y `paquetes`; si es `false`, mostrar `motivo_no_habilitado`.
+3. Enviar con `POST` al mismo path. Mostrar la lista `reclamos` para que el usuario vea el estado y la respuesta.
+
+### 11.1. Habilitar el Inicio de un Reclamo
+* **Método:** `GET`
+* **URL:** `/api/v1/reclamos/seguimiento/{token}`
+* **Autenticación requerida:** No (Público)
+
+#### ✅ Respuesta Exitosa (`200 OK`):
+```json
+{
+  "status": "success",
+  "data": {
+    "token_seguimiento": "ENV-4KD9XM2P7Q",
+    "puede_iniciar": true,
+    "motivo_no_habilitado": null,
+    "max_reclamos_activos": 5,
+    "tipos_reclamo": [
+      { "codigo": "DEMORA", "descripcion": "El envío está demorado o no avanza en el seguimiento." },
+      { "codigo": "DANIO", "descripcion": "El paquete llegó dañado o con signos de apertura." },
+      { "codigo": "EXTRAVIO", "descripcion": "El paquete se perdió o no aparece." },
+      { "codigo": "OTRO", "descripcion": "Cualquier otro inconveniente relacionado con el envío." }
+    ],
+    "paquetes": [
+      { "numero_paquete": "PAQ-ZPC5LB48JJ", "descripcion": "Caja con repuestos", "estado": "EN_REPARTO" }
+    ],
+    "reclamos": [
+      {
+        "id": "3f0c2a8e-6a4b-4d0e-9a51-7c1d2e3f4a5b",
+        "numero_paquete": "PAQ-ZPC5LB48JJ",
+        "tipo": "DEMORA",
+        "estado": "RESUELTO",
+        "descripcion": "El paquete figura en reparto desde temprano y todavía no llegó.",
+        "resolucion": "El repartidor confirmó la entrega para la tarde.",
+        "fecha_creacion": "2026-10-24T12:03:11",
+        "ultima_actualizacion": "2026-10-24T15:40:02"
+      }
+    ]
+  }
+}
+```
+
+> `reclamos` viene del más reciente al más antiguo. **No** incluye los datos de contacto de quien reclamó (el token lo comparten remitente y destinatario).
+
+#### ❌ Respuestas de Error:
+* **`404 Not Found`:** token inexistente → `"No se encontró un envío asociado a ese código de seguimiento."`
+
+### 11.2. Iniciar un Reclamo
+* **Método:** `POST`
+* **URL:** `/api/v1/reclamos/seguimiento/{token}`
+* **Autenticación requerida:** No (Público)
+* **Request Body:**
+```json
+{
+  "tipo": "DEMORA",
+  "descripcion": "El paquete figura en reparto desde temprano y todavía no llegó.",
+  "numero_paquete": "PAQ-ZPC5LB48JJ",
+  "contacto_nombre": "María Gómez",
+  "contacto_email": "maria.gomez@example.com",
+  "contacto_telefono": "+54 9 3564 222222"
+}
+```
+
+| Campo | Tipo | Obligatorio | Detalle |
+|:---|:---|:---:|:---|
+| `tipo` | `string` | Sí | `DEMORA`, `DANIO`, `EXTRAVIO` u `OTRO` (no distingue mayúsculas). |
+| `descripcion` | `string` | Sí | 20 a 2000 caracteres. |
+| `numero_paquete` | `string` o `null` | No | Paquete afectado. Debe ser de este envío. Si se omite, el reclamo es por el envío completo. |
+| `contacto_nombre` | `string` | Sí | 2 a 150 caracteres. |
+| `contacto_email` | `string` o `null` | * | Email válido. |
+| `contacto_telefono` | `string` o `null` | * | Dígitos, espacios, guiones, paréntesis y `+` inicial; mínimo 6 dígitos. |
+
+\* Es obligatorio **al menos uno** de los dos medios de contacto.
+
+#### ✅ Respuesta Exitosa (`201 Created`):
+```json
+{
+  "status": "success",
+  "message": "Reclamo registrado. Vas a poder seguir su estado con tu código de seguimiento.",
+  "data": {
+    "id": "3f0c2a8e-6a4b-4d0e-9a51-7c1d2e3f4a5b",
+    "numero_paquete": "PAQ-ZPC5LB48JJ",
+    "tipo": "DEMORA",
+    "estado": "ABIERTO",
+    "descripcion": "El paquete figura en reparto desde temprano y todavía no llegó.",
+    "resolucion": null,
+    "fecha_creacion": "2026-10-24T12:03:11",
+    "ultima_actualizacion": "2026-10-24T12:03:11"
+  }
+}
+```
+
+#### ❌ Respuestas de Error:
+* **`400 VALIDATION_ERROR`:** campos inválidos; `field: "contacto"` si no hay email ni teléfono; `field: "numero_paquete"` si el paquete no es del envío; `field: "token"` si el envío ya tiene 5 reclamos abiertos o en revisión.
+* **`409 DUPLICATE_ENTRY`:** ya hay un reclamo abierto o en revisión del mismo `tipo` sobre el mismo paquete (o sobre el envío completo). Mostrar el reclamo existente de la lista `reclamos`.
+* **`404 Not Found`:** token inexistente.
+
+### 11.3. Gestión Interna de Reclamos
+* **Autenticación requerida:** Sí (Bearer JWT) · **Roles:** `ADMINISTRATIVO`, `SUPERADMIN`
+
+| Método | URL | Detalle |
+|:---|:---|:---|
+| `GET` | `/api/v1/admin/reclamos?estado=&tipo=&token=` | Bandeja, del más reciente al más antiguo. Filtros opcionales. Responde `{ "status", "total", "data": [...] }`. |
+| `GET` | `/api/v1/admin/reclamos/{id}` | Detalle de un reclamo. |
+| `PATCH` | `/api/v1/admin/reclamos/{id}/estado` | Cambio de estado. Body: `{ "estado": "RESUELTO", "resolucion": "..." }`. |
+
+Cada reclamo de la bandeja incluye, además de lo público: `envio_id`, `token_seguimiento`, `remitente_nombre`, `destinatario_nombre`, `contacto_nombre`, `contacto_email`, `contacto_telefono`, `usuario_resolucion_id`, `usuario_resolucion_nombre`, `created_at`, `updated_at`.
+
+**Transiciones válidas:** `ABIERTO → EN_REVISION | RESUELTO | RECHAZADO` y `EN_REVISION → RESUELTO | RECHAZADO`. Para `RESUELTO`/`RECHAZADO` la `resolucion` es obligatoria (mínimo 10 caracteres) y se muestra en la vista pública. Un reclamo cerrado no admite cambios (`400`, `field: "estado"`).
+
+* **Errores:** `400` (filtro o transición inválida, resolución faltante), `401`, `403` (rol no habilitado o scope `PASSWORD_RESET_ONLY`), `404` (reclamo inexistente).
