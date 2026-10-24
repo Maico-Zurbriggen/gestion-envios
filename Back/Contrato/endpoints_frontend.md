@@ -37,6 +37,9 @@
     - `GET /api/v1/reclamos/seguimiento/{token}` (Habilitar el Inicio de un Reclamo)
     - `POST /api/v1/reclamos/seguimiento/{token}` (Iniciar un Reclamo)
     - `GET|PATCH /api/v1/admin/reclamos...` (Gestión Interna)
+12. [Endpoints de Preguntas Frecuentes - HU08](#12-endpoints-de-preguntas-frecuentes-hu08)
+    - `GET /api/v1/preguntas-frecuentes` (Sección Pública)
+    - `GET|POST|PATCH|DELETE /api/v1/admin/preguntas-frecuentes...` (Administración del Contenido)
 
 ---
 
@@ -1179,3 +1182,97 @@ Cada reclamo de la bandeja incluye, además de lo público: `envio_id`, `token_s
 **Transiciones válidas:** `ABIERTO → EN_REVISION | RESUELTO | RECHAZADO` y `EN_REVISION → RESUELTO | RECHAZADO`. Para `RESUELTO`/`RECHAZADO` la `resolucion` es obligatoria (mínimo 10 caracteres) y se muestra en la vista pública. Un reclamo cerrado no admite cambios (`400`, `field: "estado"`).
 
 * **Errores:** `400` (filtro o transición inválida, resolución faltante), `401`, `403` (rol no habilitado o scope `PASSWORD_RESET_ONLY`), `404` (reclamo inexistente).
+
+
+---
+
+## 12. Endpoints de Preguntas Frecuentes (HU08)
+
+### 12.1. Sección Pública de Preguntas Frecuentes
+* **Método:** `GET`
+* **URL:** `/api/v1/preguntas-frecuentes`
+* **Autenticación requerida:** No (Público)
+* **Query Params (opcionales):**
+
+| Param | Tipo | Detalle |
+|:---|:---|:---|
+| `categoria` | `string` | Filtra por categoría, sin distinguir mayúsculas ni tildes (`envios` encuentra `Envíos`). Máx. 80. |
+| `q` | `string` | Búsqueda libre: cada palabra debe aparecer en la pregunta, la respuesta o la categoría, sin distinguir mayúsculas ni tildes. Máx. 100. |
+
+#### ✅ Respuesta Exitosa (`200 OK`):
+```json
+{
+  "status": "success",
+  "data": {
+    "total": 2,
+    "categorias": [
+      { "nombre": "Envíos", "cantidad": 4 },
+      { "nombre": "Seguimiento", "cantidad": 3 },
+      { "nombre": "Retiro en sucursal", "cantidad": 2 },
+      { "nombre": "Entregas a domicilio", "cantidad": 2 },
+      { "nombre": "Reclamos", "cantidad": 2 }
+    ],
+    "preguntas": [
+      {
+        "id": 12,
+        "categoria": "Reclamos",
+        "pregunta": "¿Cómo inicio un reclamo?",
+        "respuesta": "Consultá tu envío con el código de seguimiento y elegí la opción para iniciar un reclamo...",
+        "orden": 120
+      }
+    ]
+  }
+}
+```
+
+**Cómo usarlo en pantalla:** `categorias` trae **todas** las categorías publicadas aunque se haya filtrado (sirve para los chips o pestañas de filtro); `preguntas` y `total` respetan los filtros. Las preguntas vienen ya ordenadas; para agruparlas, usar `categoria` (nunca viene vacía: las que no tienen se muestran como `"General"`). Sin resultados responde `200` con `"preguntas": []`.
+
+### 12.2. Administración del Contenido
+* **Autenticación requerida:** Sí (Bearer JWT) · **Roles:** `ADMINISTRATIVO`, `SUPERADMIN`
+
+| Método | URL | Detalle |
+|:---|:---|:---|
+| `GET` | `/api/v1/admin/preguntas-frecuentes` | Todas, incluidas las no publicadas. |
+| `GET` | `/api/v1/admin/preguntas-frecuentes/{id}` | Detalle. |
+| `POST` | `/api/v1/admin/preguntas-frecuentes` | Alta (`201`). |
+| `PATCH` | `/api/v1/admin/preguntas-frecuentes/{id}` | Modificación parcial: solo los campos enviados. `"categoria": null` la quita. |
+| `DELETE` | `/api/v1/admin/preguntas-frecuentes/{id}` | Baja. Para ocultar sin borrar, `PATCH` con `publicada: false`. |
+
+Body de alta:
+```json
+{
+  "categoria": "Pagos",
+  "pregunta": "¿Qué medios de pago aceptan?",
+  "respuesta": "Efectivo y tarjetas de débito o crédito en sucursal.",
+  "orden": 140,
+  "publicada": true
+}
+```
+
+| Campo | Tipo | Obligatorio | Detalle |
+|:---|:---|:---:|:---|
+| `categoria` | `string` o `null` | No | Máx. 80. Se recortan espacios. |
+| `pregunta` | `string` | Sí | 5 a 255. |
+| `respuesta` | `string` | Sí | 10 a 5000. |
+| `orden` | `int` | No | 0 a 10000 (default 0). Menor = primero. |
+| `publicada` | `bool` | No | Default `true`. |
+
+Respuesta (alta, detalle y modificación):
+```json
+{
+  "status": "success",
+  "message": "Pregunta frecuente creada correctamente.",
+  "data": {
+    "id": 14,
+    "categoria": "Pagos",
+    "pregunta": "¿Qué medios de pago aceptan?",
+    "respuesta": "Efectivo y tarjetas de débito o crédito en sucursal.",
+    "orden": 140,
+    "publicada": true,
+    "created_at": "2026-10-24T12:00:00",
+    "updated_at": "2026-10-24T12:00:00"
+  }
+}
+```
+
+* **Errores:** `400` (validación; body vacío en `PATCH`), `409 DUPLICATE_ENTRY` (la pregunta ya existe, aunque difiera en tildes o signos), `404` (id inexistente), `401`, `403`.
