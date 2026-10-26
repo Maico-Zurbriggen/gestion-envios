@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Building2,
   CircleAlert,
+  CircleHelp,
   FileCheck2,
   House,
   LoaderCircle,
@@ -326,6 +327,7 @@ export function CreateShipmentPage() {
             Cargá los datos, imprimí la etiqueta y acercá cada paquete a una
             sucursal. No necesitás iniciar sesión.
           </p>
+          <Link className="shipment-inline-action" to="/preguntas-frecuentes" target="_blank" rel="noopener noreferrer"><CircleHelp size={17} aria-hidden="true" /> Preguntas frecuentes</Link>
         </header>
 
         <form className="shipment-form" onSubmit={handleSubmit}>

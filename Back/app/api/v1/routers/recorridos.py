@@ -7,6 +7,7 @@ from app.api.dependencies import get_servicio_recorridos, requerir_roles
 from app.application.interfaces.servicio_recorridos import IServicioRecorridos
 from app.contracts.recorridos import (
     AlertaRecorridoResponse,
+    CompletarUbicacionPaqueteRequest,
     EliminarRecorridoResponse,
     GenerarRecorridosRequest,
     GenerarRecorridosResponse,
@@ -157,6 +158,24 @@ async def quitar_paquete(
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
     return await servicio.quitar_paquete(id, codigo)
+
+
+@router.patch(
+    "/{id}/paquetes/{codigo}/ubicacion",
+    response_model=RecorridoResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Completar la ubicación de un domicilio sin coordenadas",
+    description="Guarda la ubicación en el envío y recalcula sus recorridos sin iniciar, conservando el orden. "
+    "Solo admite domicilios sin coordenadas en recorridos de corta distancia. No modifica recorridos en curso.",
+)
+async def completar_ubicacion_paquete(
+    id: uuid.UUID,
+    datos: CompletarUbicacionPaqueteRequest,
+    codigo: str = Path(..., max_length=40),
+    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
+):
+    return await servicio.completar_ubicacion(id, codigo, datos)
 
 
 @router.post(

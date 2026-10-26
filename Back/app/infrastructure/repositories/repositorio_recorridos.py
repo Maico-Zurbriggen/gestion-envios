@@ -175,6 +175,16 @@ class RepositorioRecorridos(IRepositorioRecorridos):
         result = await self.db.execute(stmt)
         return list(result.unique().scalars().all())
 
+    async def listar_recorridos_activos_del_envio(self, envio_id: uuid.UUID) -> list[RecorridoModel]:
+        stmt = self._select_recorrido_completo().where(
+            RecorridoModel.estado.in_(ESTADOS_RECORRIDO_ACTIVOS),
+            RecorridoModel.paquetes.any(
+                RecorridoPaqueteModel.paquete.has(PaqueteModel.envio_id == envio_id)
+            ),
+        )
+        result = await self.db.execute(stmt)
+        return list(result.unique().scalars().all())
+
     # --- Alertas ---
 
     def _select_alerta_completa(self):

@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router-dom'
 import App from '../App'
 import { HomePage } from '../features/home/pages/HomePage'
 import { PickupPage } from '../features/pickup/pages/PickupPage'
+import { RoutesRoute } from '../features/routes/components/RoutesRoute'
 import { CreateUserPage } from '../features/users/pages/CreateUserPage'
 import { UnauthorizedPage } from '../pages/UnauthorizedPage'
 import { ProtectedRoutes } from './ProtectedRoutes'
@@ -29,6 +30,10 @@ export const mainRoutes: RouteObject[] = [
           {
             path: '/sucursal/retiros',
             element: <PickupPage />,
+          },
+          {
+            path: '/recorridos',
+            element: <RoutesRoute />,
           },
         ],
       },

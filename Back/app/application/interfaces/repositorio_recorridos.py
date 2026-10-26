@@ -61,6 +61,10 @@ class IRepositorioRecorridos(Protocol):
 
     async def listar_recorridos_editables(self, sucursal_id: int, fecha: date, tipo_distancia: str) -> list[Any]: ...
 
+    async def listar_recorridos_activos_del_envio(self, envio_id: UUID) -> list[Any]:
+        """Recorridos afectados al completar la ubicación compartida de un envío."""
+        ...
+
     # --- Alertas ---
 
     async def listar_alertas_pendientes_en_sucursal(self, sucursal_id: int) -> list[Any]: ...

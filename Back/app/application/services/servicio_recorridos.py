@@ -11,6 +11,7 @@ from app.contracts.recorridos import (
     TIPOS_DISTANCIA_VALIDOS,
     AlertaRecorridoData,
     AlertaRecorridoResponse,
+    CompletarUbicacionPaqueteRequest,
     EliminarRecorridoResponse,
     GeneracionRecorridosData,
     GenerarRecorridosRequest,
@@ -353,6 +354,68 @@ class ServicioRecorridos(IServicioRecorridos):
             message="Paquete quitado del recorrido.",
             data=await self._detalle(recorrido.id, sucursales),
             alertas=alertas,
+        )
+
+    async def completar_ubicacion(
+        self, id: uuid.UUID, codigo: str, datos: CompletarUbicacionPaqueteRequest
+    ) -> RecorridoResponse:
+        recorrido = await self._obtener_editable(id)
+        objetivo = normalizar_codigo_escaneado(codigo)
+        paquete = next(
+            (rp.paquete for rp in recorrido.paquetes
+             if objetivo in (rp.paquete.numero_paquete, str(rp.paquete.id).upper())),
+            None,
+        )
+        if paquete is None:
+            raise NotFoundException(f"El paquete '{objetivo}' no forma parte de este recorrido.")
+        envio = paquete.envio
+        if recorrido.tipo_distancia != TipoDistanciaEnum.CORTA.value or envio.tipo_entrega != TIPO_ENTREGA_DOMICILIO:
+            raise ValidationException(message="Solo se puede ubicar un domicilio de un recorrido de corta distancia.")
+        if envio.latitud_destino is not None and envio.longitud_destino is not None:
+            raise DuplicateEntryException(message="El domicilio ya tiene ubicación. Actualizá el detalle del recorrido.")
+
+        afectados = await self.repo.listar_recorridos_activos_del_envio(envio.id)
+        if any(r.estado not in ESTADOS_RECORRIDO_EDITABLES for r in afectados):
+            raise DuplicateEntryException(
+                message="No se puede cambiar la ubicación: otro paquete del envío tiene un recorrido en curso."
+            )
+        sucursales = await self.repo_sucursales.listar_todas()
+        ubicacion_anterior = (envio.latitud_destino, envio.longitud_destino)
+        envio.latitud_destino = datos.latitud
+        envio.longitud_destino = datos.longitud
+        for actual in afectados:
+            if any(
+                rp.paquete.envio_id == envio.id
+                and self._tipo_reparto(rp.paquete, actual.sucursal_origen, sucursales) != actual.tipo_distancia
+                for rp in actual.paquetes
+            ):
+                envio.latitud_destino, envio.longitud_destino = ubicacion_anterior
+                raise ValidationException(
+                    message="La ubicación corresponde a otra sucursal de entrega. Revisá el punto seleccionado."
+                )
+        for actual in afectados:
+            paquetes = [rp.paquete for rp in sorted(actual.paquetes, key=lambda rp: rp.orden)]
+            actual.distancia_estimada_km, actual.duracion_estimada_min = self._estimar(
+                actual, paquetes, actual.sucursal_origen, sucursales
+            )
+            actual.estado = EstadoRecorridoEnum.EN_EDICION.value
+            actual.generado_automaticamente = False
+
+        await self.repo.sincronizar()
+        pendientes: set[uuid.UUID] = set()
+        contextos = {(r.sucursal_origen_id, r.tipo_distancia) for r in afectados}
+        for sucursal_id, tipo in contextos:
+            sucursal = next(s for s in sucursales if s.id == sucursal_id)
+            sin_asignar, clasificacion = await self._pendientes_sin_recorrido(sucursal, tipo, sucursales)
+            await self._sincronizar_alertas(
+                sucursal_id, clasificacion.ids_por_tipo[_otro_tipo(tipo)], sin_asignar, recorrido.id
+            )
+            pendientes.update(sin_asignar)
+        await self.repo.confirmar()
+        return RecorridoResponse(
+            message="Ubicación guardada. Se actualizaron las paradas y las estimaciones del recorrido.",
+            data=await self._detalle(recorrido.id, sucursales),
+            alertas=await self._alertas_de_paquetes(list(pendientes)),
         )
 
     async def optimizar(self, id: uuid.UUID) -> RecorridoResponse:

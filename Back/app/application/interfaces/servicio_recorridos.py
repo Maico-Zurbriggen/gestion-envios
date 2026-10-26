@@ -4,6 +4,7 @@ from uuid import UUID
 
 from app.contracts.recorridos import (
     AlertaRecorridoResponse,
+    CompletarUbicacionPaqueteRequest,
     EliminarRecorridoResponse,
     GenerarRecorridosRequest,
     GenerarRecorridosResponse,
@@ -40,6 +41,10 @@ class IServicioRecorridos(Protocol):
         ...
 
     async def quitar_paquete(self, id: UUID, codigo: str) -> RecorridoResponse: ...
+
+    async def completar_ubicacion(
+        self, id: UUID, codigo: str, datos: CompletarUbicacionPaqueteRequest
+    ) -> RecorridoResponse: ...
 
     async def optimizar(self, id: UUID) -> RecorridoResponse:
         """Vuelve a calcular el mejor orden de visita de los paquetes actuales."""

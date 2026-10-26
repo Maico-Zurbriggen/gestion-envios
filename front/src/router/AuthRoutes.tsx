@@ -1,11 +1,16 @@
 import type { RouteObject } from 'react-router-dom'
 import { ChangePasswordPage } from '../features/auth/pages/ChangePasswordPage'
 import { LoginPage } from '../features/auth/pages/LoginPage'
+import { FaqPage } from '../features/faq/pages/FaqPage'
 import { CreateShipmentRoute } from '../features/shipments/components/CreateShipmentRoute'
 import { BranchesPage } from '../features/shipments/pages/BranchesPage'
 import { TrackingRoute } from '../features/tracking/components/TrackingRoute'
 
 export const authRoutes: RouteObject[] = [
+  {
+    path: '/preguntas-frecuentes',
+    element: <FaqPage />,
+  },
   {
     path: '/login',
     element: <LoginPage />,

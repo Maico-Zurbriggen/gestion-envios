@@ -231,6 +231,10 @@
   background: var(--color-primary);
 }
 
+.login-public-action__help {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 420px) {
   .login-public-action__links {
     grid-template-columns: 1fr;

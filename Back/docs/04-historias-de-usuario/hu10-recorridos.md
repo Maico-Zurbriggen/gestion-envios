@@ -18,6 +18,7 @@ Todos requieren Bearer JWT con rol `ADMINISTRATIVO` o `SUPERADMIN`.
 | `GET` | `/api/v1/recorridos/{id}` | 2 |
 | `PUT` | `/api/v1/recorridos/{id}/paquetes` | 2, 3 |
 | `DELETE` | `/api/v1/recorridos/{id}/paquetes/{codigo}` | 2, 3 |
+| `PATCH` | `/api/v1/recorridos/{id}/paquetes/{codigo}/ubicacion` | 2 |
 | `POST` | `/api/v1/recorridos/{id}/optimizar` | 2 |
 | `PATCH` | `/api/v1/recorridos/{id}/repartidor` | 2 |
 | `POST` | `/api/v1/recorridos/{id}/iniciar` | puente a HU11 |
@@ -91,6 +92,8 @@ La edición solo se permite en `GENERADO` o `EN_EDICION`:
 Una edición manual pasa el recorrido a `EN_EDICION` y `generado_automaticamente = false`, y recalcula distancia y duración.
 
 **Domicilios sin coordenadas.** HU03 permite registrar un domicilio sin marcarlo en el mapa. Esos paquetes no se pueden ubicar, así que la generación los deja afuera con alerta; pero logística sí puede agregarlos a mano a un recorrido: aparecen como parada sin coordenadas (`paquetes_sin_ubicacion`), suman su tiempo de atención a la estimación y no figuran en el `trazado`.
+
+`PATCH /{id}/paquetes/{codigo}/ubicacion` completa ese domicilio con `{ "latitud", "longitud" }` finitas y dentro de sus rangos geográficos. Solo se admite en corta distancia sin iniciar, para un paquete del recorrido cuyo envío todavía no tenga coordenadas completas. El punto se guarda en `envios` y se recalculan las estimaciones de todos sus recorridos activos editables, conservando el orden y marcándolos `EN_EDICION`. Se rechaza si hay un recorrido afectado en curso o si la ubicación cambia el tipo de reparto que corresponde a un recorrido asignado. No requiere migración.
 
 ## Escenario 3: alertas de domicilios sin recorrido
 

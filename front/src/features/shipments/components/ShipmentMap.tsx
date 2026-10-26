@@ -8,6 +8,7 @@ interface ShipmentMapProps {
   longitude: number | null
   mode: 'picker' | 'location'
   accessibleName: string
+  initialCenter?: { latitude: number; longitude: number }
   onLocationChange?: (latitude: number, longitude: number) => void
 }
 
@@ -18,12 +19,16 @@ export function ShipmentMap({
   longitude,
   mode,
   accessibleName,
+  initialCenter,
   onLocationChange,
 }: ShipmentMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LeafletMap | null>(null)
   const markerRef = useRef<CircleMarker | null>(null)
   const onLocationChangeRef = useRef(onLocationChange)
+  const initialLatitude = initialCenter?.latitude ?? ARGENTINA_CENTER[0]
+  const initialLongitude = initialCenter?.longitude ?? ARGENTINA_CENTER[1]
+  const initialZoom = initialCenter ? 14 : 4
 
   useEffect(() => {
     onLocationChangeRef.current = onLocationChange
@@ -33,8 +38,8 @@ export function ShipmentMap({
     if (!containerRef.current) return
 
     const map = L.map(containerRef.current, {
-      center: ARGENTINA_CENTER,
-      zoom: 4,
+      center: [initialLatitude, initialLongitude],
+      zoom: initialZoom,
       scrollWheelZoom: false,
     })
 
@@ -51,13 +56,16 @@ export function ShipmentMap({
     }
 
     mapRef.current = map
+    const resize = new ResizeObserver(() => map.invalidateSize())
+    resize.observe(containerRef.current)
 
     return () => {
+      resize.disconnect()
       map.remove()
       mapRef.current = null
       markerRef.current = null
     }
-  }, [mode])
+  }, [mode, initialLatitude, initialLongitude, initialZoom])
 
   useEffect(() => {
     const map = mapRef.current

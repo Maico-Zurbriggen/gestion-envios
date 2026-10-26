@@ -5,6 +5,7 @@ import {
   CalendarClock,
   Check,
   CircleAlert,
+  CircleHelp,
   Clock3,
   House,
   LoaderCircle,
@@ -24,6 +25,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useAppSelector } from '../../../app/store'
 import { selectIsAuthenticated } from '../../auth/redux/authSlice'
 import { useTheme } from '../../../shared/hooks/useTheme'
+import { ShipmentClaims } from '../../claims/components/ShipmentClaims'
 import { useShipmentTracking } from '../hooks/useShipmentTracking'
 import type { TrackedPackage } from '../types/tracking.types'
 import './TrackingPage.css'
@@ -195,6 +197,7 @@ export function TrackingPage() {
             <span className="eyebrow"><Route size={15} aria-hidden="true" /> Seguimiento público</span>
             <h1 id="tracking-title">¿Dónde está tu paquete?</h1>
             <p>Ingresá el código de seguimiento del envío. No necesitás iniciar sesión.</p>
+            <Link className="tracking-help" to="/preguntas-frecuentes"><CircleHelp size={17} aria-hidden="true" /> Preguntas frecuentes</Link>
           </div>
 
           <form className="tracking-search" onSubmit={handleSubmit}>
@@ -266,6 +269,8 @@ export function TrackingPage() {
                 <PackageProgress key={shipmentPackage.packageNumber} shipmentPackage={shipmentPackage} />
               ))}
             </div>
+
+            <ShipmentClaims key={trackingQuery.data.trackingToken} token={trackingQuery.data.trackingToken} />
 
             <footer className="tracking-result__footer">
               <span>{trackingQuery.data.packages.length} {trackingQuery.data.packages.length === 1 ? 'paquete asociado' : 'paquetes asociados'}</span>

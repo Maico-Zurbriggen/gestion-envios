@@ -1465,11 +1465,14 @@ Detalle (`data`):
 |:---|:---|:---|:---|
 | `PUT` | `/api/v1/recorridos/{id}/paquetes` | `{ "paquetes": ["PAQ-...", "PAQ-..."] }` | Lista completa en orden de visita (números o UUID). Agrega, quita y reordena. |
 | `DELETE` | `/api/v1/recorridos/{id}/paquetes/{codigo}` | — | Quita un paquete. No se puede quitar el último. |
+| `PATCH` | `/api/v1/recorridos/{id}/paquetes/{codigo}/ubicacion` | `{ "latitud": -34.58, "longitud": -58.42 }` | Completa un domicilio sin coordenadas en corta distancia. Guarda el punto en el envío y recalcula sus recorridos editables conservando el orden. |
 | `POST` | `/api/v1/recorridos/{id}/optimizar` | — | Recalcula el mejor orden de los paquetes actuales. |
 | `PATCH` | `/api/v1/recorridos/{id}/repartidor` | `{ "repartidor_id": "uuid" }` | Reasigna a otro repartidor disponible de la misma sucursal y tipo. |
 | `DELETE` | `/api/v1/recorridos/{id}` | — | Descarta el recorrido; sus paquetes quedan libres (y se alertan). Responde `{ "status", "message", "alertas" }`. |
 
-Las primeras cuatro devuelven el detalle actualizado (formato 13.3) y `alertas` con los paquetes de la sucursal que siguen sin recorrido de ese tipo. Una edición manual deja el recorrido en `EN_EDICION` con `generado_automaticamente: false`.
+Todas salvo eliminar el recorrido devuelven el detalle actualizado (formato 13.3) y `alertas` con los paquetes de la sucursal que siguen sin recorrido de ese tipo. Una edición manual deja el recorrido en `EN_EDICION` con `generado_automaticamente: false`.
+
+**Completar ubicación:** admite latitudes entre -90 y 90 y longitudes entre -180 y 180, ambas finitas y obligatorias. La ubicación se comparte entre todos los paquetes del envío. Devuelve `400` si el punto cambia el tipo de reparto de un recorrido afectado o el recorrido no es editable; `404` si el paquete no pertenece al recorrido; `409` si el domicilio ya tiene coordenadas o alguno de sus recorridos activos está en curso. La interfaz permite seleccionar el punto en el mapa o ingresarlo por teclado, sin asumir que la sucursal de partida sea el destino.
 
 * **Errores:** `400` con `field: "paquetes[i]"` por cada paquete inválido (inexistente, repetido, en otra sucursal, no listo, en otro recorrido activo o de otro tipo de reparto); `400` con `field: "estado"` si el recorrido ya no es editable; `404` (recorrido inexistente o paquete que no forma parte del recorrido); `409` (el repartidor ya tiene otro recorrido activo ese día).
 

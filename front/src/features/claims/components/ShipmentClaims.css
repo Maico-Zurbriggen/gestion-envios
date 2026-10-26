@@ -1,0 +1,290 @@
+.shipment-claims {
+  margin: 0 var(--space-6) var(--space-6);
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow-wrap: anywhere;
+}
+
+.shipment-claims__header,
+.claim-history__header,
+.claim-history__item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.shipment-claims__header {
+  padding: var(--space-5);
+  flex-wrap: wrap;
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-md);
+}
+
+.shipment-claims__header > svg {
+  color: var(--color-primary);
+  flex: 0 0 auto;
+}
+
+.shipment-claims__header > div {
+  flex: 1 1 15rem;
+}
+
+.shipment-claims__header h2 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-lg);
+}
+
+.shipment-claims__header p,
+.shipment-claims__success p,
+.shipment-claims__unavailable p,
+.shipment-claims .form-error p {
+  margin: 0;
+}
+
+.shipment-claims__header p,
+.shipment-claims__body small,
+.claim-form__intro,
+.claim-form__fields > p {
+  font-size: var(--font-size-sm);
+}
+
+.shipment-claims__body {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+.shipment-claims__context {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.shipment-claims__context strong {
+  color: var(--color-text);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.claim-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+}
+
+.claim-button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+}
+
+.claim-button--primary {
+  justify-self: start;
+  color: var(--color-text-on-primary);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.claim-button--primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.claim-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.claim-button svg,
+.shipment-claims__success > svg,
+.shipment-claims__unavailable > svg {
+  flex: 0 0 auto;
+}
+
+.claim-form,
+.claim-form__fields {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.claim-form__fields {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.claim-form__legend {
+  margin-bottom: var(--space-3);
+  padding: 0;
+  font-weight: 700;
+}
+
+.claim-form__intro,
+.claim-form__fields > p {
+  margin: 0;
+}
+
+.claim-form__fields + .claim-form__fields {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.claim-form__contact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.claim-form textarea {
+  padding-block: var(--space-3);
+  resize: vertical;
+}
+
+.claim-form .form-control {
+  min-width: 0;
+}
+
+.claim-form small {
+  color: var(--color-text-muted);
+}
+
+.claim-form .claim-form__field-error {
+  color: var(--color-danger-text);
+}
+
+.claim-form [aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.shipment-claims__success,
+.shipment-claims__unavailable,
+.shipment-claims__loading {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.shipment-claims__success {
+  border: 1px solid color-mix(in srgb, var(--color-success) 50%, var(--color-border));
+}
+
+.shipment-claims__success > svg {
+  color: var(--color-success);
+}
+
+.shipment-claims__unavailable > svg {
+  color: var(--color-warning);
+}
+
+.claim-history {
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+.claim-history__header {
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.claim-history h3 {
+  margin: 0;
+  font-size: var(--font-size-md);
+}
+
+.claim-history__list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.claim-history__item {
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.claim-history__item-header {
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+
+.claim-status {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-subtle);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+.claim-status--abierto,
+.claim-status--en_revision {
+  color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-border));
+}
+
+.claim-status--resuelto {
+  border-color: var(--color-success);
+}
+
+.claim-history__description,
+.claim-history__resolution p {
+  margin: var(--space-3) 0;
+  color: var(--color-text);
+  white-space: pre-wrap;
+}
+
+.claim-history__resolution {
+  margin-bottom: var(--space-3);
+  padding: var(--space-3);
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-surface-subtle);
+}
+
+.claim-history__resolution p:last-child {
+  margin-bottom: 0;
+}
+
+.claim-history__empty,
+.claim-history__item footer {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+@media (max-width: 620px) {
+  .claim-form__contact-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 460px) {
+  .shipment-claims {
+    margin-inline: var(--space-4);
+  }
+
+  .shipment-claims__header,
+  .shipment-claims__body {
+    padding: var(--space-4);
+  }
+
+  .shipment-claims__header > .claim-button,
+  .claim-button--primary {
+    width: 100%;
+  }
+}

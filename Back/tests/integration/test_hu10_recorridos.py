@@ -811,3 +811,117 @@ async def test_hu10_eliminar_recorrido_libera_y_alerta(
     nuevo = (await _generar(client, administrativo_token))["data"]
     assert _numeros(nuevo["recorridos"][0]) == [paquete.numero_paquete]
     assert nuevo["alertas"] == []
+
+
+# --- Completar domicilios sin ubicación ---
+
+
+async def _recorrido_con_domicilio_sin_ubicacion(client, db, token):
+    ubicado = await _domicilio(db, 0.01, 0.01)
+    sin_ubicacion = await _crear_paquete(db, cantidad=2)
+    await _crear_repartidor(db, "Repartidor ubicación")
+    recorrido = (await _generar(client, token))["data"]["recorridos"][0]
+    response = await client.put(
+        f"{BASE}/{recorrido['id']}/paquetes",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"paquetes": [ubicado.numero_paquete, *(p.numero_paquete for p in sin_ubicacion)]},
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["data"], ubicado, sin_ubicacion
+
+
+@pytest.mark.asyncio
+async def test_hu10_completar_ubicacion_persiste_y_actualiza_todos_los_paquetes_del_envio(
+    client: AsyncClient, db_session: AsyncSession, administrativo_token: str
+):
+    recorrido, _, paquetes = await _recorrido_con_domicilio_sin_ubicacion(client, db_session, administrativo_token)
+    headers = {"Authorization": f"Bearer {administrativo_token}"}
+    punto = {"latitud": -31.43, "longitud": -64.21}
+    response = await client.patch(
+        f"{BASE}/{recorrido['id']}/paquetes/{paquetes[0].numero_paquete}/ubicacion", headers=headers, json=punto
+    )
+    assert response.status_code == 200, response.text
+    actualizado = response.json()["data"]
+    assert actualizado["paquetes_sin_ubicacion"] == 0
+    assert _numeros(actualizado) == _numeros(recorrido)
+    assert actualizado["distancia_estimada_km"] != recorrido["distancia_estimada_km"]
+    assert punto in actualizado["trazado"]
+    assert actualizado["estado"] == "EN_EDICION"
+    assert actualizado["generado_automaticamente"] is False
+    assert len(actualizado["paradas"][-1]["paquetes"]) == 2
+    envio = await db_session.get(EnvioModel, paquetes[0].envio_id)
+    await db_session.refresh(envio)
+    assert (envio.latitud_destino, envio.longitud_destino) == (-31.43, -64.21)
+    recargado = await client.get(f"{BASE}/{recorrido['id']}", headers=headers)
+    assert recargado.json()["data"]["paquetes_sin_ubicacion"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("otro_en_curso", [False, True])
+async def test_hu10_ubicacion_compartida_recalcula_otros_recorridos_y_respeta_los_iniciados(
+    client: AsyncClient, db_session: AsyncSession, administrativo_token: str, otro_en_curso: bool
+):
+    await _domicilio(db_session, 0.01, 0.01)
+    await _domicilio(db_session, -0.01, -0.01)
+    await _crear_repartidor(db_session, "Ana ubicación")
+    await _crear_repartidor(db_session, "Bruno ubicación")
+    recorridos = (await _generar(client, administrativo_token))["data"]["recorridos"]
+    assert len(recorridos) == 2
+    paquetes = await _crear_paquete(db_session, cantidad=2)
+    headers = {"Authorization": f"Bearer {administrativo_token}"}
+    for recorrido, paquete in zip(recorridos, paquetes, strict=True):
+        response = await client.put(
+            f"{BASE}/{recorrido['id']}/paquetes", headers=headers,
+            json={"paquetes": [*_numeros(recorrido), paquete.numero_paquete]},
+        )
+        assert response.status_code == 200, response.text
+    if otro_en_curso:
+        started = await client.post(f"{BASE}/{recorridos[1]['id']}/iniciar", headers=headers)
+        assert started.status_code == 200, started.text
+    response = await client.patch(
+        f"{BASE}/{recorridos[0]['id']}/paquetes/{paquetes[0].numero_paquete}/ubicacion", headers=headers,
+        json={"latitud": -31.43, "longitud": -64.21},
+    )
+    if otro_en_curso:
+        assert response.status_code == 409, response.text
+        envio = await db_session.get(EnvioModel, paquetes[0].envio_id)
+        assert envio.latitud_destino is None
+        assert envio.longitud_destino is None
+    else:
+        assert response.status_code == 200, response.text
+        for recorrido in recorridos:
+            actualizado = (await client.get(f"{BASE}/{recorrido['id']}", headers=headers)).json()["data"]
+            assert actualizado["paquetes_sin_ubicacion"] == 0
+            assert actualizado["distancia_estimada_km"] > recorrido["distancia_estimada_km"]
+
+
+@pytest.mark.asyncio
+async def test_hu10_completar_ubicacion_valida_pertenencia_coordenadas_y_estado(
+    client: AsyncClient, db_session: AsyncSession, administrativo_token: str
+):
+    recorrido, ubicado, paquetes = await _recorrido_con_domicilio_sin_ubicacion(client, db_session, administrativo_token)
+    headers = {"Authorization": f"Bearer {administrativo_token}"}
+    root = f"{BASE}/{recorrido['id']}/paquetes"
+    punto = {"latitud": -31.43, "longitud": -64.21}
+    assert (await client.patch(f"{root}/PAQ-NOEXISTE/ubicacion", headers=headers, json=punto)).status_code == 404
+    externo = (await _crear_paquete(db_session))[0]
+    assert (await client.patch(f"{root}/{externo.numero_paquete}/ubicacion", headers=headers, json=punto)).status_code == 404
+    assert (await client.patch(f"{root}/{ubicado.numero_paquete}/ubicacion", headers=headers, json=punto)).status_code == 409
+    path = f"{root}/{paquetes[0].numero_paquete}/ubicacion"
+    for invalido in ({"latitud": 91, "longitud": 0}, {"latitud": 0, "longitud": -181}, {"latitud": 0}, {"latitud": "NaN", "longitud": 0}):
+        assert (await client.patch(path, headers=headers, json=invalido)).status_code == 400
+    await client.post(f"{BASE}/{recorrido['id']}/iniciar", headers=headers)
+    assert (await client.patch(path, headers=headers, json=punto)).status_code == 400
+    envio = await db_session.get(EnvioModel, paquetes[0].envio_id)
+    assert envio.latitud_destino is None
+
+
+@pytest.mark.asyncio
+async def test_hu10_completar_ubicacion_requiere_logistica(
+    client: AsyncClient, vendedor_token: str, repartidor_token: str
+):
+    path = f"{BASE}/{uuid.uuid4()}/paquetes/PAQ-TEST/ubicacion"
+    punto = {"latitud": -31.43, "longitud": -64.21}
+    assert (await client.patch(path, json=punto)).status_code == 401
+    for token in (vendedor_token, repartidor_token):
+        assert (await client.patch(path, headers={"Authorization": f"Bearer {token}"}, json=punto)).status_code == 403

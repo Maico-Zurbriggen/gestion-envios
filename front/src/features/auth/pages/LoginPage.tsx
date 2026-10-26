@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import {
   CircleAlert,
+  CircleHelp,
   Eye,
   EyeOff,
   IdCard,
@@ -184,6 +185,10 @@ export function LoginPage() {
                 <Link to="/seguimiento">
                   <Search size={18} aria-hidden="true" />
                   Seguir paquete
+                </Link>
+                <Link className="login-public-action__help" to="/preguntas-frecuentes">
+                  <CircleHelp size={18} aria-hidden="true" />
+                  Preguntas frecuentes
                 </Link>
               </div>
             </div>
