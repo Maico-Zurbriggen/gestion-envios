@@ -5,6 +5,10 @@ from uuid import UUID
 class IRepositorioEntregas(Protocol):
     """Protocolo que define el acceso a datos para retiros y entregas de paquetes (HU13)."""
 
+    async def obtener_por_operacion(self, operacion_id: UUID) -> Optional[Any]: ...
+
+    async def obtener_evento(self, evento_id: UUID) -> Optional[Any]: ...
+
     async def buscar_paquete_por_id_o_codigo(self, id_o_codigo: str) -> Optional[Any]:
         """Busca un paquete por su ID (UUID) o por su código alfanumérico (numero_paquete).
         

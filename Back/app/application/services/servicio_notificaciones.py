@@ -1,5 +1,5 @@
-from typing import Any, Callable, List, Optional
 import uuid
+from typing import Any, Callable, List, Optional
 
 from app.application.interfaces.repositorio_notificaciones import IRepositorioNotificaciones
 from app.application.interfaces.servicio_notificaciones import IServicioNotificaciones
@@ -28,6 +28,51 @@ class ServicioNotificaciones(IServicioNotificaciones):
         self.email_provider = email_provider
         self.session_factory = session_factory
         self.repo_notificaciones = repo_notificaciones
+
+    async def notificar_visita_fallida(self, evento_id: uuid.UUID) -> None:
+        """Despacha el aviso ya persistido, sin deshacer la visita si falla el correo.
+
+        Una repetición permite recuperar un aviso pendiente/fallido. La reserva
+        atómica del repositorio impide dos despachos simultáneos del mismo aviso.
+        """
+        try:
+            if self.session_factory:
+                async with self.session_factory() as session:
+                    await self._enviar_aviso_visita(RepositorioNotificaciones(session), evento_id)
+            elif self.repo_notificaciones:
+                await self._enviar_aviso_visita(self.repo_notificaciones, evento_id)
+        except Exception:
+            logger.exception("No se pudo procesar el aviso de visita %s; la visita permanece registrada.", evento_id)
+
+    async def _enviar_aviso_visita(self, repo: IRepositorioNotificaciones, evento_id: uuid.UUID) -> None:
+        aviso = await repo.obtener_aviso_visita(evento_id)
+        if aviso is None or not await repo.tomar_aviso_visita(aviso.id):
+            return
+        mensaje_id = None
+        try:
+            if not aviso.destino:
+                exito = False
+            else:
+                evento, envio = aviso.evento_entrega, aviso.envio
+                enlace = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/seguimiento?token={envio.token_seguimiento}"
+                texto = (
+                    f"Hola {envio.destinatario_nombre},\n\n"
+                    f"No pudimos concretar la entrega del paquete {evento.paquete.numero_paquete}.\n"
+                    f"Fecha y hora de la visita (UTC): {evento.created_at.isoformat()}.\n"
+                    f"Consultá el estado de tu envío: {enlace}\n"
+                )
+                exito, mensaje_id, _ = await self.email_provider.enviar_email(
+                    destinatario=aviso.destino, asunto="Aviso de visita - Entrega no concretada", cuerpo_texto=texto,
+                )
+        except Exception:
+            # No persistir respuestas del proveedor que puedan contener credenciales.
+            exito = False
+            logger.warning("Falló el proveedor de email para el aviso de visita %s.", evento_id)
+        await repo.finalizar_aviso_visita(
+            aviso.id, EstadoNotificacionEnum.ENVIADO.value if exito else EstadoNotificacionEnum.FALLIDO.value,
+            mensaje_id if exito else None,
+            None if exito else "No se pudo enviar el aviso de visita por email.",
+        )
 
     async def notificar_nuevo_envio(self, datos: DatosNotificacionEnvio) -> List[NotificacionEnvioModel]:
         """Envía las notificaciones de tracking por correo al emisor y destinatario y registra auditoría."""

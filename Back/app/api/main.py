@@ -16,6 +16,7 @@ from app.api.v1.routers.reclamos import router as reclamos_router
 from app.api.v1.routers.reclamos import router_admin as reclamos_admin_router
 from app.api.v1.routers.recorridos import router as recorridos_router
 from app.api.v1.routers.repartidores import router as repartidores_router
+from app.api.v1.routers.reparto import router as reparto_router
 from app.api.v1.routers.roles import router as roles_router
 from app.api.v1.routers.seguimiento import router as seguimiento_router
 from app.api.v1.routers.sucursal_retiro import router as sucursal_retiro_router
@@ -81,6 +82,7 @@ def crear_aplicacion() -> FastAPI:
     app.include_router(reclamos_admin_router, prefix=settings.API_V1_STR)
     app.include_router(repartidores_router, prefix=settings.API_V1_STR)
     app.include_router(recorridos_router, prefix=settings.API_V1_STR)
+    app.include_router(reparto_router, prefix=settings.API_V1_STR)
 
     # Health check también en la raíz
     app.include_router(health_router)

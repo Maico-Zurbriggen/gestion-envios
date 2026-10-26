@@ -1,6 +1,16 @@
 from datetime import datetime
 
+from pydantic import Field
+
 from app.contracts.common import ApiModel
+from app.contracts.reparto import UbicacionData
+
+
+class EventoSeguimientoData(ApiModel):
+    estado_anterior: str | None
+    estado: str
+    fecha_hora: datetime
+    descripcion: str
 
 
 class PaqueteSeguimientoData(ApiModel):
@@ -14,6 +24,8 @@ class PaqueteSeguimientoData(ApiModel):
     observaciones: str | None
     fecha_registro: datetime
     ultima_actualizacion: datetime
+    historial: list[EventoSeguimientoData] = Field(default_factory=list)
+    ubicacion_repartidor: UbicacionData | None = None
 
 
 class SeguimientoData(ApiModel):
@@ -23,10 +35,8 @@ class SeguimientoData(ApiModel):
     token (HU04 Escenario 2), no uno solo.
 
     `latitud_destino`/`longitud_destino` son las coordenadas fijas del
-    destino (de la sucursal, o las que el remitente marcó en el mapa al
-    registrar un envío a domicilio) — no la ubicación en tiempo real del
-    repartidor, que depende de HU10/HU11 y todavía no existe. Pueden venir
-    en `None` si el envío es a domicilio y no se marcó un punto en el mapa."""
+    destino. La última posición del repartidor se proporciona por paquete
+    exclusivamente mientras esté pendiente en un recorrido EN_CURSO."""
 
     token_seguimiento: str
     destino: str

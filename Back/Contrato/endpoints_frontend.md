@@ -47,6 +47,8 @@
     - `PUT|DELETE /api/v1/recorridos/{id}/paquetes...`, `POST .../optimizar`, `PATCH .../repartidor`, `DELETE /api/v1/recorridos/{id}` (Edición)
     - `POST /api/v1/recorridos/{id}/iniciar` (Inicio)
     - `GET /api/v1/recorridos/alertas` y `PATCH .../alertas/{id}/resolver` (Alertas)
+14. [Ejecución de Reparto y Constancias - HU11/HU12](#14-ejecución-de-reparto-y-constancias-hu11hu12)
+    - `GET|POST|PUT /api/v1/reparto/recorridos...` (Recorridos propios, posición, contacto y entrega)
 
 ---
 
@@ -1488,3 +1490,78 @@ Pasa el recorrido a `EN_CURSO` y cada paquete a `EN_REPARTO` (`CORTA`) o `EN_TRA
 | `PATCH` | `/api/v1/recorridos/alertas/{id}/resolver` | Marca como resuelta una alerta atendida por fuera del sistema. `400` si ya estaba resuelta. |
 
 Las alertas también se resuelven solas cuando el paquete entra en un recorrido o sale de la sucursal.
+
+## 14. Ejecución de Reparto y Constancias HU11/HU12
+
+Requiere JWT `FULL_ACCESS` de un `REPARTIDOR` con perfil activo. Solo opera
+sobre recorridos propios; un recorrido ajeno devuelve `404`. Las rutas
+administrativas de HU10 conservan sus contratos y permisos.
+
+Base: `/api/v1/reparto/recorridos`. Las respuestas JSON conservan el formato
+`{ "status": "success", "data": ... }`; el listado agrega `total`.
+
+| Método | Ruta relativa | Contrato |
+| --- | --- | --- |
+| `GET` | `?fecha=&estado=` | Lista de recorridos propios, igual que HU10. Filtros opcionales. |
+| `GET` | `/{id}` | Detalle de HU10, con paradas y trazado en el mismo orden. |
+| `POST` | `/{id}/iniciar` | Sin body. Mismo inicio y respuesta de HU10. |
+| `PUT` | `/{id}/ubicacion` | Body `{ "latitud": number, "longitud": number }`. Devuelve `data: {latitud, longitud, actualizado_at}` y `paquetes_actualizados: UUID[]`. |
+| `GET` | `/{id}/ubicacion` | `data` con la última posición o `null` si no hay una para ese recorrido. |
+| `GET` | `/{id}/paquetes/{codigo}/contacto` | `data: {paquete_id, destinatario_nombre, telefono, telefono_disponible}`. Sin teléfono: `null` y `false`. |
+| `POST` | `/{id}/paquetes/{codigo}/entrega` | Constancia con firma; ver body abajo. |
+| `POST` | `/{id}/paquetes/{codigo}/visita-fallida` | Body `{ "operacion_id": "UUID", "motivo_fallo": "Persona ausente" }`. Genera aviso solo por email. |
+| `GET` | `/{id}/entregas/{evento_id}/firma` | Imagen `image/png` protegida; no es JSON. |
+
+`codigo` acepta número de paquete o UUID. Las fechas nuevas se expresan en UTC.
+Las respuestas privadas incluyen `Cache-Control: no-store`.
+
+Body para entrega:
+
+```json
+{
+  "operacion_id": "95dcb24a-befc-49aa-8e74-d2cb35a0a400",
+  "receptor_nombre": "María Gómez",
+  "receptor_documento": "30111222",
+  "receptor_fecha_nacimiento": "2000-01-01",
+  "es_autorizado": false,
+  "firma_base64": "<PNG en base64 sin prefijo data:>"
+}
+```
+
+Todos los campos son obligatorios. El receptor debe ser mayor de 16 años.
+Se acepta PNG RGB/RGBA de 8 bits, sin entrelazado, máximo 256 KiB decodificados
+y 1024×1024 píxeles. No enviar MIME ni fecha/hora de entrega: los fija el servidor.
+
+Entregas y visitas devuelven `data` con `evento_id`, `paquete_id`, `recorrido_id`,
+`resultado` (`EXITOSO`/`FALLIDO`), `receptor_nombre`, `receptor_documento`,
+`es_autorizado`, `firma_disponible`, `motivo_fallo` y `fecha_hora`. Los datos
+de receptor son nulos en una visita fallida. La firma se consulta por su ruta protegida.
+
+**Reintentos:** generar `operacion_id` una vez por operación y conservarlo con
+el mismo body. La repetición devuelve la misma constancia y reintenta únicamente
+un email pendiente/fallido. Un email enviado no se duplica. Cambiar el body con
+el mismo UUID, o registrar una segunda operación sobre una asignación ya
+procesada, devuelve `409`.
+
+**Estados:** solo se registra una entrega/visita para un paquete a domicilio
+`EN_REPARTO`, pendiente en un recorrido corto `EN_CURSO`. La entrega pasa a
+`ENTREGADO`; una visita fallida pasa a `ENTREGA_FALLIDA`. Las ubicaciones cortas
+no modifican estados. En larga distancia, un ping a 10 km o menos de la siguiente
+sucursal pendiente mueve únicamente ese tramo de `EN_TRANSITO` a
+`EN_SUCURSAL_DESTINO`. Un recorrido con todas sus asignaciones resueltas queda
+`FINALIZADO` y rechaza nuevos pings.
+
+**Seguimiento público:** `GET /api/v1/seguimiento/{token}` agrega a cada paquete
+`historial: [{estado_anterior, estado, fecha_hora, descripcion}]` y
+`ubicacion_repartidor: {latitud, longitud, actualizado_at} | null`. La posición
+solo aparece para asignaciones pendientes en un recorrido activo y deja de
+publicarse al resolverlas. No se publican firma, identidad del receptor, motivo
+libre ni identificadores del repartidor.
+
+**Errores:** `400` para validaciones o recorrido no activo, `401` sin token,
+`403` por rol/scope/perfil, `404` para recorrido/paquete/firma no autorizados
+o inexistentes, `409` para duplicados/conflictos.
+
+Aplicar la migración `d2a6f81112ac` antes de usar una base existente. Para
+reglas detalladas, persistencia, pruebas y límites del despacho asíncrono,
+ver [HU11/HU12 — documentación de implementación](../docs/04-historias-de-usuario/hu11-hu12-reparto.md).

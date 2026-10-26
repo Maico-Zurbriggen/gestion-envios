@@ -25,6 +25,7 @@ from app.application.interfaces.servicio_recepcion_terminal import IServicioRece
 from app.application.interfaces.servicio_reclamos import IServicioReclamos
 from app.application.interfaces.servicio_recorridos import IServicioRecorridos
 from app.application.interfaces.servicio_repartidores import IServicioRepartidores
+from app.application.interfaces.servicio_reparto import IServicioReparto
 from app.application.interfaces.servicio_retiro_sucursal import IServicioRetiroSucursal
 from app.application.interfaces.servicio_roles import IServicioRoles
 from app.application.interfaces.servicio_seguimiento import IServicioSeguimiento
@@ -38,6 +39,7 @@ from app.application.services.servicio_recepcion_terminal import ServicioRecepci
 from app.application.services.servicio_reclamos import ServicioReclamos
 from app.application.services.servicio_recorridos import ServicioRecorridos
 from app.application.services.servicio_repartidores import ServicioRepartidores
+from app.application.services.servicio_reparto import ServicioReparto
 from app.application.services.servicio_retiro_sucursal import ServicioRetiroSucursal
 from app.application.services.servicio_roles import ServicioRoles
 from app.application.services.servicio_seguimiento import ServicioSeguimiento
@@ -249,6 +251,14 @@ def get_servicio_recorridos(
     """Generación, visualización y edición de recorridos (HU10). Necesita el
     catálogo de sucursales para ubicar el origen y las paradas de larga distancia."""
     return ServicioRecorridos(repositorio_recorridos=repo_recorridos, repositorio_sucursales=repo_sucursales)
+
+
+def get_servicio_reparto(
+    repo_recorridos: IRepositorioRecorridos = Depends(get_repositorio_recorridos),
+    repo_entregas: IRepositorioEntregas = Depends(get_repositorio_entregas),
+    servicio_recorridos: IServicioRecorridos = Depends(get_servicio_recorridos),
+) -> IServicioReparto:
+    return ServicioReparto(repo_recorridos, repo_entregas, servicio_recorridos)
 
 
 # --- Inyección de Autenticación y Autorización ---

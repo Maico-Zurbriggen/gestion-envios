@@ -1,11 +1,13 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.application.interfaces.repositorio_recorridos import IRepositorioRecorridos
+from app.core.exceptions import DuplicateEntryException
 from app.domain.constants.estados_logistica import EstadoRecorridoPaqueteEnum
 from app.domain.rules.recorrido_rules import (
     ESTADOS_PAQUETE_LISTOS_PARA_DESPACHO,
@@ -16,6 +18,7 @@ from app.infrastructure.db.models import (
     AlertaRecorridoModel,
     EnvioModel,
     PaqueteModel,
+    PosicionActualRepartidorModel,
     RecorridoModel,
     RecorridoPaqueteModel,
     RepartidorModel,
@@ -163,6 +166,34 @@ class RepositorioRecorridos(IRepositorioRecorridos):
         result = await self.db.execute(stmt)
         return result.unique().scalar_one_or_none()
 
+    async def bloquear_recorrido(self, id: uuid.UUID, repartidor_id: uuid.UUID) -> None:
+        # Una escritura sin cambios toma un lock transaccional en PostgreSQL y SQLite.
+        # SELECT FOR UPDATE por sí solo no protege en SQLite.
+        await self.db.execute(
+            update(RepartidorModel).where(RepartidorModel.usuario_id == repartidor_id)
+            .values(activo=RepartidorModel.activo, updated_at=RepartidorModel.updated_at)
+        )
+        await self.db.execute(
+            update(RecorridoModel)
+            .where(RecorridoModel.id == id, RecorridoModel.repartidor_id == repartidor_id)
+            .values(estado=RecorridoModel.estado, updated_at=RecorridoModel.updated_at)
+        )
+
+    async def obtener_posicion(self, repartidor_id: uuid.UUID) -> PosicionActualRepartidorModel | None:
+        return await self.db.get(PosicionActualRepartidorModel, repartidor_id, populate_existing=True)
+
+    async def actualizar_estado_paquete(self, paquete_id: uuid.UUID, anterior: str, nuevo: str,
+                                       sucursal_id: int | None = None) -> None:
+        resultado = await self.db.execute(
+            update(PaqueteModel)
+            .where(PaqueteModel.id == paquete_id, PaqueteModel.estado == anterior)
+            .values(estado=nuevo, sucursal_actual_id=sucursal_id)
+            .execution_options(synchronize_session="fetch")
+        )
+        if resultado.rowcount != 1:
+            await self.db.rollback()
+            raise DuplicateEntryException(message="El estado del paquete cambió. Volvé a consultar el recorrido.")
+
     async def listar_recorridos_editables(
         self, sucursal_id: int, fecha: date, tipo_distancia: str
     ) -> list[RecorridoModel]:
@@ -231,7 +262,15 @@ class RepositorioRecorridos(IRepositorioRecorridos):
         await self.db.delete(entidad)
 
     async def sincronizar(self) -> None:
-        await self.db.flush()
+        try:
+            await self.db.flush()
+        except IntegrityError as exc:
+            await self.db.rollback()
+            raise DuplicateEntryException(message="La operación entra en conflicto con un registro existente.") from exc
 
     async def confirmar(self) -> None:
-        await self.db.commit()
+        try:
+            await self.db.commit()
+        except IntegrityError as exc:
+            await self.db.rollback()
+            raise DuplicateEntryException(message="La operación entra en conflicto con un registro existente.") from exc

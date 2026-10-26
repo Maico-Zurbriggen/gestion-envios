@@ -5,6 +5,15 @@ from uuid import UUID
 class IRepositorioNotificaciones(Protocol):
     """Protocolo que define el acceso a datos para auditoría de notificaciones (HU05)."""
 
+    async def obtener_aviso_visita(self, evento_id: UUID) -> Optional[Any]: ...
+
+    async def tomar_aviso_visita(self, notificacion_id: UUID) -> bool:
+        """Reserva atómicamente un aviso pendiente/fallido; un enviado nunca se vuelve a enviar."""
+        ...
+
+    async def finalizar_aviso_visita(self, notificacion_id: UUID, estado: str,
+                                   proveedor_mensaje_id: Optional[str], error_detalle: Optional[str]) -> None: ...
+
     async def registrar(self, notificacion: Any) -> Any:
         """Persiste un nuevo intento o log de notificación."""
         ...

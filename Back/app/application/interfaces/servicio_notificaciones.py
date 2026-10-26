@@ -1,10 +1,13 @@
 from typing import Any, List, Protocol
+from uuid import UUID
 
 from app.contracts.notificaciones import DatosNotificacionEnvio
 
 
 class IServicioNotificaciones(Protocol):
     """Protocolo del servicio de notificaciones del sistema (HU05)."""
+
+    async def notificar_visita_fallida(self, evento_id: UUID) -> None: ...
 
     async def notificar_nuevo_envio(self, datos: DatosNotificacionEnvio) -> List[Any]:
         """Envía las notificaciones de token de seguimiento al emisor y destinatario por correo.
