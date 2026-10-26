@@ -4,7 +4,13 @@ from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
-from app.infrastructure.db.models import EnvioModel, PaqueteModel
+from app.infrastructure.db.models import (
+    EnvioModel,
+    PaqueteModel,
+    RecorridoModel,
+    RecorridoPaqueteModel,
+    RepartidorModel,
+)
 
 
 class RepositorioEnvios:
@@ -27,8 +33,15 @@ class RepositorioEnvios:
         envío con todos sus paquetes, nunca a un paquete individual."""
         stmt = (
             select(EnvioModel)
-            .options(joinedload(EnvioModel.sucursal_destino), selectinload(EnvioModel.paquetes))
+            .options(
+                joinedload(EnvioModel.sucursal_destino),
+                selectinload(EnvioModel.paquetes).selectinload(PaqueteModel.historial_estados),
+                selectinload(EnvioModel.paquetes).selectinload(PaqueteModel.recorrido_asignaciones)
+                .joinedload(RecorridoPaqueteModel.recorrido).joinedload(RecorridoModel.repartidor)
+                .joinedload(RepartidorModel.posicion_actual),
+            )
             .where(EnvioModel.token_seguimiento == token)
+            .execution_options(populate_existing=True)
         )
         result = await self.db.execute(stmt)
         return result.unique().scalar_one_or_none()

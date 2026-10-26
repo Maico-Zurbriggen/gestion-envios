@@ -347,6 +347,7 @@ class NotificacionEnvioModel(Base):
 
     __tablename__ = "notificaciones_envio"
     __table_args__ = (
+        UniqueConstraint("evento_entrega_id", "canal", name="uq_notificacion_evento_canal"),
         CheckConstraint(f"canal IN {_lista_sql(CanalNotificacionEnum)}", name="ck_notificaciones_envio_canal"),
         CheckConstraint(
             f"destinatario_tipo IN {_lista_sql(DestinatarioNotificacionEnum)}",
@@ -359,6 +360,10 @@ class NotificacionEnvioModel(Base):
     envio_id: Mapped[uuid.UUID] = mapped_column(
         types.Uuid(as_uuid=True), ForeignKey("envios.id"), nullable=False, index=True
     )
+    evento_entrega_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        types.Uuid(as_uuid=True), ForeignKey("eventos_entrega.id"), nullable=True
+    )
+    procesando_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     canal: Mapped[str] = mapped_column(String(10), nullable=False)
     destinatario_tipo: Mapped[str] = mapped_column(String(15), nullable=False)
     destino: Mapped[str] = mapped_column(String(150), nullable=False)
@@ -373,6 +378,7 @@ class NotificacionEnvioModel(Base):
     )
 
     envio: Mapped["EnvioModel"] = relationship("EnvioModel", back_populates="notificaciones")
+    evento_entrega: Mapped[Optional["EventoEntregaModel"]] = relationship("EventoEntregaModel")
 
 
 class ReclamoModel(Base):
@@ -584,17 +590,24 @@ class EventoEntregaModel(Base):
 
     __tablename__ = "eventos_entrega"
     __table_args__ = (
+        UniqueConstraint("operacion_id", name="uq_evento_entrega_operacion"),
         CheckConstraint(f"tipo_evento IN {_lista_sql(TipoEventoEntregaEnum)}", name="ck_eventos_entrega_tipo"),
         CheckConstraint(f"resultado IN {_lista_sql(ResultadoEventoEntregaEnum)}", name="ck_eventos_entrega_resultado"),
         Index("idx_eventos_entrega_paquete", "paquete_id", "created_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(types.Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    operacion_id: Mapped[Optional[uuid.UUID]] = mapped_column(types.Uuid(as_uuid=True), nullable=True)
+    solicitud_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    recorrido_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        types.Uuid(as_uuid=True), ForeignKey("recorridos.id"), nullable=True
+    )
     paquete_id: Mapped[uuid.UUID] = mapped_column(types.Uuid(as_uuid=True), ForeignKey("paquetes.id"), nullable=False)
     tipo_evento: Mapped[str] = mapped_column(String(20), nullable=False)
     resultado: Mapped[str] = mapped_column(String(10), nullable=False)
     receptor_nombre: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
     receptor_documento: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    receptor_fecha_nacimiento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     es_autorizado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     """HU13 Escenario 2: True cuando retira una persona distinta al
     destinatario, presentando la Autorización de Retiro física."""

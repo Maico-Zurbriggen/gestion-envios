@@ -59,6 +59,17 @@ class IRepositorioRecorridos(Protocol):
         """Recorrido con paquetes, envíos, repartidor y sucursal de origen precargados."""
         ...
 
+    async def bloquear_recorrido(self, id: UUID, repartidor_id: UUID) -> None:
+        """Serializa las escrituras del repartidor hasta el commit, también en SQLite."""
+        ...
+
+    async def obtener_posicion(self, repartidor_id: UUID) -> Any | None: ...
+
+    async def actualizar_estado_paquete(self, paquete_id: UUID, anterior: str, nuevo: str,
+                                       sucursal_id: int | None = None) -> None:
+        """Actualización condicional: rechaza una transición si el estado cambió concurrentemente."""
+        ...
+
     async def listar_recorridos_editables(self, sucursal_id: int, fecha: date, tipo_distancia: str) -> list[Any]: ...
 
     async def listar_recorridos_activos_del_envio(self, envio_id: UUID) -> list[Any]:

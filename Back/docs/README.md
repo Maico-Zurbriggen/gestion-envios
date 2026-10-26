@@ -34,6 +34,7 @@ Esta carpeta (`Back/docs/`) es el "cómo y por qué" del lado del backend: arqui
 - [HU08 — Sección de preguntas frecuentes](./04-historias-de-usuario/hu08-preguntas-frecuentes.md)
 - [HU09 — Sucursales disponibles para retiro](./04-historias-de-usuario/hu09-sucursales-retiro.md)
 - [HU10 — Generación, visualización y edición de recorridos](./04-historias-de-usuario/hu10-recorridos.md)
+- [HU11 y HU12 — Ejecución del reparto y constancias de entrega](./04-historias-de-usuario/hu11-hu12-reparto.md)
 
 ### 5. Testing
 - [Estrategia de pruebas](./05-testing/estrategia-de-pruebas.md)
