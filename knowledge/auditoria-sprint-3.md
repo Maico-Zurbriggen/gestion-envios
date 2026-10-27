@@ -30,7 +30,7 @@ La solicitud inicial autorizó completar el frontend de HU11/HU12 si ese era el 
 ### Diferencias documentales
 
 - `knowledge/envios-seguimiento.md` conserva pendientes de backend que ya fueron implementados (HU05, HU06, HU10 y HU11/HU12). Debe actualizarse con el alcance finalmente acordado.
-- El CSV menciona WhatsApp. La decisión posterior documentada en `Back/docs/04-historias-de-usuario/hu11-hu12-reparto.md` establece avisos solo por email. No se considera WhatsApp un faltante automático ni se incorpora una integración nueva.
+- El CSV menciona WhatsApp. La decisión posterior documentada en `Back/docs/04-historias-de-usuario/hu11-hu12-reparto.md` establece avisos solo por email. No se considera WhatsApp un faltante automático ni se incorpora una integración nueva. **Actualización:** esa decisión fue reemplazada; WhatsApp se implementó a pedido del usuario (ver [Sprint 2](sprint-2-notificaciones-retiro-y-neon.md)).
 - `knowledge/README.md` ya estaba en conflicto de Git (`UU`) antes de esta revisión. `knowledge/estandares-codificacion.md` ya estaba sin seguimiento. Ambos se conservaron sin modificar.
 
 ## Validación de buenas prácticas

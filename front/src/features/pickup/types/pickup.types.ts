@@ -23,6 +23,13 @@ export interface ApiPickupValidation {
   requisitos_retiro: { titular: string; tercero_autorizado: string }
 }
 
+export interface PickupBranch {
+  id: number
+  name: string
+  address: string
+  city: string
+}
+
 export interface PickupValidationResponse {
   status: 'success'
   data: ApiPickupValidation
@@ -37,8 +44,8 @@ export interface PickupValidation {
   available: boolean
   unavailableReason: string | null
   deliveryType: 'sucursal' | 'domicilio'
-  destinationBranch: ApiPickupBranch | null
-  currentBranch: ApiPickupBranch | null
+  destinationBranch: PickupBranch | null
+  currentBranch: PickupBranch | null
   recipient: { name: string; phone: string; email: string }
   requirements: { recipient: string; authorizedPerson: string }
 }
@@ -51,6 +58,9 @@ export interface RegisterPickupInput {
   documentType: string
   documentNumber: string
   recipientOver16: boolean
+  branchId: number
+  receiverBirthDate: string
+  documentReviewed: boolean
   authorizedName: string
   hasRecipientDocumentCopy: boolean
   hasSignedAuthorization: boolean

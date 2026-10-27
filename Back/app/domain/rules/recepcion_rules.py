@@ -124,3 +124,16 @@ def evaluar_disponibilidad_recepcion(estado_actual: str) -> tuple[bool, str | No
         f"El paquete no se encuentra en un estado que permita la recepción en terminal. "
         f"Estado actual: '{estado_normalizado}'. Debe estar pendiente de ingreso."
     )
+
+
+def estado_tras_recepcion(tipo_entrega: str | None, sucursal_destino_id: int | None, sucursal_recepcion_id: int) -> str:
+    """Estado que corresponde al paquete al recibirlo en la terminal.
+
+    Si el envío es para retiro y se recibe en la misma sucursal elegida, no hay
+    nada que despachar (HU10 no lo incluye en recorridos): queda listo para que
+    el destinatario lo retire (HU09/HU13). En cualquier otro caso queda en la
+    sucursal de origen esperando su recorrido.
+    """
+    if (tipo_entrega or "").strip().lower() == "sucursal" and sucursal_destino_id == sucursal_recepcion_id:
+        return EstadoPaqueteEnum.LISTO_PARA_RETIRO.value
+    return EstadoPaqueteEnum.EN_SUCURSAL_ORIGEN.value

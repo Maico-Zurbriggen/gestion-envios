@@ -211,6 +211,9 @@ async def test_hu13_escenario_1_retiro_titular_exitoso(
             "numero": "40123456",
         },
         "destinatario_mayor_16": True,
+        "sucursal_id": 1,
+        "receptor_fecha_nacimiento": "1990-05-10",
+        "documento_original_verificado": True,
         "observaciones": "Entrega realizada en ventanilla 2",
     }
 
@@ -271,6 +274,9 @@ async def test_hu13_escenario_1_titular_menor_16_es_rechazado(
             "numero": "45123456",
         },
         "destinatario_mayor_16": False,
+        "sucursal_id": 1,
+        "receptor_fecha_nacimiento": "1990-05-10",
+        "documento_original_verificado": True,
     }
 
     resp = await client.post(
@@ -306,6 +312,9 @@ async def test_hu13_escenario_2_retiro_tercero_autorizado_exitoso(
             "numero": "38999888",
         },
         "destinatario_mayor_16": True,
+        "sucursal_id": 1,
+        "receptor_fecha_nacimiento": "1990-05-10",
+        "documento_original_verificado": True,
         "tercero_autorizado": {
             "nombre_completo": "Juan Pérez",
             "documento": "38999888",
@@ -350,6 +359,9 @@ async def test_hu13_escenario_2_tercero_sin_copia_dni_es_rechazado(
         "tipo_retiro": "TERCERO_AUTORIZADO",
         "documento_presentado": {"tipo": "DNI", "numero": "38999888"},
         "destinatario_mayor_16": True,
+        "sucursal_id": 1,
+        "receptor_fecha_nacimiento": "1990-05-10",
+        "documento_original_verificado": True,
         "tercero_autorizado": {
             "nombre_completo": "Juan Pérez",
             "documento": "38999888",
@@ -383,6 +395,9 @@ async def test_hu13_escenario_2_tercero_sin_nota_autorizacion_es_rechazado(
         "tipo_retiro": "TERCERO_AUTORIZADO",
         "documento_presentado": {"tipo": "DNI", "numero": "38999888"},
         "destinatario_mayor_16": True,
+        "sucursal_id": 1,
+        "receptor_fecha_nacimiento": "1990-05-10",
+        "documento_original_verificado": True,
         "tercero_autorizado": {
             "nombre_completo": "Juan Pérez",
             "documento": "38999888",
@@ -420,6 +435,9 @@ async def test_hu13_reintento_retiro_paquete_ya_entregado(
         "tipo_retiro": "TITULAR",
         "documento_presentado": {"tipo": "DNI", "numero": "40123456"},
         "destinatario_mayor_16": True,
+        "sucursal_id": 1,
+        "receptor_fecha_nacimiento": "1990-05-10",
+        "documento_original_verificado": True,
     }
 
     resp = await client.post(
@@ -429,3 +447,169 @@ async def test_hu13_reintento_retiro_paquete_ya_entregado(
     )
     assert resp.status_code == 400
     assert resp.json()["code"] == ErrorCodes.VALIDATION_ERROR
+
+
+def _payload_titular(**cambios) -> dict:
+    payload = {
+        "tipo_retiro": "TITULAR",
+        "documento_presentado": {"tipo": "DNI", "numero": "40123456"},
+        "destinatario_mayor_16": True,
+        "sucursal_id": 1,
+        "receptor_fecha_nacimiento": "1990-05-10",
+        "documento_original_verificado": True,
+    }
+    payload.update(cambios)
+    return payload
+
+
+async def _retirar(client: AsyncClient, token: str, paquete: PaqueteModel, payload: dict):
+    return await client.post(
+        f"/api/v1/sucursal/paquetes/{paquete.numero_paquete}/registrar-retiro",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("estado", ["Pendiente", EstadoPaqueteEnum.PENDIENTE.value, EstadoPaqueteEnum.EN_SUCURSAL_ORIGEN.value])
+async def test_hu13_paquete_que_no_llego_a_la_sucursal_no_se_retira(
+    client: AsyncClient, administrativo_token: str, db_session: AsyncSession, estado: str
+):
+    """El backend (no solo la pantalla) impide retirar un paquete que nunca ingresó a la sucursal."""
+    paquete = await _crear_paquete_test(db_session, estado=estado, numero_paquete="PAQ-PENDIENTE1")
+    resp = await _retirar(client, administrativo_token, paquete, _payload_titular())
+    assert resp.status_code == 400
+    assert "estado" in [e["field"] for e in resp.json()["errors"]]
+    await db_session.refresh(paquete)
+    assert paquete.estado == estado
+
+
+@pytest.mark.asyncio
+async def test_hu13_envio_a_domicilio_no_se_retira_en_sucursal(
+    client: AsyncClient, administrativo_token: str, db_session: AsyncSession
+):
+    paquete = await _crear_paquete_test(db_session, numero_paquete="PAQ-DOMICILIO1")
+    envio = await db_session.get(EnvioModel, paquete.envio_id)
+    envio.tipo_entrega = "domicilio"
+    await db_session.commit()
+    resp = await _retirar(client, administrativo_token, paquete, _payload_titular())
+    assert resp.status_code == 400
+    assert "tipo_entrega" in [e["field"] for e in resp.json()["errors"]]
+
+
+@pytest.mark.asyncio
+async def test_hu13_rechaza_retiro_en_otra_sucursal(
+    client: AsyncClient, administrativo_token: str, db_session: AsyncSession
+):
+    paquete = await _crear_paquete_test(db_session, numero_paquete="PAQ-OTRASUC01")
+    resp = await _retirar(client, administrativo_token, paquete, _payload_titular(sucursal_id=2))
+    assert resp.status_code == 400
+    assert "sucursal_id" in [e["field"] for e in resp.json()["errors"]]
+
+    # Paquete que quedó en otra sucursal que la elegida para el retiro.
+    paquete.sucursal_actual_id = 2
+    await db_session.commit()
+    resp = await _retirar(client, administrativo_token, paquete, _payload_titular())
+    assert resp.status_code == 400
+    assert "sucursal_actual" in [e["field"] for e in resp.json()["errors"]]
+
+    validacion = await client.get(
+        f"/api/v1/sucursal/paquetes/{paquete.numero_paquete}/validar-retiro",
+        headers={"Authorization": f"Bearer {administrativo_token}"},
+    )
+    assert validacion.json()["data"]["disponible_para_retiro"] is False
+
+
+@pytest.mark.asyncio
+async def test_hu13_quien_retira_debe_ser_mayor_de_16_y_mostrar_documento(
+    client: AsyncClient, administrativo_token: str, db_session: AsyncSession
+):
+    from datetime import date
+
+    hoy = date.today()
+    cumple_16_hoy = hoy.replace(year=hoy.year - 16) if not (hoy.month == 2 and hoy.day == 29) else date(hoy.year - 16, 3, 1)
+    paquete = await _crear_paquete_test(db_session, numero_paquete="PAQ-EDAD00001")
+    resp = await _retirar(
+        client,
+        administrativo_token,
+        paquete,
+        _payload_titular(receptor_fecha_nacimiento=cumple_16_hoy.isoformat(), documento_original_verificado=False),
+    )
+    assert resp.status_code == 400
+    campos = [e["field"] for e in resp.json()["errors"]]
+    assert "receptor_fecha_nacimiento" in campos and "documento_original_verificado" in campos
+
+
+@pytest.mark.asyncio
+async def test_hu13_tercero_con_documento_distinto_al_presentado(
+    client: AsyncClient, administrativo_token: str, db_session: AsyncSession
+):
+    paquete = await _crear_paquete_test(db_session, numero_paquete="PAQ-TERCERO02")
+    payload = _payload_titular(
+        tipo_retiro="TERCERO_AUTORIZADO",
+        documento_presentado={"tipo": "DNI", "numero": "38999888"},
+        tercero_autorizado={
+            "nombre_completo": "Juan Pérez",
+            "documento": "11111111",
+            "posee_copia_dni_titular": True,
+            "posee_nota_autorizacion": True,
+        },
+    )
+    resp = await _retirar(client, administrativo_token, paquete, payload)
+    assert resp.status_code == 400
+    assert "tercero_autorizado.documento" in [e["field"] for e in resp.json()["errors"]]
+
+
+@pytest.mark.asyncio
+async def test_hu13_constancia_y_seguimiento_publico_reflejan_el_retiro(
+    client: AsyncClient, administrativo_token: str, db_session: AsyncSession
+):
+    paquete = await _crear_paquete_test(db_session, numero_paquete="PAQ-CONSTANC1")
+    resp = await _retirar(client, administrativo_token, paquete, _payload_titular())
+    assert resp.status_code == 200, resp.text
+
+    evento = (await db_session.execute(select(EventoEntregaModel))).scalar_one()
+    assert evento.receptor_fecha_nacimiento.isoformat() == "1990-05-10"
+    assert evento.documento_destinatario_verificado is True
+    assert evento.sucursal_id == 1
+
+    publico = (await client.get("/api/v1/seguimiento/ENV-TEST123456")).json()["data"]
+    assert publico["tipo_entrega"] == "sucursal"
+    ultimo = publico["paquetes"][0]["historial"][-1]
+    assert ultimo["estado"] == EstadoPaqueteEnum.ENTREGADO_EN_SUCURSAL.value
+    assert ultimo["descripcion"] == "Retirado en sucursal."
+    assert "40123456" not in str(publico)
+
+
+@pytest.mark.asyncio
+async def test_hu13_retiro_simultaneo_solo_se_registra_una_vez(
+    client: AsyncClient, administrativo_usuario: UsuarioModel, db_session: AsyncSession
+):
+    """Dos mostradores leen el paquete disponible antes de que el otro confirme: solo uno lo entrega."""
+    from datetime import date
+
+    from app.application.services.servicio_retiro_sucursal import ServicioRetiroSucursal
+    from app.contracts.sucursal_retiro import RegistrarRetiroRequest
+    from app.core.exceptions import DuplicateEntryException
+    from app.infrastructure.repositories.repositorio_entregas import RepositorioEntregas
+
+    paquete = await _crear_paquete_test(db_session, numero_paquete="PAQ-CARRERA01")
+    repo = RepositorioEntregas(db_session)
+    leido_antes = await repo.buscar_paquete_por_id_o_codigo(paquete.numero_paquete)
+    instantanea = {"estado": leido_antes.estado}
+
+    class RepoConLecturaVieja(RepositorioEntregas):
+        async def buscar_paquete_por_id_o_codigo(self, id_o_codigo):
+            encontrado = await super().buscar_paquete_por_id_o_codigo(id_o_codigo)
+            self.db.expunge(encontrado)  # copia leída antes de que el otro mostrador confirmara
+            encontrado.estado = instantanea["estado"]
+            return encontrado
+
+    datos = RegistrarRetiroRequest(**_payload_titular())
+    servicio = ServicioRetiroSucursal(RepoConLecturaVieja(db_session))
+    await servicio.registrar_retiro(paquete.numero_paquete, datos, administrativo_usuario)
+    with pytest.raises(DuplicateEntryException):
+        await servicio.registrar_retiro(paquete.numero_paquete, datos, administrativo_usuario)
+
+    eventos = (await db_session.execute(select(EventoEntregaModel))).scalars().all()
+    assert len(eventos) == 1 and eventos[0].receptor_fecha_nacimiento == date(1990, 5, 10)

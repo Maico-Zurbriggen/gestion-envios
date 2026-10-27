@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -51,14 +51,32 @@ class RepositorioRecepciones(IRepositorioRecepciones):
         nuevo_estado: str,
         sucursal_id: int,
         historial_estado: HistorialEstadoPaqueteModel,
-    ) -> PaqueteModel:
+        estados_previos: set[str] | None = None,
+    ) -> PaqueteModel | None:
         """Actualiza estado y ubicación del paquete y agrega la fila de auditoría.
 
         El estado denormalizado (`paquetes.estado` / `paquetes.sucursal_actual_id`)
         y la fila append-only de `historial_estados_paquete` se escriben en el
         mismo commit, para que la lectura pública de HU04 y el historial nunca
-        queden desfasados.
+        queden desfasados. El `UPDATE` condicional impide que dos escaneos
+        simultáneos registren la misma recepción: el segundo recibe `None`.
         """
+        condiciones = [PaqueteModel.id == paquete_id]
+        if estados_previos:
+            condiciones.append(PaqueteModel.estado.in_(list(estados_previos)))
+        resultado = await self.db.execute(
+            update(PaqueteModel)
+            .where(*condiciones)
+            .values(estado=nuevo_estado, sucursal_actual_id=sucursal_id)
+            .execution_options(synchronize_session=False)
+        )
+        if resultado.rowcount != 1:
+            await self.db.rollback()
+            return None
+
+        self.db.add(historial_estado)
+        await self.db.commit()
+
         stmt = (
             select(PaqueteModel)
             .options(
@@ -66,17 +84,6 @@ class RepositorioRecepciones(IRepositorioRecepciones):
                 joinedload(PaqueteModel.sucursal_actual),
             )
             .where(PaqueteModel.id == paquete_id)
+            .execution_options(populate_existing=True)
         )
-        resultado = await self.db.execute(stmt)
-        paquete = resultado.unique().scalar_one()
-
-        paquete.estado = nuevo_estado
-        paquete.sucursal_actual_id = sucursal_id
-
-        self.db.add(historial_estado)
-
-        await self.db.commit()
-        await self.db.refresh(paquete)
-        await self.db.refresh(historial_estado)
-
-        return paquete
+        return (await self.db.execute(stmt)).unique().scalar_one()

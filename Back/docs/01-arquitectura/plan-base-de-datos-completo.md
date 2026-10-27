@@ -452,14 +452,7 @@ Ninguna de estas tablas necesita particionado ni índices especiales de PostgreS
    ```
    DATABASE_URL=postgresql+asyncpg://usuario:password@ep-xxxx-pooler.neon.tech/gestion-envios
    ```
-3. **Correr la migración una sola vez, contra el endpoint *directo*:**
-   ```powershell
-   $env:DATABASE_URL = "postgresql+asyncpg://usuario:password@ep-xxxx.neon.tech/gestion-envios"
-   & .\.venv\Scripts\python.exe -m alembic upgrade head
-   ```
-   Esto crea las 15 tablas en Neon. Se puede correr desde cualquier máquina con `Back/.venv` y red hacia Neon — no hace falta que sea el mismo servidor que corre la API.
-4. **Configurar `Back/.env`** con el `DATABASE_URL` definitivo (el *pooled*, sin `sslmode`) para que la API lo use al arrancar.
-5. **Arrancar la app normalmente** (`python run.py`). El `ejecutar_siembra()` de siempre corre: como las tablas ya existen (las creó Alembic), `crear_tablas()` no hace nada (es un `create_all` con `checkfirst`, no falla ni duplica), y el seed de roles/sucursales/Superadmin se aplica igual que en SQLite — es el mismo código, sin cambios.
-6. **A futuro:** cualquier cambio de esquema (agregar una columna, una tabla nueva) se hace con `alembic revision --autogenerate -m "..."` + revisión manual + `alembic upgrade head` contra Neon — no volver a depender de `create_all` para cambios nuevos, esta migración inicial es la última vez que se arma "a mano".
+3. **Configurar `Back/.env`** con ese `DATABASE_URL` (se puede pegar el connection string del panel tal cual; el código lo adapta) y **arrancar la app** (`python run.py`). Al iniciar aplica las migraciones de Alembic contra el endpoint directo (deriva el host quitando `-pooler`) y siembra roles, sucursales y Superadmin.
+4. **A futuro:** cualquier cambio de esquema se hace con una migración nueva (`alembic revision --autogenerate -m "..."` + revisión manual). Se aplica sola al arrancar la API, en cada push a `development`/`main` (workflow `ci-neon.yml`) o a mano con `python -m app.infrastructure.db.actualizar_base`.
 
-**Importante:** no arrancar nunca la app apuntando a Neon *antes* de correr el paso 3. Si `crear_tablas()` llega a crear las tablas primero, el `alembic upgrade head` posterior va a fallar (Alembic no sabe que esas tablas ya existen si no las creó él).
+El flujo completo está en [Mantener Neon actualizada](../02-configuracion/base-de-datos-neon.md). La API ya no usa `create_all`, así que arrancarla contra Neon antes de migrar dejó de ser un problema: una base creada así se adopta automáticamente.

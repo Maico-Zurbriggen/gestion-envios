@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -57,8 +57,31 @@ class RepositorioEntregas(IRepositorioEntregas):
         evento_entrega: EventoEntregaModel,
         historial_estado: HistorialEstadoPaqueteModel,
         sucursal_actual_id: int | None = None,
-    ) -> PaqueteModel:
-        """Actualiza el estado del paquete y almacena el evento e historial transaccionalmente."""
+        estados_previos: set[str] | None = None,
+    ) -> PaqueteModel | None:
+        """Transición condicional del paquete + evento + historial en un único commit.
+
+        El `UPDATE ... WHERE estado IN (...)` es la barrera contra retiros
+        simultáneos: solo una solicitud cambia la fila. Si otra ya lo hizo,
+        no se escribe nada y se devuelve `None`.
+        """
+        valores: dict = {"estado": nuevo_estado}
+        if sucursal_actual_id is not None:
+            valores["sucursal_actual_id"] = sucursal_actual_id
+        condiciones = [PaqueteModel.id == paquete_id]
+        if estados_previos:
+            condiciones.append(PaqueteModel.estado.in_(list(estados_previos)))
+        resultado = await self.db.execute(
+            update(PaqueteModel).where(*condiciones).values(**valores).execution_options(synchronize_session=False)
+        )
+        if resultado.rowcount != 1:
+            await self.db.rollback()
+            return None
+
+        self.db.add(evento_entrega)
+        self.db.add(historial_estado)
+        await self.db.commit()
+
         stmt = (
             select(PaqueteModel)
             .options(
@@ -66,20 +89,6 @@ class RepositorioEntregas(IRepositorioEntregas):
                 joinedload(PaqueteModel.sucursal_actual),
             )
             .where(PaqueteModel.id == paquete_id)
+            .execution_options(populate_existing=True)
         )
-        result = await self.db.execute(stmt)
-        paquete = result.unique().scalar_one()
-
-        paquete.estado = nuevo_estado
-        if sucursal_actual_id is not None:
-            paquete.sucursal_actual_id = sucursal_actual_id
-
-        self.db.add(evento_entrega)
-        self.db.add(historial_estado)
-
-        await self.db.commit()
-        await self.db.refresh(paquete)
-        await self.db.refresh(evento_entrega)
-        await self.db.refresh(historial_estado)
-
-        return paquete
+        return (await self.db.execute(stmt)).unique().scalar_one()

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import {
   ArrowLeft,
   Box,
+  Building2,
   CalendarClock,
   Check,
   CircleAlert,
@@ -28,15 +29,24 @@ import { useTheme } from '../../../shared/hooks/useTheme'
 import { ShipmentClaims } from '../../claims/components/ShipmentClaims'
 import { useShipmentTracking } from '../hooks/useShipmentTracking'
 import type { TrackedPackage } from '../types/tracking.types'
-import { getStatusStep } from '../trackingStatus'
+import { getStatusLabel, getStatusStep, type TrackingDeliveryType } from '../trackingStatus'
+import { PickupBranchInfo } from '../components/PickupBranchInfo'
 import { LocationMap, type MapLocation } from '../../../shared/components/LocationMap'
 import './TrackingPage.css'
 
-const TRACKING_STEPS = [
+const HOME_TRACKING_STEPS = [
   { label: 'Registrado', description: 'Datos y etiqueta generados', icon: Check },
   { label: 'En sucursal', description: 'Recibido para despacho', icon: Warehouse },
   { label: 'En viaje', description: 'Traslado hacia el destino', icon: Truck },
   { label: 'Entregado', description: 'Recepción confirmada', icon: House },
+] as const
+
+const PICKUP_TRACKING_STEPS = [
+  { label: 'Registrado', description: 'Datos y etiqueta generados', icon: Check },
+  { label: 'Recibido', description: 'Ingresó en la terminal', icon: Warehouse },
+  { label: 'En viaje', description: 'Traslado a la sucursal', icon: Truck },
+  { label: 'Para retirar', description: 'Disponible en sucursal', icon: Building2 },
+  { label: 'Retirado', description: 'Entrega verificada', icon: PackageCheck },
 ] as const
 
 function normalizeToken(value: string) {
@@ -50,8 +60,9 @@ function formatDate(value: string) {
   }).format(new Date(value))
 }
 
-function PackageProgress({ shipmentPackage }: { shipmentPackage: TrackedPackage }) {
-  const currentStep = getStatusStep(shipmentPackage.status)
+function PackageProgress({ shipmentPackage, deliveryType }: { shipmentPackage: TrackedPackage; deliveryType: TrackingDeliveryType }) {
+  const currentStep = getStatusStep(shipmentPackage.status, deliveryType)
+  const steps = deliveryType === 'sucursal' ? PICKUP_TRACKING_STEPS : HOME_TRACKING_STEPS
 
   return (
     <article className="tracked-package">
@@ -63,7 +74,7 @@ function PackageProgress({ shipmentPackage }: { shipmentPackage: TrackedPackage 
           <span>Paquete</span>
           <h2>{shipmentPackage.packageNumber}</h2>
         </div>
-        <span className="tracked-package__status">{shipmentPackage.status}</span>
+        <span className="tracked-package__status" title={shipmentPackage.status}>{getStatusLabel(shipmentPackage.status)}</span>
       </header>
 
       <div className="tracked-package__content">
@@ -81,7 +92,7 @@ function PackageProgress({ shipmentPackage }: { shipmentPackage: TrackedPackage 
         </div>
 
         <ol className="tracking-timeline" aria-label="Progreso del paquete">
-          {TRACKING_STEPS.map((step, index) => {
+          {steps.map((step, index) => {
             const Icon = step.icon
             const state =
               index < currentStep
@@ -105,7 +116,7 @@ function PackageProgress({ shipmentPackage }: { shipmentPackage: TrackedPackage 
         </ol>
 
         {shipmentPackage.status === 'ENTREGA_FALLIDA' && <p role="status">La visita no pudo completarse. El paquete aún no fue entregado.</p>}
-        {shipmentPackage.history.length > 0 && <details><summary>Historial real del paquete</summary><ol>{shipmentPackage.history.map((event, index) => <li key={`${event.occurredAt}-${index}`}><time dateTime={event.occurredAt}>{formatDate(event.occurredAt)}</time> · {event.description} ({event.status})</li>)}</ol></details>}
+        {shipmentPackage.history.length > 0 && <details><summary>Historial real del paquete</summary><ol>{shipmentPackage.history.map((event, index) => <li key={`${event.occurredAt}-${index}`}><time dateTime={event.occurredAt}>{formatDate(event.occurredAt)}</time> · {event.description} ({getStatusLabel(event.status)})</li>)}</ol></details>}
         <footer className="tracked-package__dates">
           <span>
             <CalendarClock size={15} aria-hidden="true" />
@@ -242,7 +253,7 @@ export function TrackingPage() {
               </div>
               <div className="tracking-result__destination">
                 <MapPin size={20} aria-hidden="true" />
-                <span><small>Destino</small><strong>{trackingQuery.data.destination}</strong></span>
+                <span><small>{trackingQuery.data.deliveryType === 'sucursal' ? 'Retiro en sucursal' : 'Entrega a domicilio'}</small><strong>{trackingQuery.data.destination}</strong></span>
               </div>
               <div className="tracking-result__updated">
                 <Clock3 size={18} aria-hidden="true" />
@@ -254,11 +265,17 @@ export function TrackingPage() {
               <Route size={20} aria-hidden="true" />
               <div><strong>Ubicación del envío</strong><p>El destino es fijo. La posición del reparto se muestra únicamente mientras el paquete está pendiente en un recorrido activo; la fecha indica cuándo se recibió la última ubicación. Durante el traslado, la consulta se actualiza cada 15 segundos.</p></div>
             </div>
+            {trackingQuery.data.deliveryType === 'sucursal' && (
+              <PickupBranchInfo
+                token={trackingQuery.data.trackingToken}
+                statusKey={trackingQuery.data.packages.map((item) => item.status).join('|')}
+              />
+            )}
             {locations.length ? <LocationMap locations={locations} name="Destino y última ubicación disponible del reparto" /> : <p role="status">Ubicación no disponible para este envío.</p>}
 
             <div className="tracked-packages">
               {trackingQuery.data.packages.map((shipmentPackage) => (
-                <PackageProgress key={shipmentPackage.packageNumber} shipmentPackage={shipmentPackage} />
+                <PackageProgress key={shipmentPackage.packageNumber} shipmentPackage={shipmentPackage} deliveryType={trackingQuery.data.deliveryType} />
               ))}
             </div>
 

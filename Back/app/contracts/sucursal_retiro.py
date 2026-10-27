@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
@@ -48,7 +48,20 @@ class RegistrarRetiroRequest(BaseModel):
     )
     destinatario_mayor_16: bool = Field(
         ...,
-        description="Validación de que el destinatario titular es mayor o igual a 16 años",
+        description="Declaración del personal de que el destinatario titular es mayor de 16 años",
+    )
+    sucursal_id: int = Field(
+        ...,
+        gt=0,
+        description="Sucursal donde atiende el personal que registra el retiro; debe ser la elegida para el retiro",
+    )
+    receptor_fecha_nacimiento: date = Field(
+        ...,
+        description="Fecha de nacimiento de quien retira, según su documento. Debe ser mayor de 16 años",
+    )
+    documento_original_verificado: bool = Field(
+        ...,
+        description="El personal verificó el documento original de quien retira",
     )
     tercero_autorizado: TerceroAutorizadoDTO | None = Field(
         None,

@@ -23,6 +23,10 @@ class IRepositorioEntregas(Protocol):
         evento_entrega: Any,
         historial_estado: Any,
         sucursal_actual_id: int | None = None,
-    ) -> Any:
-        """Actualiza el estado del paquete y persiste el evento de entrega y el historial en una sola transacción."""
+        estados_previos: set[str] | None = None,
+    ) -> Any | None:
+        """Transición condicional + evento + historial en una sola transacción.
+
+        Devuelve `None` si el paquete ya no estaba en `estados_previos` (otra solicitud lo retiró).
+        """
         ...

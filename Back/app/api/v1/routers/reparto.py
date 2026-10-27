@@ -110,7 +110,7 @@ async def registrar_entrega(
 @router.post(
     "/{id}/paquetes/{codigo}/visita-fallida",
     response_model=EventoEntregaResponse,
-    summary="Registrar visita fallida y generar aviso por email",
+    summary="Registrar visita fallida y generar aviso por email y WhatsApp",
 )
 async def registrar_visita_fallida(
     id: uuid.UUID,

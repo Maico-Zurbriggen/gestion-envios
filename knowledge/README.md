@@ -11,6 +11,7 @@ Este directorio registra criterios compartidos para evitar que las decisiones de
 - [Registro de envíos y seguimiento público](./envios-seguimiento.md)
 - [Reclamos, preguntas frecuentes y recorridos](./reclamos-preguntas-recorridos.md)
 - [Trayectos por calles con Mapbox](./mapbox-routing.md)
+- [Sprint 2: notificaciones, recepción, retiro y base Neon](./sprint-2-notificaciones-retiro-y-neon.md)
 - [Estándares y buenas prácticas de codificación](./estandares-codificacion.md)
 
 Los documentos describen el estado actual y deben actualizarse cuando cambie un contrato o una decisión transversal.

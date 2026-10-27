@@ -41,6 +41,10 @@ class Settings(BaseSettings):
 
     # Base de Datos
     DATABASE_URL: str = "sqlite+aiosqlite:///./gestion_envios.db"
+    DATABASE_URL_MIGRACIONES: str = ""
+    """Opcional: endpoint directo de Neon para Alembic. Vacío: se deriva de DATABASE_URL quitando `-pooler`."""
+    DB_ACTUALIZAR_ESQUEMA_AL_INICIAR: bool = True
+    """Aplica `alembic upgrade head` al arrancar la API, para que la base compartida nunca quede atrás."""
 
     # Seguridad / JWT
     JWT_SECRET: str = "super-secret-jwt-key-replace-in-production-min-32-chars-long!"
@@ -57,15 +61,35 @@ class Settings(BaseSettings):
     SUPERADMIN_SEED_TELEFONO: str = "+5493564000000"
 
     # Notificaciones y Proveedor de Email (HU05)
-    EMAIL_PROVIDER: str = "mock"  # "mock" | "smtp"
+    EMAIL_PROVIDER: str = "mock"  # "mock" | "smtp" | "gmail"
     SMTP_HOST: str = "localhost"
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     SMTP_USE_TLS: bool = True
-    SMTP_FROM_EMAIL: str = "notificaciones@gestionenvios.com"
+    SMTP_FROM_EMAIL: str = ""
+    """Vacío: se usa `SMTP_USER`. Gmail reescribe el remitente si no coincide con la cuenta autenticada."""
     SMTP_FROM_NAME: str = "Sistema de Gestión de Envíos"
+    SMTP_TIMEOUT_SEGUNDOS: int = 15
     FRONTEND_BASE_URL: str = "http://localhost:5173"
+
+    # Notificaciones por WhatsApp (HU05 y aviso de visita de HU12)
+    WHATSAPP_PROVIDER: str = "mock"  # "mock" | "meta" | "twilio" | "deshabilitado"
+    WHATSAPP_CODIGO_PAIS: str = "54"
+    WHATSAPP_TIMEOUT_SEGUNDOS: int = 15
+    # Meta WhatsApp Cloud API
+    WHATSAPP_META_TOKEN: str = ""
+    WHATSAPP_META_PHONE_NUMBER_ID: str = ""
+    WHATSAPP_META_API_VERSION: str = "v21.0"
+    WHATSAPP_META_IDIOMA_PLANTILLA: str = "es_AR"
+    WHATSAPP_META_PLANTILLA_NUEVO_ENVIO: str = ""
+    WHATSAPP_META_PLANTILLA_VISITA_FALLIDA: str = ""
+    # Twilio (sandbox o remitente aprobado)
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_WHATSAPP_FROM: str = "whatsapp:+14155238886"
+    TWILIO_CONTENT_SID_NUEVO_ENVIO: str = ""
+    TWILIO_CONTENT_SID_VISITA_FALLIDA: str = ""
 
     @field_validator("DEBUG", mode="before")
     @classmethod

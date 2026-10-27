@@ -12,6 +12,7 @@ from app.core.config import settings
 def test_hu11_hu12_upgrade_downgrade_preserva_constancias(tmp_path, monkeypatch):
     ruta = tmp_path / "migracion.db"
     monkeypatch.setattr(settings, "DATABASE_URL", f"sqlite+aiosqlite:///{ruta.as_posix()}")
+    monkeypatch.setattr(settings, "DATABASE_URL_MIGRACIONES", "")
     config = Config("alembic.ini")
     command.upgrade(config, "b7d41e9a2c63")
     id_evento = uuid.uuid4().hex

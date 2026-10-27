@@ -9,7 +9,7 @@ from app.domain.constants.roles import RolEnum, RolIdEnum
 from app.domain.rules.paquete_rules import DIMENSION_MAX_CM, PESO_MAX_KG, SUMA_DIMENSIONES_MAX_CM
 from app.infrastructure.auth.hasher import HasherContrasenas
 from app.infrastructure.db.models import PreguntaFrecuenteModel, RolModel, SucursalModel, UsuarioModel
-from app.infrastructure.db.session import AsyncSessionLocal, crear_tablas
+from app.infrastructure.db.session import AsyncSessionLocal
 
 ROLES_BASE = [
     {"id": RolIdEnum.SUPERADMIN.value, "nombre": RolEnum.SUPERADMIN.value, "descripcion": "Administrador general del sistema"},
@@ -245,15 +245,27 @@ async def sembrar_preguntas_frecuentes(db: AsyncSession) -> None:
     logger.info(f"Sembradas {len(PREGUNTAS_FRECUENTES_BASE)} preguntas frecuentes iniciales.")
 
 
+async def ejecutar_semillas(db: AsyncSession) -> None:
+    """Datos base idempotentes: no duplica nada si ya existen."""
+    await sembrar_roles(db)
+    await sembrar_superadmin(db)
+    await sembrar_sucursales(db)
+    await sembrar_preguntas_frecuentes(db)
+
+
 async def ejecutar_siembra() -> None:
-    """Ejecuta la siembra completa de datos iniciales."""
-    logger.info("Iniciando creación de tablas y siembra de datos...")
-    await crear_tablas()
+    """Actualiza el esquema con Alembic y siembra los datos iniciales.
+
+    No se usa `create_all`: contra Neon creaba tablas sin registrar la versión
+    de Alembic y nunca agregaba columnas nuevas (ver `actualizar_base.py`).
+    """
+    if settings.DB_ACTUALIZAR_ESQUEMA_AL_INICIAR:
+        from app.infrastructure.db.actualizar_base import actualizar_esquema_al_iniciar
+
+        logger.info("Verificando el esquema de la base de datos...")
+        await asyncio.to_thread(actualizar_esquema_al_iniciar)
     async with AsyncSessionLocal() as db:
-        await sembrar_roles(db)
-        await sembrar_superadmin(db)
-        await sembrar_sucursales(db)
-        await sembrar_preguntas_frecuentes(db)
+        await ejecutar_semillas(db)
     logger.info("Siembra completada con éxito.")
 
 

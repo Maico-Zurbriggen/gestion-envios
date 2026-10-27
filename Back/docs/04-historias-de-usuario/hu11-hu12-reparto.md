@@ -3,8 +3,8 @@
 Implementación exclusivamente en `Back/`. Se reutilizan HU10 (recorridos,
 paradas, orden, destinos e inicio), HU04 (seguimiento), HU05 (proveedor de
 email y auditoría) y las tablas existentes de posiciones y eventos de entrega.
-Por la corrección de alcance del proyecto, los avisos se envían **solo por email**;
-no se agregó integración con WhatsApp ni se modificó el frontend.
+El aviso de visita fallida se envía por **email y WhatsApp** al destinatario (Product Backlog,
+HU12 Escenario 3), con los proveedores de [Notificaciones](../02-configuracion/notificaciones-email-whatsapp.md).
 
 ## Endpoints privados
 

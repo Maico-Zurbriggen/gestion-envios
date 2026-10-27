@@ -208,3 +208,17 @@ async def repartidor_token(repartidor_usuario: UsuarioModel) -> str:
         scope=ScopeEnum.FULL_ACCESS.value,
     )
 
+
+
+@pytest.fixture(autouse=True)
+def whatsapp():
+    """Proveedor de WhatsApp en memoria y aislado por prueba (HU05 / HU12)."""
+    from app.infrastructure.whatsapp.whatsapp_provider import (
+        MockWhatsAppProvider,
+        establecer_proveedor_whatsapp_personalizado,
+    )
+
+    proveedor = MockWhatsAppProvider()
+    establecer_proveedor_whatsapp_personalizado(proveedor)
+    yield proveedor
+    establecer_proveedor_whatsapp_personalizado(None)

@@ -14,7 +14,7 @@ from app.contracts.sucursal_retiro import (
     ValidarRetiroResponse,
 )
 from app.contracts.sucursales import SucursalData
-from app.core.exceptions import NotFoundException, ValidationException
+from app.core.exceptions import DuplicateEntryException, NotFoundException, ValidationException
 from app.domain.constants.estados_logistica import (
     EstadoPaqueteEnum,
     ResultadoEventoEntregaEnum,
@@ -22,8 +22,12 @@ from app.domain.constants.estados_logistica import (
     TipoRetiroEnum,
 )
 from app.domain.rules.recepcion_rules import normalizar_codigo_escaneado
+from app.domain.rules.reparto_rules import receptor_mayor_de_16
 from app.domain.rules.retiro_rules import (
+    ESTADOS_VALIDOS_PARA_RETIRO,
     evaluar_disponibilidad_retiro,
+    validar_envio_para_retiro,
+    validar_receptor_retiro,
     validar_requisitos_retiro,
 )
 from app.infrastructure.db.models import EventoEntregaModel, HistorialEstadoPaqueteModel, SucursalModel
@@ -44,8 +48,14 @@ class ServicioRetiroSucursal(IServicioRetiroSucursal):
             )
 
         disponible, motivo = evaluar_disponibilidad_retiro(paquete.estado)
-
         envio = paquete.envio
+        if disponible and envio is not None:
+            errores_envio = validar_envio_para_retiro(
+                envio.tipo_entrega, envio.sucursal_destino_id, paquete.sucursal_actual_id, None
+            )
+            if errores_envio:
+                disponible, motivo = False, errores_envio[0]["message"]
+
         sucursal_destino_data = self._mapear_sucursal(envio.sucursal_destino) if envio and envio.sucursal_destino else None
         sucursal_actual_data = self._mapear_sucursal(paquete.sucursal_actual) if paquete.sucursal_actual else None
 
@@ -91,14 +101,32 @@ class ServicioRetiroSucursal(IServicioRetiroSucursal):
                 errors=[{"field": "estado", "message": motivo or "Estado no apto para retiro."}],
             )
 
-        # 2. Validación de reglas de negocio según tipo de retiro
+        envio = paquete.envio
+        ahora = datetime.now(UTC)
+
+        # 2. Modalidad y sucursal: solo se retira en la sucursal elegida, donde ya está el paquete.
+        errores_reglas = validar_envio_para_retiro(
+            envio.tipo_entrega if envio else "",
+            envio.sucursal_destino_id if envio else None,
+            paquete.sucursal_actual_id,
+            datos.sucursal_id,
+        )
+
+        # 3. Identidad de quien retira y documentación según tipo de retiro.
         tercero_dict = datos.tercero_autorizado.model_dump() if datos.tercero_autorizado else None
-        errores_reglas = validar_requisitos_retiro(
+        errores_reglas += validar_requisitos_retiro(
             tipo_retiro=datos.tipo_retiro,
             destinatario_mayor_16=datos.destinatario_mayor_16,
             documento_tipo=datos.documento_presentado.tipo,
             documento_numero=datos.documento_presentado.numero,
             tercero_datos=tercero_dict,
+        )
+        errores_reglas += validar_receptor_retiro(
+            tipo_retiro=datos.tipo_retiro,
+            receptor_mayor_16=receptor_mayor_de_16(datos.receptor_fecha_nacimiento, ahora.date()),
+            documento_original_verificado=datos.documento_original_verificado,
+            documento_presentado=datos.documento_presentado.numero,
+            documento_tercero=datos.tercero_autorizado.documento if datos.tercero_autorizado else None,
         )
 
         if errores_reglas:
@@ -107,11 +135,9 @@ class ServicioRetiroSucursal(IServicioRetiroSucursal):
                 errors=errores_reglas,
             )
 
-        envio = paquete.envio
         nuevo_estado = EstadoPaqueteEnum.ENTREGADO_EN_SUCURSAL.value
-        ahora = datetime.now(UTC)
 
-        # 3. Determinación de datos del receptor
+        # 4. Determinación de datos del receptor
         if datos.tipo_retiro == TipoRetiroEnum.TITULAR.value:
             receptor_nombre = envio.destinatario_nombre if envio else "Titular"
             receptor_documento = datos.documento_presentado.numero.strip()
@@ -129,9 +155,14 @@ class ServicioRetiroSucursal(IServicioRetiroSucursal):
         if datos.observaciones and datos.observaciones.strip():
             detalle_obs += f" Obs: {datos.observaciones.strip()}"
 
-        sucursal_id = paquete.sucursal_actual_id or (envio.sucursal_destino_id if envio else None)
+        sucursal_id = paquete.sucursal_actual_id
+        documento_destinatario_verificado = (
+            datos.documento_original_verificado
+            if not es_autorizado
+            else bool(datos.tercero_autorizado and datos.tercero_autorizado.posee_copia_dni_titular)
+        )
 
-        # 4. Creación de entidades de auditoría y entrega
+        # 5. Creación de entidades de auditoría y entrega
         evento_entrega = EventoEntregaModel(
             id=uuid.uuid4(),
             paquete_id=paquete.id,
@@ -139,8 +170,9 @@ class ServicioRetiroSucursal(IServicioRetiroSucursal):
             resultado=ResultadoEventoEntregaEnum.EXITOSO.value,
             receptor_nombre=receptor_nombre,
             receptor_documento=receptor_documento,
+            receptor_fecha_nacimiento=datos.receptor_fecha_nacimiento,
             es_autorizado=es_autorizado,
-            documento_destinatario_verificado=True,
+            documento_destinatario_verificado=documento_destinatario_verificado,
             firma_imagen=None,
             firma_content_type=None,
             motivo_fallo=None,
@@ -159,14 +191,20 @@ class ServicioRetiroSucursal(IServicioRetiroSucursal):
             created_at=ahora,
         )
 
-        # 5. Persistencia transaccional
+        # 6. Persistencia transaccional con transición condicional (evita retiros duplicados simultáneos)
         paquete_actualizado = await self.repo_entregas.registrar_retiro_paquete(
             paquete_id=paquete.id,
             nuevo_estado=nuevo_estado,
             evento_entrega=evento_entrega,
             historial_estado=historial_estado,
             sucursal_actual_id=sucursal_id,
+            estados_previos=ESTADOS_VALIDOS_PARA_RETIRO,
         )
+        if paquete_actualizado is None:
+            raise DuplicateEntryException(
+                message="El paquete ya fue retirado por otra operación.",
+                errors=[{"field": "estado", "message": "Retiro ya registrado."}],
+            )
 
         return RegistrarRetiroResponse(
             data=RetiroRegistradoData(

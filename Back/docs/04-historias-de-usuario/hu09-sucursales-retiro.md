@@ -99,7 +99,7 @@ ESTADOS_YA_EN_SUCURSAL_DESTINO = {
 
 Las dos reglas viven en el mismo módulo ([`domain/rules/retiro_rules.py`](../../app/domain/rules/retiro_rules.py)) con la diferencia documentada en el docstring de la constante, justamente para que nadie las unifique por error creyendo que es una duplicación.
 
-> Nota para cuando se unifique la máquina de estados (HU10-HU12): lo correcto sería sacar `"Pendiente"` de `ESTADOS_VALIDOS_PARA_RETIRO` y dejar una sola lista. No se hizo en esta historia porque cambiaría el comportamiento del mostrador de HU13, que está fuera de su alcance.
+> Actualización (Sprint 2): `"Pendiente"` se quitó de `ESTADOS_VALIDOS_PARA_RETIRO` y ahora hay una sola lista para el mostrador de HU13 y la vista pública. Un paquete con retiro en sucursal que se recibe en su propia sucursal pasa directo a `LISTO_PARA_RETIRO` (HU06), así que ya no queda trabado en `"Pendiente"`.
 
 ## Privacidad de la vista pública
 

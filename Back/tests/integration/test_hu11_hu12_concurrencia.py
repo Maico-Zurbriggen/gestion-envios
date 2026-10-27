@@ -147,5 +147,5 @@ async def test_hu12_aviso_simultaneo_se_reserva_una_sola_vez(reparto_en_disco):
         continuar.set()
         await primera
     async with factory() as sesion:
-        aviso = (await sesion.scalars(select(NotificacionEnvioModel))).one()
+        aviso = (await sesion.scalars(select(NotificacionEnvioModel).where(NotificacionEnvioModel.canal == "EMAIL"))).one()
         assert aviso.estado == "ENVIADO" and aviso.proveedor_mensaje_id == "id-proveedor"

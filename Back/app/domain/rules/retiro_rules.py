@@ -1,8 +1,8 @@
 """Reglas de dominio para el retiro de paquetes en sucursal (HU09 y HU13).
 
-Contiene validaciones puras de negocio sobre condiciones de retiro, mayoría
-de edad del titular (>= 16 años), requisitos de presentación para terceros
-autorizados y estados válidos del paquete.
+Contiene validaciones puras de negocio sobre condiciones de retiro, edad de
+quien retira (mayor de 16 años), requisitos de presentación para terceros
+autorizados, modalidad y sucursal del envío y estados válidos del paquete.
 
 HU13 las usa para habilitar el registro del retiro en ventanilla; HU09 reusa
 las mismas reglas de estado para informar, en la vista pública, si el paquete
@@ -17,10 +17,10 @@ ESTADOS_VALIDOS_PARA_RETIRO: set[str] = {
     EstadoPaqueteEnum.LISTO_PARA_RETIRO.value,
     EstadoPaqueteEnum.EN_SUCURSAL.value,
     EstadoPaqueteEnum.EN_SUCURSAL_DESTINO.value,
-    # "Pendiente" o "PENDIENTE" si fue registrado para entrega en sucursal y ya está disponible
-    "Pendiente",
-    EstadoPaqueteEnum.PENDIENTE.value,
 }
+"""Solo un paquete que llegó físicamente a la sucursal se puede retirar. Un
+paquete pendiente todavía no ingresó a la red (HU06): entregarlo sería
+registrar un retiro de algo que la sucursal no tiene."""
 
 ESTADOS_YA_ENTREGADOS: set[str] = {
     EstadoPaqueteEnum.ENTREGADO.value,
@@ -62,11 +62,11 @@ def validar_requisitos_retiro(
     """
     errores: list[dict[str, str]] = []
 
-    # 1. Regla: Destinatario titular debe tener al menos 16 años
+    # 1. Regla: el destinatario titular debe ser mayor de 16 años
     if not destinatario_mayor_16:
         errores.append({
             "field": "destinatario_mayor_16",
-            "message": "El titular o destinatario debe tener al menos 16 años para retirar o autorizar el retiro.",
+            "message": "El destinatario titular debe ser mayor de 16 años para retirar o autorizar el retiro.",
         })
 
     # 2. Documento presentado
@@ -159,19 +159,10 @@ def envio_habilita_retiro_en_sucursal(tipo_entrega: str) -> tuple[bool, str | No
     )
 
 
-ESTADOS_YA_EN_SUCURSAL_DESTINO: set[str] = {
-    EstadoPaqueteEnum.LISTO_PARA_RETIRO.value,
-    EstadoPaqueteEnum.EN_SUCURSAL.value,
-    EstadoPaqueteEnum.EN_SUCURSAL_DESTINO.value,
-}
-"""Estados en los que el paquete está físicamente en la sucursal de destino.
-
-Es deliberadamente más estricto que `ESTADOS_VALIDOS_PARA_RETIRO`: esa lista
-habilita el mostrador de HU13 e incluye "Pendiente" para no bloquear los
-envíos precargados antes de que existiera la recepción en terminal (HU06).
-Para la vista pública de HU09 eso sería engañoso — anunciaría que el paquete
-se puede pasar a buscar cuando todavía no salió de la terminal de origen.
-"""
+ESTADOS_YA_EN_SUCURSAL_DESTINO: set[str] = set(ESTADOS_VALIDOS_PARA_RETIRO)
+"""Estados en los que el paquete está físicamente en la sucursal de destino:
+los mismos que habilitan el mostrador de HU13, para que la vista pública de
+HU09 nunca anuncie como disponible algo que el personal no puede entregar."""
 
 
 def paquete_disponible_en_sucursal(estado_actual: str) -> bool:
@@ -180,3 +171,64 @@ def paquete_disponible_en_sucursal(estado_actual: str) -> bool:
     Alimenta el campo `disponible_para_retirar` de la vista pública de HU09.
     """
     return (estado_actual or "").strip() in ESTADOS_YA_EN_SUCURSAL_DESTINO
+
+
+def validar_envio_para_retiro(
+    tipo_entrega: str,
+    sucursal_destino_id: int | None,
+    sucursal_actual_id: int | None,
+    sucursal_operador_id: int | None,
+) -> list[dict[str, str]]:
+    """HU13: el paquete debe ser de retiro en sucursal y estar en la sucursal elegida,
+    que además tiene que ser la sucursal donde atiende el personal que registra el retiro."""
+    errores: list[dict[str, str]] = []
+    aplica, motivo = envio_habilita_retiro_en_sucursal(tipo_entrega)
+    if not aplica:
+        errores.append({"field": "tipo_entrega", "message": motivo or "El envío no es para retiro en sucursal."})
+        return errores
+    if sucursal_destino_id is None or sucursal_actual_id != sucursal_destino_id:
+        errores.append({
+            "field": "sucursal_actual",
+            "message": "El paquete todavía no está en la sucursal elegida para el retiro.",
+        })
+    if sucursal_operador_id is not None and sucursal_operador_id != sucursal_destino_id:
+        errores.append({
+            "field": "sucursal_id",
+            "message": "El paquete se retira en otra sucursal: no puede entregarse en esta.",
+        })
+    return errores
+
+
+def validar_receptor_retiro(
+    tipo_retiro: str,
+    receptor_mayor_16: bool,
+    documento_original_verificado: bool,
+    documento_presentado: str,
+    documento_tercero: str | None,
+) -> list[dict[str, str]]:
+    """HU13: quien retira debe ser mayor de 16 años y haber exhibido su documento original.
+
+    Si retira un tercero, el documento presentado es el propio y debe coincidir
+    con el declarado en la autorización.
+    """
+    errores: list[dict[str, str]] = []
+    if not receptor_mayor_16:
+        errores.append({
+            "field": "receptor_fecha_nacimiento",
+            "message": "La persona que retira debe ser mayor de 16 años.",
+        })
+    if not documento_original_verificado:
+        errores.append({
+            "field": "documento_original_verificado",
+            "message": "Debe verificar el documento original de quien retira.",
+        })
+    if (
+        (tipo_retiro or "").strip().upper() == TipoRetiroEnum.TERCERO_AUTORIZADO.value
+        and documento_tercero
+        and documento_tercero.strip() != (documento_presentado or "").strip()
+    ):
+        errores.append({
+            "field": "tercero_autorizado.documento",
+            "message": "El documento del tercero autorizado debe coincidir con el documento presentado.",
+        })
+    return errores

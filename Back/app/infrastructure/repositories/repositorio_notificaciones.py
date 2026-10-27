@@ -1,12 +1,15 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
-from app.domain.constants.estados_logistica import CanalNotificacionEnum, EstadoNotificacionEnum
-from app.infrastructure.db.models import EventoEntregaModel, NotificacionEnvioModel
+from app.domain.constants.estados_logistica import EstadoNotificacionEnum
+from app.infrastructure.db.models import EnvioModel, EventoEntregaModel, NotificacionEnvioModel
+
+VENCIMIENTO_RESERVA = timedelta(minutes=5)
+"""Una reserva más antigua se considera abandonada (proceso caído a mitad del envío)."""
 
 
 class RepositorioNotificaciones:
@@ -15,35 +18,58 @@ class RepositorioNotificaciones:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def obtener_aviso_visita(self, evento_id: UUID) -> NotificacionEnvioModel | None:
+    async def obtener_avisos_visita(self, evento_id: UUID) -> list[NotificacionEnvioModel]:
+        """Avisos (uno por canal) generados por una visita fallida de HU12."""
         resultado = await self.db.execute(
-            select(NotificacionEnvioModel).where(
-                NotificacionEnvioModel.evento_entrega_id == evento_id,
-                NotificacionEnvioModel.canal == CanalNotificacionEnum.EMAIL.value,
-            ).options(joinedload(NotificacionEnvioModel.envio),
-                      joinedload(NotificacionEnvioModel.evento_entrega).joinedload(EventoEntregaModel.paquete))
+            select(NotificacionEnvioModel)
+            .where(NotificacionEnvioModel.evento_entrega_id == evento_id)
+            .options(
+                joinedload(NotificacionEnvioModel.envio),
+                joinedload(NotificacionEnvioModel.evento_entrega).joinedload(EventoEntregaModel.paquete),
+            )
+            .order_by(NotificacionEnvioModel.canal)
         )
-        return resultado.unique().scalar_one_or_none()
+        return list(resultado.unique().scalars().all())
 
-    async def tomar_aviso_visita(self, notificacion_id: UUID) -> bool:
+    async def tomar_notificacion(self, notificacion_id: UUID) -> bool:
+        """Reserva atómicamente un intento pendiente/fallido; uno enviado nunca se vuelve a enviar."""
+        ahora = datetime.now(UTC)
         resultado = await self.db.execute(
-            update(NotificacionEnvioModel).where(
+            update(NotificacionEnvioModel)
+            .where(
                 NotificacionEnvioModel.id == notificacion_id,
-                NotificacionEnvioModel.evento_entrega_id.is_not(None),
-                NotificacionEnvioModel.estado.in_([EstadoNotificacionEnum.PENDIENTE.value,
-                                                  EstadoNotificacionEnum.FALLIDO.value]),
-                NotificacionEnvioModel.procesando_at.is_(None),
-            ).values(procesando_at=datetime.now(UTC))
+                NotificacionEnvioModel.estado.in_(
+                    [EstadoNotificacionEnum.PENDIENTE.value, EstadoNotificacionEnum.FALLIDO.value]
+                ),
+                or_(
+                    NotificacionEnvioModel.procesando_at.is_(None),
+                    NotificacionEnvioModel.procesando_at < ahora - VENCIMIENTO_RESERVA,
+                ),
+            )
+            .values(procesando_at=ahora)
+            .execution_options(synchronize_session=False)
         )
         await self.db.commit()
         return resultado.rowcount == 1
 
-    async def finalizar_aviso_visita(self, notificacion_id: UUID, estado: str,
-                                   proveedor_mensaje_id: str | None, error_detalle: str | None) -> None:
+    async def finalizar_notificacion(
+        self,
+        notificacion_id: UUID,
+        estado: str,
+        proveedor_mensaje_id: str | None,
+        error_detalle: str | None,
+    ) -> None:
         await self.db.execute(
-            update(NotificacionEnvioModel).where(NotificacionEnvioModel.id == notificacion_id)
-            .values(estado=estado, proveedor_mensaje_id=proveedor_mensaje_id,
-                    error_detalle=error_detalle, procesando_at=None)
+            update(NotificacionEnvioModel)
+            .where(NotificacionEnvioModel.id == notificacion_id)
+            .values(
+                estado=estado,
+                proveedor_mensaje_id=proveedor_mensaje_id,
+                error_detalle=error_detalle,
+                procesando_at=None,
+                updated_at=datetime.now(UTC),
+            )
+            .execution_options(synchronize_session=False)
         )
         await self.db.commit()
 
@@ -54,15 +80,45 @@ class RepositorioNotificaciones:
         await self.db.refresh(notificacion)
         return notificacion
 
+    async def registrar_intento(
+        self, envio_id: UUID, canal: str, destinatario_tipo: str, destino: str
+    ) -> NotificacionEnvioModel:
+        return await self.registrar(
+            NotificacionEnvioModel(
+                envio_id=envio_id,
+                canal=canal,
+                destinatario_tipo=destinatario_tipo,
+                destino=destino[:150],
+                estado=EstadoNotificacionEnum.PENDIENTE.value,
+            )
+        )
+
+    async def obtener_por_id(self, notificacion_id: UUID) -> NotificacionEnvioModel | None:
+        resultado = await self.db.execute(
+            select(NotificacionEnvioModel)
+            .where(NotificacionEnvioModel.id == notificacion_id)
+            .execution_options(populate_existing=True)
+        )
+        return resultado.scalar_one_or_none()
+
     async def obtener_por_envio_id(self, envio_id: UUID) -> list[NotificacionEnvioModel]:
         """Obtiene todas las notificaciones registradas para un envío ordenadas por fecha."""
         stmt = (
             select(NotificacionEnvioModel)
             .where(NotificacionEnvioModel.envio_id == envio_id)
-            .order_by(NotificacionEnvioModel.created_at.asc())
+            .order_by(NotificacionEnvioModel.created_at.asc(), NotificacionEnvioModel.canal)
+            .execution_options(populate_existing=True)
         )
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
+
+    async def obtener_envio_por_token(self, token: str) -> EnvioModel | None:
+        resultado = await self.db.execute(
+            select(EnvioModel)
+            .where(EnvioModel.token_seguimiento == token)
+            .options(selectinload(EnvioModel.paquetes))
+        )
+        return resultado.scalar_one_or_none()
 
     async def actualizar_estado(
         self,
