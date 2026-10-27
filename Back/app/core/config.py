@@ -1,7 +1,7 @@
 import re
 from datetime import timedelta
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -84,6 +84,8 @@ class Settings(BaseSettings):
     WHATSAPP_META_IDIOMA_PLANTILLA: str = "es_AR"
     WHATSAPP_META_PLANTILLA_NUEVO_ENVIO: str = ""
     WHATSAPP_META_PLANTILLA_VISITA_FALLIDA: str = ""
+    WHATSAPP_META_DESTINATARIOS_PRUEBA: dict[str, str] = Field(default_factory=dict)
+    """Equivalencias explícitas entre E.164 y el número guardado en la lista de prueba de Meta."""
     # Twilio (sandbox o remitente aprobado)
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""

@@ -95,6 +95,7 @@ class MetaWhatsAppProvider:
         api_version: str | None = None,
         idioma: str | None = None,
         plantillas: dict[str, str] | None = None,
+        destinatarios_prueba: dict[str, str] | None = None,
         timeout: float | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ):
@@ -106,11 +107,15 @@ class MetaWhatsAppProvider:
             PLANTILLA_NUEVO_ENVIO: settings.WHATSAPP_META_PLANTILLA_NUEVO_ENVIO,
             PLANTILLA_VISITA_FALLIDA: settings.WHATSAPP_META_PLANTILLA_VISITA_FALLIDA,
         }
+        self.destinatarios_prueba = (
+            destinatarios_prueba if destinatarios_prueba is not None else settings.WHATSAPP_META_DESTINATARIOS_PRUEBA
+        )
         self.timeout = timeout or settings.WHATSAPP_TIMEOUT_SEGUNDOS
         self.transport = transport
 
     def _cuerpo(self, destinatario: str, mensaje: MensajeWhatsApp) -> dict:
-        base = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": destinatario}
+        numero_meta = self.destinatarios_prueba.get(destinatario, destinatario)
+        base = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": numero_meta}
         plantilla = self.plantillas.get(mensaje.plantilla, "")
         if plantilla:
             return base | {

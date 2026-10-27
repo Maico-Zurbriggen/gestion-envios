@@ -9,6 +9,7 @@ Cambios y decisiones del 27 de octubre de 2026 (rama `sprint-2-cambios-y-arreglo
 - Proveedores intercambiables por configuración: email `mock`, `gmail` o `smtp`; WhatsApp `mock`, `twilio`, `meta` o `deshabilitado`. Por defecto son `mock`, así que nada sale a internet sin configurarlo. Guía: [`Back/docs/02-configuracion/notificaciones-email-whatsapp.md`](../Back/docs/02-configuracion/notificaciones-email-whatsapp.md).
 - Puertos `IEmailProvider` e `IWhatsAppProvider` en `application/interfaces/proveedores_mensajeria.py`; adaptadores en `infrastructure/email` e `infrastructure/whatsapp`; textos en la regla pura `domain/rules/notificacion_rules.py` (escapa HTML, no incluye documentos ni teléfonos).
 - Teléfonos normalizados a E.164 de celular (`domain/rules/telefono_rules.py`; Argentina: `+549`, sin `0` ni `15`).
+- Demo de Meta: entrega real comprobada de los textos de seguimiento y visita fallida a un destinatario verificado, dentro de la ventana de 24 horas iniciada por ese destinatario. Si la lista de prueba de Meta guarda un formato distinto del E.164, `WHATSAPP_META_DESTINATARIOS_PRUEBA` declara equivalencias explícitas en el adaptador; no cambia la normalización del dominio. Los tokens tienen vencimiento y los números de prueba admiten hasta cinco destinatarios. La prueba Trial actual de Twilio no admite los textos personalizados del proyecto.
 - Cada intento es una fila de `notificaciones_envio`. Un fallo de un canal no afecta a los demás ni al alta. Una reserva atómica (con vencimiento de 5 minutos) impide despachos duplicados y un intento `ENVIADO` nunca se repite. Los errores guardados no contienen credenciales.
 - Personal (`VENDEDOR`, `ADMINISTRATIVO`, `SUPERADMIN`): `GET /api/v1/envios/{token}/notificaciones` y `POST …/reintentar`. En el frontend, el panel **Avisos al cliente** de la recepción en terminal (`features/notifications/`).
 
@@ -52,6 +53,6 @@ Cambios y decisiones del 27 de octubre de 2026 (rama `sprint-2-cambios-y-arreglo
 
 ## Límites
 
-- No se verificó la entrega real por Gmail, Twilio ni Meta: requiere credenciales del equipo, que no se incluyen en el repositorio. Con los proveedores reales, el comportamiento depende de sus condiciones (contraseña de aplicación, unión al sandbox, plantillas aprobadas, números permitidos).
+- No se verificó la entrega real por Gmail ni de los avisos personalizados por Twilio. Meta se verificó con recursos de prueba; eso no valida un remitente ni plantillas de producción. Las credenciales no se incluyen en el repositorio y cada proveedor mantiene sus condiciones de envío.
 - No se ejecutaron migraciones contra Neon desde esta rama: falta configurar `NEON_DATABASE_URL` o correr el comando con el connection string.
 - La sucursal del operador se elige en pantalla; los usuarios todavía no tienen sucursal asignada en el modelo.

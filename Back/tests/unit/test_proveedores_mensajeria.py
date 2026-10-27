@@ -56,6 +56,32 @@ async def test_meta_sin_plantilla_envia_texto_libre():
     assert cuerpo["type"] == "text" and cuerpo["text"]["body"] == MENSAJE.texto
 
 
+@pytest.mark.parametrize("plantillas", [{}, {PLANTILLA_NUEVO_ENVIO: "token_seguimiento"}])
+@pytest.mark.parametrize(
+    ("destinatario", "numero_permitido"),
+    [("5493564112233", "54356415112233"), ("5493564445566", "5493564445566")],
+)
+async def test_meta_usa_equivalencia_de_prueba_solo_para_el_destinatario_configurado(
+    plantillas, destinatario, numero_permitido,
+):
+    capturadas: list[httpx.Request] = []
+
+    def meta_con_lista_permitida(request: httpx.Request) -> httpx.Response:
+        capturadas.append(request)
+        if json.loads(request.content)["to"] != numero_permitido:
+            return httpx.Response(400, json={"error": {"code": 131030, "message": "Recipient not in allowed list"}})
+        return httpx.Response(200, json={"messages": [{"id": "wamid.PRUEBA"}]})
+
+    proveedor = MetaWhatsAppProvider(
+        token="tok", phone_number_id="123", plantillas=plantillas,
+        destinatarios_prueba={"5493564112233": "54356415112233"},
+        transport=httpx.MockTransport(meta_con_lista_permitida),
+    )
+
+    assert await proveedor.enviar_whatsapp(destinatario, MENSAJE) == (True, "wamid.PRUEBA", None)
+    assert json.loads(capturadas[0].content)["to"] == numero_permitido
+
+
 async def test_meta_error_no_expone_token():
     capturadas: list[httpx.Request] = []
     error_meta = {"error": {"message": "Recipient phone number not in allowed list", "code": 131030}}

@@ -31,6 +31,8 @@ WhatsApp solo deja que una empresa **inicie** una conversación con una **planti
 
 ### Opción A — Twilio (la más rápida para probar)
 
+**Cuentas Trial nuevas:** el flujo **Try out WhatsApp** permite únicamente plantillas predefinidas de Twilio, sin texto ni variables personalizados. Guardar SID y token no alcanza para enviar los avisos de este proyecto: puede responder `21654 ContentSid Required` y la API de plantillas rechaza el acceso en Trial. Para la demo con el texto real se puede usar el número de prueba de Meta de la opción B. El sandbox clásico descrito a continuación depende de la disponibilidad y las restricciones de la cuenta.
+
 1. Crear una cuenta en Twilio y abrir **Messaging → Try it out → Send a WhatsApp message**.
 2. Cada teléfono que vaya a recibir mensajes de prueba debe enviar por WhatsApp el texto `join <palabra-clave>` que muestra la consola al número del sandbox. La unión vence al cabo de unos días: si los mensajes dejan de llegar, volver a enviarlo.
 3. En `Back/.env`:
@@ -49,7 +51,7 @@ WhatsApp solo deja que una empresa **inicie** una conversación con una **planti
 
 1. En <https://developers.facebook.com> crear una app de tipo **Business** y agregarle el producto **WhatsApp**.
 2. En **WhatsApp → API Setup** copiar el **Phone number ID** del número de prueba y agregar los teléfonos destinatarios permitidos (el número de prueba solo entrega a esa lista).
-3. El token temporal de esa pantalla vence a las 24 horas. Para algo estable, crear un **usuario del sistema** en la configuración del negocio con el permiso `whatsapp_business_messaging` y generar su token.
+3. El token temporal de esa pantalla tiene vencimiento: comprobar su vigencia en Meta antes de la demo. Se puede intercambiar por un token de usuario de larga duración (aproximadamente 60 días). Para algo estable, crear un **usuario del sistema** en la configuración del negocio con el permiso `whatsapp_business_messaging` y generar su token.
 4. En **WhatsApp Manager → Plantillas de mensajes** crear dos plantillas de categoría **Utilidad**, idioma **Spanish (ARG)**:
 
    | Plantilla | Cuerpo sugerido | Parámetros que envía el sistema |
@@ -69,6 +71,20 @@ WhatsApp solo deja que una empresa **inicie** una conversación con una **planti
    ```
 
    Si las plantillas quedan vacías se envía texto libre, que Meta solo entrega dentro de la ventana de 24 horas.
+
+#### Demo gratuita con el número de prueba de Meta
+
+Crear una app con el caso de uso **Connect with customers through WhatsApp**, asociarla a un portfolio y abrir **Basic setup → Step 1. Try it out**. Esa pantalla asigna el número de prueba, permite generar un token y verificar hasta cinco destinatarios por WhatsApp. Copiar el **Phone Number ID** y la versión de API del ejemplo a `WHATSAPP_META_PHONE_NUMBER_ID` y `WHATSAPP_META_API_VERSION`.
+
+Enviar primero una plantilla de ejemplo desde esa pantalla y responder desde el WhatsApp del destinatario para abrir la ventana de atención de 24 horas. Con las dos variables de plantillas vacías, el backend puede enviar el texto real del código de seguimiento y del aviso de visita durante esa ventana. Cada destinatario debe estar verificado y abrir su propia conversación. Los tokens temporales deben renovarse antes de su vencimiento; no confundir un HTTP 200 de aceptación con entrega confirmada en el teléfono.
+
+Si Meta devuelve `131030` aunque el destinatario esté verificado, comparar el campo `to` del ejemplo cURL con el teléfono normalizado. Se observó que la consola de prueba guarda algunos números argentinos con el `15` local, aunque WhatsApp devuelve su `wa_id` internacional con `549`. Se puede declarar esa equivalencia **solo para los destinatarios afectados**, sin cambiar los teléfonos del dominio:
+
+```dotenv
+WHATSAPP_META_DESTINATARIOS_PRUEBA='{"5493564112233":"54356415112233"}'
+```
+
+La clave y el valor contienen solo dígitos, sin `+`. El valor se copia del `to` del ejemplo que Meta acepta; no se calcula ni se aplica a otros números. Por defecto el mapa está vacío. En producción debe quedar vacío y usarse el número E.164 con plantillas propias aprobadas.
 
 ### Teléfonos
 
