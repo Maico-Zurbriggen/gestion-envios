@@ -37,4 +37,4 @@ export interface ScannedPackage {
 }
 
 export interface ReceptionInput { code: string; branchId: number; notes: string }
-export interface Reception { code: string; status: string; branchName: string; receivedAt: string }
+export interface Reception { code: string; status: string; branchName: string; receivedAt: string; trackingToken: string }

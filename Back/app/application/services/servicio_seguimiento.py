@@ -14,6 +14,18 @@ from app.domain.rules.destino_rules import (
     formatear_destino_sucursal,
 )
 
+DESCRIPCIONES_PUBLICAS_ESTADO: dict[str, str] = {
+    EstadoPaqueteEnum.EN_SUCURSAL_ORIGEN.value: "Paquete recibido en la terminal de origen.",
+    EstadoPaqueteEnum.EN_TRANSITO.value: "En viaje hacia la sucursal de destino.",
+    EstadoPaqueteEnum.EN_SUCURSAL_DESTINO.value: "Llegada a la sucursal de destino.",
+    EstadoPaqueteEnum.LISTO_PARA_RETIRO.value: "Disponible para retirar en la sucursal elegida.",
+    EstadoPaqueteEnum.EN_REPARTO.value: "En reparto hacia el domicilio.",
+    EstadoPaqueteEnum.ENTREGADO.value: "Entrega a domicilio completada.",
+    EstadoPaqueteEnum.ENTREGA_FALLIDA.value: "Aviso de visita: entrega no concretada.",
+    EstadoPaqueteEnum.ENTREGADO_EN_SUCURSAL.value: "Retirado en sucursal.",
+}
+"""Textos públicos del historial (HU04): nunca incluyen identidad, documentos ni observaciones internas."""
+
 
 class ServicioSeguimiento:
     """Servicio de consulta pública de seguimiento de envíos por token (HU04)."""
@@ -55,11 +67,7 @@ class ServicioSeguimiento:
                 ultima_actualizacion=p.updated_at,
                 historial=[EventoSeguimientoData(
                     estado_anterior=h.estado_anterior, estado=h.estado_nuevo, fecha_hora=h.created_at,
-                    descripcion={
-                        EstadoPaqueteEnum.ENTREGADO.value: "Entrega a domicilio completada.",
-                        EstadoPaqueteEnum.ENTREGA_FALLIDA.value: "Aviso de visita: entrega no concretada.",
-                        EstadoPaqueteEnum.EN_SUCURSAL_DESTINO.value: "Llegada a la sucursal de destino.",
-                    }.get(h.estado_nuevo, "Actualización del estado del paquete."),
+                    descripcion=DESCRIPCIONES_PUBLICAS_ESTADO.get(h.estado_nuevo, "Actualización del estado del paquete."),
                 ) for h in sorted(p.historial_estados, key=lambda h: (h.created_at, h.id))],
                 ubicacion_repartidor=self._ubicacion_publica(p),
             )
@@ -69,6 +77,7 @@ class ServicioSeguimiento:
         return SeguimientoResponse(
             data=SeguimientoData(
                 token_seguimiento=envio.token_seguimiento,
+                tipo_entrega=envio.tipo_entrega,
                 destino=destino,
                 latitud_destino=latitud_destino,
                 longitud_destino=longitud_destino,

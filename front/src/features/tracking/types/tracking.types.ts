@@ -13,6 +13,7 @@ export interface TrackingSuccessResponse {
   status: 'success'
   data: {
     token_seguimiento: string
+    tipo_entrega?: 'domicilio' | 'sucursal'
     destino: string
     latitud_destino?: number | null
     longitud_destino?: number | null
@@ -33,8 +34,40 @@ export interface TrackedPackage {
 
 export interface ShipmentTracking {
   trackingToken: string
+  deliveryType: 'domicilio' | 'sucursal'
   destination: string
   latitude: number | null
   longitude: number | null
   packages: TrackedPackage[]
+}
+
+export interface ApiPickupOptionBranch {
+  id: number
+  nombre: string
+  provincia: string
+  ciudad: string
+  direccion: string
+  latitud: number | null
+  longitud: number | null
+  es_sucursal_asignada: boolean
+}
+
+export interface PickupOptionsSuccessResponse {
+  status: 'success'
+  data: {
+    token_seguimiento: string
+    aplica_retiro: boolean
+    motivo_no_aplica: string | null
+    sucursal_asignada: ApiPickupOptionBranch | null
+    paquetes: Array<{ numero_paquete: string; estado: string; disponible_para_retirar: boolean }>
+    requisitos_retiro: { titular: string; tercero_autorizado: string }
+  }
+}
+
+export interface PickupOptions {
+  applies: boolean
+  reason: string | null
+  branch: { name: string; address: string; city: string; province: string; latitude: number | null; longitude: number | null } | null
+  packages: Array<{ packageNumber: string; ready: boolean }>
+  requirements: { recipient: string; authorizedPerson: string }
 }

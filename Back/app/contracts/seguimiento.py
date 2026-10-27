@@ -39,6 +39,8 @@ class SeguimientoData(ApiModel):
     exclusivamente mientras esté pendiente en un recorrido EN_CURSO."""
 
     token_seguimiento: str
+    tipo_entrega: str
+    """`domicilio` o `sucursal`: habilita en la vista pública la consulta de sucursal de retiro (HU09)."""
     destino: str
     latitud_destino: float | None
     longitud_destino: float | None

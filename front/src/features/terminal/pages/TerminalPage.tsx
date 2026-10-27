@@ -1,16 +1,36 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { CheckCircle2, RefreshCw, ScanBarcode, Search } from 'lucide-react'
 import { useBranches } from '../../shipments/hooks/useBranches'
+import { ShipmentNotifications } from '../../notifications/components/ShipmentNotifications'
+import { getStatusLabel } from '../../tracking/trackingStatus'
 import { useTerminal } from '../hooks/useTerminal'
 import '../../../shared/styles/operations.css'
 
+const BRANCH_STORAGE_KEY = 'terminal-branch'
+
+// La sucursal es la misma durante todo el turno: se recuerda solo como comodidad local.
+function readStoredBranch() {
+  try { return localStorage.getItem(BRANCH_STORAGE_KEY) ?? '' } catch { return '' }
+}
+
+function storeBranch(value: string) {
+  try { localStorage.setItem(BRANCH_STORAGE_KEY, value) } catch { /* almacenamiento no disponible */ }
+}
+
 export function TerminalPage() {
+  const codeInputRef = useRef<HTMLInputElement>(null)
   const [input, setInput] = useState('')
   const [code, setCode] = useState('')
-  const [branchId, setBranchId] = useState('')
+  const [branchId, setBranchId] = useState(readStoredBranch)
   const [notes, setNotes] = useState('')
   const branches = useBranches()
   const { scan, receive } = useTerminal(code)
+  const branchExists = Boolean(branches.data?.some((branch) => String(branch.id) === branchId))
+
+  function focusCode() {
+    requestAnimationFrame(() => codeInputRef.current?.focus())
+  }
+
   function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const normalized = input.replace(/\s/g, '').toUpperCase()
@@ -19,30 +39,50 @@ export function TerminalPage() {
     if (normalized === code) void scan.refetch()
     else setCode(normalized)
   }
+
+  function selectBranch(value: string) {
+    setBranchId(value)
+    storeBranch(value)
+  }
+
+  function nextPackage() {
+    setInput(''); setCode(''); setNotes('')
+    receive.reset()
+    focusCode()
+  }
+
   const item = scan.data
   return <div className="ops-page">
     <header><h1><ScanBarcode size={28} aria-hidden="true" /> Recepción en terminal</h1><p>Leé el código de barras con el lector o ingresá el número del paquete. Revisá los datos antes de confirmar.</p></header>
     <form className="ops-panel ops-stack" onSubmit={search}>
-      <label className="form-field" htmlFor="terminal-code">Código del paquete<input id="terminal-code" className="form-control" value={input} onChange={(e) => setInput(e.target.value)} required maxLength={80} autoComplete="off" disabled={receive.isPending} placeholder="PAQ-XXXXXXXXXX" /></label>
+      <label className="form-field" htmlFor="terminal-code">Código del paquete<input ref={codeInputRef} id="terminal-code" className="form-control" value={input} onChange={(e) => setInput(e.target.value)} onFocus={(e) => e.target.select()} required maxLength={80} autoComplete="off" autoFocus disabled={receive.isPending} placeholder="PAQ-XXXXXXXXXX" /></label>
       <button className="ops-button" disabled={scan.isFetching || receive.isPending}><Search size={18} aria-hidden="true" />{scan.isFetching ? 'Consultando…' : 'Identificar paquete'}</button>
     </form>
     {scan.isFetching && <p role="status">Consultando el paquete…</p>}
     {scan.isError && <div className="form-error" role="alert">{scan.error.message}<button className="ops-button" type="button" disabled={scan.isFetching} onClick={() => void scan.refetch()}><RefreshCw size={18} aria-hidden="true" /> Reintentar</button></div>}
     {item && !scan.isError && <section className="ops-panel ops-stack" aria-label="Paquete identificado">
-      <h2>{item.code}</h2><p><strong>{item.description}</strong> · {item.weightKg} kg · {item.dimensions}</p><p>Estado: {item.status}</p>
+      <h2>{item.code}</h2><p><strong>{item.description}</strong> · {item.weightKg} kg · {item.dimensions}</p><p>Estado: {getStatusLabel(item.status)}</p>
       <p>Remitente: {item.senderName} · Documento: {item.senderDocument}</p><p>Destinatario: {item.recipientName}</p><p>Destino: {item.destination}</p>{item.notes && <p>Observaciones declaradas: {item.notes}</p>}
       {!item.available && <p role="status">{item.unavailableReason || 'Este paquete no está disponible para recepción.'}</p>}
-      {item.available && !receive.isSuccess && <form className="ops-stack" onSubmit={(e) => { e.preventDefault(); receive.mutate({ code: item.code, branchId: Number(branchId), notes }) }}>
+      {item.available && !receive.isSuccess && <form className="ops-stack" onSubmit={(e) => {
+        e.preventDefault()
+        receive.mutate({ code: item.code, branchId: Number(branchId), notes }, { onSuccess: () => { setInput(''); focusCode() } })
+      }}>
         <fieldset className="ops-stack" disabled={receive.isPending || scan.isFetching}>
-          <label className="form-field" htmlFor="terminal-branch">Sucursal donde recibís el paquete<select id="terminal-branch" className="form-control" value={branchId} onChange={(e) => setBranchId(e.target.value)} required><option value="">Seleccioná una sucursal</option>{branches.data?.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>
+          <label className="form-field" htmlFor="terminal-branch">Sucursal donde recibís el paquete<select id="terminal-branch" className="form-control" value={branchExists ? branchId : ''} onChange={(e) => selectBranch(e.target.value)} required><option value="">Seleccioná una sucursal</option>{branches.data?.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>
           {branches.isPending && <p role="status">Cargando sucursales…</p>}
           {branches.isError && <div role="alert"><p>{branches.error.message}</p><button className="ops-button" type="button" onClick={() => void branches.refetch()}><RefreshCw size={18} aria-hidden="true" /> Reintentar sucursales</button></div>}
           <label className="form-field" htmlFor="terminal-notes">Observaciones de recepción (opcional)<textarea id="terminal-notes" className="form-control" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} /></label>
-          <button className="ops-button" disabled={!branchId || branches.isError || branches.isPending}><CheckCircle2 size={18} aria-hidden="true" />{receive.isPending ? 'Registrando…' : 'Confirmar recepción física'}</button>
+          <button className="ops-button" disabled={!branchExists || branches.isError || branches.isPending}><CheckCircle2 size={18} aria-hidden="true" />{receive.isPending ? 'Registrando…' : 'Confirmar recepción física'}</button>
         </fieldset>
       </form>}
     </section>}
     {receive.isError && <p className="form-error" role="alert">{receive.error.message} Revisá el estado actualizado antes de repetir la recepción.</p>}
-    {receive.data && <div className="ops-success" role="status"><CheckCircle2 size={20} aria-hidden="true" /> {receive.data.code} recibido en {receive.data.branchName}. Estado: {receive.data.status}. {new Date(receive.data.receivedAt).toLocaleString('es-AR')}</div>}
+    {receive.data && <div className="ops-success ops-stack" role="status">
+      <p><CheckCircle2 size={20} aria-hidden="true" /> {receive.data.code} recibido en {receive.data.branchName}. Estado: {getStatusLabel(receive.data.status)}. {new Date(receive.data.receivedAt).toLocaleString('es-AR')}</p>
+      <p className="ops-hint">El campo de código quedó listo para escanear el siguiente paquete.</p>
+      <div className="ops-actions"><button className="ops-button" type="button" onClick={nextPackage}><ScanBarcode size={18} aria-hidden="true" /> Procesar otro paquete</button></div>
+    </div>}
+    {item && !scan.isError && <ShipmentNotifications key={item.trackingToken} trackingToken={item.trackingToken} />}
   </div>
 }

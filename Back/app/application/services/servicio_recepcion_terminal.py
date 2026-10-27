@@ -13,13 +13,15 @@ from app.contracts.recepcion_terminal import (
     RecepcionarPaqueteResponse,
 )
 from app.contracts.sucursales import SucursalData
-from app.core.exceptions import NotFoundException, ValidationException
+from app.core.exceptions import DuplicateEntryException, NotFoundException, ValidationException
 from app.domain.constants.estados_logistica import EstadoPaqueteEnum
 from app.domain.rules.destino_rules import (
     formatear_destino_domicilio,
     formatear_destino_sucursal,
 )
 from app.domain.rules.recepcion_rules import (
+    ESTADOS_VALIDOS_PARA_RECEPCION,
+    estado_tras_recepcion,
     evaluar_disponibilidad_recepcion,
     normalizar_codigo_escaneado,
     validar_codigo_escaneado,
@@ -66,9 +68,10 @@ class ServicioRecepcionTerminal(IServicioRecepcionTerminal):
     ) -> RecepcionarPaqueteResponse:
         """Registra el ingreso físico del paquete a la terminal.
 
-        Pasa el estado a `EN_SUCURSAL_ORIGEN`, fija la sucursal donde quedó
-        ubicado y agrega la fila correspondiente al historial de estados, todo
-        en una sola transacción.
+        Pasa el estado a `EN_SUCURSAL_ORIGEN` (o a `LISTO_PARA_RETIRO` si se
+        recibe en la misma sucursal elegida para el retiro), fija la sucursal
+        donde quedó ubicado y agrega la fila al historial de estados, todo en
+        una sola transacción.
         """
         paquete = await self._obtener_paquete(codigo)
 
@@ -93,11 +96,14 @@ class ServicioRecepcionTerminal(IServicioRecepcionTerminal):
             )
 
         estado_anterior = paquete.estado
-        nuevo_estado = EstadoPaqueteEnum.EN_SUCURSAL_ORIGEN.value
+        envio = paquete.envio
+        nuevo_estado = estado_tras_recepcion(envio.tipo_entrega, envio.sucursal_destino_id, sucursal.id)
         ahora = datetime.now(UTC)
 
         # 3. Auditoría: una fila por cada cambio de estado, con quién y dónde.
         observacion = f"Paquete recibido en terminal {sucursal.nombre} mediante escaneo del código de barras."
+        if nuevo_estado == EstadoPaqueteEnum.LISTO_PARA_RETIRO.value:
+            observacion += " Es la sucursal elegida para el retiro: queda disponible para el destinatario."
         if datos.observaciones and datos.observaciones.strip():
             observacion += f" Obs: {datos.observaciones.strip()}"
 
@@ -119,7 +125,13 @@ class ServicioRecepcionTerminal(IServicioRecepcionTerminal):
             nuevo_estado=nuevo_estado,
             sucursal_id=sucursal.id,
             historial_estado=historial_estado,
+            estados_previos=ESTADOS_VALIDOS_PARA_RECEPCION,
         )
+        if paquete_actualizado is None:
+            raise DuplicateEntryException(
+                message="El paquete ya fue recibido por otra operación. Volvé a escanearlo para ver su estado.",
+                errors=[{"field": "estado", "message": "Recepción ya registrada."}],
+            )
 
         return RecepcionarPaqueteResponse(
             data=PaqueteRecepcionadoData(

@@ -25,7 +25,9 @@
 7. [Endpoints de Retiro de Paquetes en Sucursal (`/sucursal/paquetes`) - HU13](#7-endpoints-de-retiro-de-paquetes-en-sucursal-hu13)
    - `GET /api/v1/sucursal/paquetes/{id_o_codigo}/validar-retiro` (Validar Disponibilidad y Requisitos de Retiro)
    - `POST /api/v1/sucursal/paquetes/{id}/registrar-retiro` (Registrar Retiro por Titular o Tercero Autorizado)
-8. [Servicio de Notificación de Token por Correo - HU05](#8-servicio-de-notificación-de-token-por-correo-hu05)
+8. [Notificación del Token por Email y WhatsApp - HU05](#8-notificación-del-token-por-email-y-whatsapp-hu05)
+   - `GET /api/v1/envios/{token}/notificaciones` (Resultado por canal y destinatario)
+   - `POST /api/v1/envios/{token}/notificaciones/reintentar` (Reenviar lo no enviado)
    - Despacho Asíncrono en `POST /api/v1/envios` y Log de Auditoría
 9. [Endpoints de Recepción de Paquetes en Terminal (`/terminal/paquetes`) - HU06](#9-endpoints-de-recepción-de-paquetes-en-terminal-hu06)
    - `GET /api/v1/terminal/paquetes/{codigo}/escanear` (Identificar Paquete por Código de Barras)
@@ -589,9 +591,21 @@ Registra de forma definitiva y transaccional la entrega del paquete en la ventan
     "numero": "40123456"
   },
   "destinatario_mayor_16": true,
+  "sucursal_id": 1,
+  "receptor_fecha_nacimiento": "1990-05-10",
+  "documento_original_verificado": true,
   "observaciones": "Entrega realizada en ventanilla 2"
 }
 ```
+
+| Campo | Tipo | Obligatorio | Detalle |
+|:---|:---|:---:|:---|
+| `sucursal_id` | `int` | Sí | Sucursal donde atiende el personal. Debe ser la sucursal elegida para el retiro (`sucursal_destino`); si no, `400` con `field: "sucursal_id"`. |
+| `receptor_fecha_nacimiento` | `date` (`YYYY-MM-DD`) | Sí | De quien retira, según su documento. Debe ser **mayor de 16 años** (el día del cumpleaños 16 no alcanza). Se guarda en la constancia. |
+| `documento_original_verificado` | `bool` | Sí | El personal exhibió y verificó el documento original de quien retira. `false` → `400`. |
+| `destinatario_mayor_16` | `bool` | Sí | Declaración de que el destinatario titular es mayor de 16 años. |
+
+El backend además rechaza (`400`, sin escribir nada): paquetes que no llegaron a la sucursal (`Pendiente`, `EN_SUCURSAL_ORIGEN`, `EN_TRANSITO`), envíos con entrega a domicilio (`field: "tipo_entrega"`) y paquetes que están en una sucursal distinta de la elegida (`field: "sucursal_actual"`). Si dos mostradores confirman el mismo retiro a la vez, solo uno se registra y el otro recibe `409 DUPLICATE_ENTRY`.
 
 #### 📦 Caso de Uso B: Retiro por Tercero Autorizado
 * **Request Body:**
@@ -603,6 +617,9 @@ Registra de forma definitiva y transaccional la entrega del paquete en la ventan
     "numero": "38999888"
   },
   "destinatario_mayor_16": true,
+  "sucursal_id": 1,
+  "receptor_fecha_nacimiento": "1985-02-20",
+  "documento_original_verificado": true,
   "tercero_autorizado": {
     "nombre_completo": "Juan Pérez",
     "documento": "38999888",
@@ -612,6 +629,8 @@ Registra de forma definitiva y transaccional la entrega del paquete en la ventan
   "observaciones": "Presenta nota firmada y copia de DNI en regla"
 }
 ```
+
+En el retiro por tercero, `documento_presentado.numero` es el documento propio de quien retira y debe coincidir con `tercero_autorizado.documento` (`400`, `field: "tercero_autorizado.documento"`).
 
 #### ✅ Respuesta Exitosa (`200 OK`):
 ```json
@@ -645,7 +664,7 @@ Registra de forma definitiva y transaccional la entrega del paquete en la ventan
     "errors": [
       {
         "field": "destinatario_mayor_16",
-        "message": "El titular o destinatario debe tener al menos 16 años para retirar o autorizar el retiro."
+        "message": "El destinatario titular debe ser mayor de 16 años para retirar o autorizar el retiro."
       }
     ]
   }
@@ -703,24 +722,55 @@ Registra de forma definitiva y transaccional la entrega del paquete en la ventan
 
 ---
 
-## 8. Servicio de Notificación de Token por Correo (HU05)
+## 8. Notificación del Token por Email y WhatsApp (HU05)
 
 ### 8.1. Funcionamiento del Despacho Asíncrono
 Al registrar un envío con éxito mediante `POST /api/v1/envios` (HU03):
-1. El backend crea el registro del envío, asigna el `token_seguimiento` y los números de paquete (`numero_paquete`).
-2. Se encola de inmediato una tarea en segundo plano (`BackgroundTasks`) con el servicio `ServicioNotificaciones` (`NotificationService`).
-3. El endpoint responde `201 Created` al usuario sin bloquearse por la red ni depender de la latencia del proveedor de correos.
-4. El servicio despacha automáticamente:
-   * **Al Remitente (`remitente_email`):** Correo con el token de seguimiento, el detalle de paquetes y el enlace directo a `/seguimiento?token=...`.
-   * **Al Destinatario (`destinatario_email`):** Correo informando que tiene un paquete en camino, con el token de seguimiento y el enlace para rastreo en tiempo real.
-5. Cada despacho se audita en la tabla `notificaciones_envio`:
-   * `canal`: `"EMAIL"`
-   * `destinatario_tipo`: `"REMITENTE"` o `"DESTINATARIO"`
-   * `estado`: `"ENVIADO"` o `"FALLIDO"`
-   * `proveedor_mensaje_id`: Identificador devuelto por el proveedor de correo
-   * `error_detalle`: Texto de error detallado en caso de fallo
-6. **Tolerancia a fallos:** Si el proveedor de correo falla (error SMTP, timeout o caída de red), la creación del envío **nunca se revierte ni falla**; el error queda registrado en `notificaciones_envio` para posterior auditoría y reintento.
+1. El backend crea el envío, asigna el `token_seguimiento` y los números de paquete.
+2. Responde `201 Created` sin esperar a los proveedores de mensajería (`BackgroundTasks`).
+3. En segundo plano envía el token y el enlace `/seguimiento?token=...` por **email y WhatsApp** al **remitente y al destinatario** (cuatro intentos). Los mensajes no incluyen documentos, teléfonos ni direcciones.
+4. Cada intento queda auditado en `notificaciones_envio` (`canal` `EMAIL`/`WHATSAPP`, `destinatario_tipo`, `destino`, `estado` `PENDIENTE`/`ENVIADO`/`FALLIDO`, `error_detalle` sin credenciales).
+5. **Tolerancia a fallos:** el fallo de un canal no afecta a los demás ni revierte el envío. Un intento ya `ENVIADO` nunca se repite.
+6. Los teléfonos se normalizan a E.164 de celular (Argentina: `+549` + área + número, sin `0` ni `15`). Un teléfono inutilizable deja solo el intento de WhatsApp como `FALLIDO`.
 
+La visita fallida de HU12 genera el mismo par de avisos (email y WhatsApp) al destinatario.
+
+### 8.2. Consultar el Resultado de los Avisos
+* **Método:** `GET`
+* **URL:** `/api/v1/envios/{token}/notificaciones`
+* **Roles Permitidos:** `VENDEDOR`, `ADMINISTRATIVO`, `SUPERADMIN`
+
+```json
+{
+  "status": "success",
+  "message": null,
+  "data": {
+    "token_seguimiento": "ENV-4KD9XM2P7Q",
+    "notificaciones": [
+      {
+        "id": "0d8b1f5e-6a1c-4f7e-9a3e-2f0d7e1c9b10",
+        "motivo": "NUEVO_ENVIO",
+        "canal": "WHATSAPP",
+        "destinatario_tipo": "DESTINATARIO",
+        "destino": "+5493564445566",
+        "estado": "FALLIDO",
+        "error_detalle": "Meta WhatsApp respondió HTTP 400 (código 131030): Recipient phone number not in allowed list",
+        "created_at": "2026-10-27T13:10:00Z",
+        "updated_at": "2026-10-27T13:10:01Z"
+      }
+    ]
+  }
+}
+```
+
+`motivo` es `NUEVO_ENVIO` (HU05) o `VISITA_FALLIDA` (HU12). Token inexistente → `404 NOT_FOUND`.
+
+### 8.3. Reintentar los Avisos no Enviados
+* **Método:** `POST`
+* **URL:** `/api/v1/envios/{token}/notificaciones/reintentar`
+* **Roles Permitidos:** `VENDEDOR`, `ADMINISTRATIVO`, `SUPERADMIN`
+
+Vuelve a despachar solo los intentos `PENDIENTE` o `FALLIDO` (incluidos avisos de visita) y devuelve la misma estructura que 8.2 con el resultado actualizado. Es seguro repetirlo: nunca duplica un mensaje ya enviado.
 
 ---
 
@@ -839,6 +889,8 @@ Si el paquete ya fue recibido antes (`EN_SUCURSAL_ORIGEN`, `EN_TRANSITO`, `EN_RE
 ### 9.2. Registrar Recepción en la Terminal
 Confirma la recepción física del paquete: pasa su estado a `EN_SUCURSAL_ORIGEN`, lo ubica en la sucursal indicada y deja la entrada correspondiente en el historial de estados. Todo en una sola transacción.
 
+Si el envío es para **retiro en sucursal** y se recibe en la misma sucursal elegida para el retiro, el paquete pasa directamente a `LISTO_PARA_RETIRO` (no hay recorrido que esperar). Si dos terminales confirman a la vez, solo una registra la recepción y la otra recibe `409 DUPLICATE_ENTRY`.
+
 * **Método:** `POST`
 * **URL:** `/api/v1/terminal/paquetes/{codigo}/recepcionar`
 * **Parámetros de Ruta:**
@@ -880,7 +932,7 @@ Confirma la recepción física del paquete: pasa su estado a `EN_SUCURSAL_ORIGEN
 }
 ```
 
-> Tras esta llamada, la consulta pública de seguimiento (`GET /api/v1/seguimiento/{token}`, HU04) ya muestra el paquete en `EN_SUCURSAL_ORIGEN`.
+> Tras esta llamada, la consulta pública de seguimiento (`GET /api/v1/seguimiento/{token}`, HU04) ya muestra el paquete en `EN_SUCURSAL_ORIGEN` (o `LISTO_PARA_RETIRO`), con la descripción pública del historial. Esa consulta incluye además `tipo_entrega` (`domicilio` o `sucursal`) para que la vista pública sepa cuándo mostrar la sucursal de retiro (HU09).
 
 #### ❌ Respuestas de Error:
 * **`400 Bad Request` (El paquete ya fue recibido):**
@@ -1512,7 +1564,7 @@ Base: `/api/v1/reparto/recorridos`. Las respuestas JSON conservan el formato
 | `GET` | `/{id}/ubicacion` | `data` con la última posición o `null` si no hay una para ese recorrido. |
 | `GET` | `/{id}/paquetes/{codigo}/contacto` | `data: {paquete_id, destinatario_nombre, telefono, telefono_disponible}`. Sin teléfono: `null` y `false`. |
 | `POST` | `/{id}/paquetes/{codigo}/entrega` | Constancia con firma; ver body abajo. |
-| `POST` | `/{id}/paquetes/{codigo}/visita-fallida` | Body `{ "operacion_id": "UUID", "motivo_fallo": "Persona ausente" }`. Genera aviso solo por email. |
+| `POST` | `/{id}/paquetes/{codigo}/visita-fallida` | Body `{ "operacion_id": "UUID", "motivo_fallo": "Persona ausente" }`. Genera aviso por email y WhatsApp. |
 | `GET` | `/{id}/entregas/{evento_id}/firma` | Imagen `image/png` protegida; no es JSON. |
 
 `codigo` acepta número de paquete o UUID. Las fechas nuevas se expresan en UTC.

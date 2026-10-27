@@ -8,7 +8,7 @@ export function usePickupValidation(code: string) {
   const token = useAppSelector(selectAuthToken)
   return useQuery({
     queryKey: ['pickup-validation', code],
-    queryFn: () => validatePickup(code, token!),
+    queryFn: ({ signal }) => validatePickup(code, token!, signal),
     enabled: Boolean(code && token),
     retry: false,
     staleTime: 0,
@@ -20,7 +20,8 @@ export function useRegisterPickup() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (input: RegisterPickupInput) => registerPickup(input, token!),
-    onSuccess: () => {
+    // También ante un conflicto (otro mostrador ya lo entregó) hay que releer el estado.
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['pickup-validation'] })
       void queryClient.invalidateQueries({ queryKey: ['tracking'] })
     },

@@ -5,14 +5,16 @@ import { useBranches } from '../hooks/useBranches'
 import { ShipmentMap } from '../components/ShipmentMap'
 import type { Branch } from '../types/shipment.types'
 import './BranchesPage.css'
+import { useInsidePanel } from '../../../layouts/MainLayout/panelContext'
 
 export function BranchesPage() {
   const branchesQuery = useBranches()
+  const insidePanel = useInsidePanel()
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const selectedBranch = branchesQuery.data?.find((branch) => branch.id === selectedId) ?? null
 
   return (
-    <main className="branches-page">
+    <main className={`branches-page${insidePanel ? ' is-embedded' : ''}`}>
       <div className="branches-page__content">
         <Link className="branches-page__back" to="/envios/nuevo"><ArrowLeft size={18} aria-hidden="true" /> Volver al registro</Link>
         <header className="branches-page__intro">

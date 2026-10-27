@@ -20,6 +20,7 @@ from app.contracts.reparto import (
     UbicacionRequest,
     UbicacionResponse,
 )
+from app.core.config import settings
 from app.core.exceptions import (
     DuplicateEntryException,
     ForbiddenAccessException,
@@ -40,12 +41,19 @@ from app.domain.constants.estados_logistica import (
 from app.domain.rules.recepcion_rules import normalizar_codigo_escaneado
 from app.domain.rules.recorrido_rules import distancia_haversine_km
 from app.domain.rules.reparto_rules import decodificar_firma_png, receptor_mayor_de_16
+from app.domain.rules.telefono_rules import normalizar_telefono_whatsapp
 from app.infrastructure.db.models import (
     EventoEntregaModel,
     HistorialEstadoPaqueteModel,
     NotificacionEnvioModel,
     PosicionActualRepartidorModel,
 )
+
+
+def _destino_whatsapp(telefono: str | None) -> str:
+    """Se audita el número al que realmente se envía; si no es válido, el original para poder corregirlo."""
+    numero = normalizar_telefono_whatsapp(telefono, settings.WHATSAPP_CODIGO_PAIS)
+    return f"+{numero}" if numero else (telefono or "")
 
 
 class ServicioReparto(IServicioReparto):
@@ -279,18 +287,23 @@ class ServicioReparto(IServicioReparto):
         )
         if not exitoso:
             # El aviso pendiente se guarda en la MISMA transacción que la visita.
+            # Un aviso por canal (email y WhatsApp), como pide HU12 Escenario 3.
             await self.repo.sincronizar()
-            await self.repo.agregar(
-                NotificacionEnvioModel(
-                    id=uuid.uuid4(),
-                    envio_id=paquete.envio_id,
-                    evento_entrega_id=evento.id,
-                    canal=CanalNotificacionEnum.EMAIL.value,
-                    destinatario_tipo=DestinatarioNotificacionEnum.DESTINATARIO.value,
-                    destino=(paquete.envio.destinatario_email or "").strip(),
-                    estado=EstadoNotificacionEnum.PENDIENTE.value,
+            for canal, destino in (
+                (CanalNotificacionEnum.EMAIL.value, paquete.envio.destinatario_email),
+                (CanalNotificacionEnum.WHATSAPP.value, _destino_whatsapp(paquete.envio.destinatario_telefono)),
+            ):
+                await self.repo.agregar(
+                    NotificacionEnvioModel(
+                        id=uuid.uuid4(),
+                        envio_id=paquete.envio_id,
+                        evento_entrega_id=evento.id,
+                        canal=canal,
+                        destinatario_tipo=DestinatarioNotificacionEnum.DESTINATARIO.value,
+                        destino=(destino or "").strip()[:150],
+                        estado=EstadoNotificacionEnum.PENDIENTE.value,
+                    )
                 )
-            )
         self._finalizar_si_completo(recorrido)
         await self.repo.confirmar()
         return self._evento_response(evento)

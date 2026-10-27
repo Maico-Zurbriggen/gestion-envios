@@ -12,7 +12,11 @@ export class OperationalApiError extends Error {
   }
 }
 
-export async function operationalRequest<T>(path: string, token: string, init?: RequestInit): Promise<T> {
+export interface OperationalMessages {
+  notFound?: string
+}
+
+export async function operationalRequest<T>(path: string, token: string, init?: RequestInit, messages?: OperationalMessages): Promise<T> {
   const apiUrl = import.meta.env.VITE_API_URL?.replace(/\/+$/, '')
   if (!apiUrl) throw new OperationalApiError('No se configuró la URL de la API.')
   let response: Response
@@ -30,7 +34,7 @@ export async function operationalRequest<T>(path: string, token: string, init?: 
     let message = 'No pudimos completar la operación. Actualizá los datos e intentá nuevamente.'
     if (response.status === 401) message = 'Tu sesión venció. Iniciá sesión nuevamente.'
     else if (response.status === 403) message = 'Tu cuenta no tiene permiso para realizar esta operación.'
-    else if (response.status === 404) message = 'No encontramos el recurso solicitado o no está disponible para tu cuenta.'
+    else if (response.status === 404) message = messages?.notFound ?? 'No encontramos el recurso solicitado o no está disponible para tu cuenta.'
     else if (response.status >= 500) message = 'El servicio no está disponible. Intentá nuevamente más tarde.'
     else if ([400, 409, 422].includes(response.status)) {
       const error = payload as ApiErrorPayload | null

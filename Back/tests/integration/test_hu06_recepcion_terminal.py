@@ -518,3 +518,60 @@ async def test_hu06_la_recepcion_se_refleja_en_el_seguimiento_publico(
         despues.json()["data"]["paquetes"][0]["estado"]
         == EstadoPaqueteEnum.EN_SUCURSAL_ORIGEN.value
     )
+
+
+@pytest.mark.asyncio
+async def test_hu06_recepcion_en_la_sucursal_de_retiro_queda_lista_para_retirar(
+    client: AsyncClient, db_session: AsyncSession, vendedor_token: str, administrativo_token: str
+):
+    """Si el envío se retira en la misma sucursal que lo recibe, no hay recorrido que esperar:
+    queda listo para retirar (HU09) y el mostrador de HU13 puede entregarlo."""
+    paquete = await _crear_envio_precargado(db_session, numero_paquete="PAQ-MISMASUC01", token="ENV-MISMASUC1")
+    resp = await client.post(
+        f"{BASE}/{paquete.numero_paquete}/recepcionar",
+        headers={"Authorization": f"Bearer {vendedor_token}"},
+        json={"sucursal_id": 2},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["data"]["estado"] == EstadoPaqueteEnum.LISTO_PARA_RETIRO.value
+
+    opciones = (await client.get("/api/v1/sucursales/opciones-retiro/ENV-MISMASUC1")).json()["data"]
+    assert opciones["paquetes"][0]["disponible_para_retirar"] is True
+
+    validacion = await client.get(
+        f"/api/v1/sucursal/paquetes/{paquete.numero_paquete}/validar-retiro",
+        headers={"Authorization": f"Bearer {administrativo_token}"},
+    )
+    assert validacion.json()["data"]["disponible_para_retiro"] is True
+
+
+@pytest.mark.asyncio
+async def test_hu06_recepcion_simultanea_solo_se_registra_una_vez(db_session: AsyncSession, vendedor_usuario):
+    """Dos terminales escanean el mismo paquete antes de que la otra confirme: la segunda recibe 409."""
+    from app.application.services.servicio_recepcion_terminal import ServicioRecepcionTerminal
+    from app.contracts.recepcion_terminal import RecepcionarPaqueteRequest
+    from app.core.exceptions import DuplicateEntryException
+    from app.infrastructure.repositories.repositorio_recepciones import RepositorioRecepciones
+    from app.infrastructure.repositories.repositorio_sucursales import RepositorioSucursales
+
+    paquete = await _crear_envio_precargado(db_session, numero_paquete="PAQ-CARRERA002", token="ENV-CARRERA02")
+
+    class RepoConLecturaVieja(RepositorioRecepciones):
+        async def buscar_paquete_por_codigo(self, codigo):
+            encontrado = await super().buscar_paquete_por_codigo(codigo)
+            self.db.expunge(encontrado)  # copia leída antes de que la otra terminal confirmara
+            encontrado.estado = "Pendiente"
+            return encontrado
+
+    servicio = ServicioRecepcionTerminal(RepoConLecturaVieja(db_session), RepositorioSucursales(db_session))
+    datos = RecepcionarPaqueteRequest(sucursal_id=1)
+    await servicio.recepcionar_paquete(paquete.numero_paquete, datos, vendedor_usuario)
+    with pytest.raises(DuplicateEntryException):
+        await servicio.recepcionar_paquete(paquete.numero_paquete, datos, vendedor_usuario)
+
+    historial = (
+        await db_session.execute(
+            select(HistorialEstadoPaqueteModel).where(HistorialEstadoPaqueteModel.paquete_id == paquete.id)
+        )
+    ).scalars().all()
+    assert len(historial) == 1

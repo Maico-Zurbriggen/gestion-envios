@@ -67,6 +67,7 @@ from app.infrastructure.repositories.repositorio_repartidores import Repositorio
 from app.infrastructure.repositories.repositorio_roles import RepositorioRoles
 from app.infrastructure.repositories.repositorio_sucursales import RepositorioSucursales
 from app.infrastructure.repositories.repositorio_usuarios import RepositorioUsuarios
+from app.infrastructure.whatsapp.whatsapp_provider import obtener_proveedor_whatsapp
 
 security_bearer = HTTPBearer(auto_error=False)
 
@@ -164,6 +165,7 @@ def get_servicio_notificaciones(
         email_provider=obtener_proveedor_email(),
         session_factory=session_factory,
         repo_notificaciones=repo_notificaciones,
+        whatsapp_provider=obtener_proveedor_whatsapp(),
     )
 
 

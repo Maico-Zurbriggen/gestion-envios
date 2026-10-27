@@ -138,7 +138,7 @@ Token inexistente: `404` con el mismo esquema estándar de error:
 
 ### Referencia histórica de pendientes de HU04
 
-**Actualización del 27 de octubre de 2026:** los pendientes de implementación enumerados en esta sección fueron superados por los desarrollos posteriores. HU05, HU06, HU10 y el backend de HU11/HU12 existen. La integración frontend de HU04, HU06, HU11 y HU12 se documenta en [Reparto, recepción y seguimiento](reparto-terminal-seguimiento.md). El seguimiento ya muestra destino, última posición disponible, historial real y distingue las visitas fallidas de las entregas. Los avisos vigentes son solo por email; no hay integración con WhatsApp.
+**Actualización del 27 de octubre de 2026:** los pendientes de implementación enumerados en esta sección fueron superados por los desarrollos posteriores. HU05, HU06, HU10 y el backend de HU11/HU12 existen. La integración frontend de HU04, HU06, HU11 y HU12 se documenta en [Reparto, recepción y seguimiento](reparto-terminal-seguimiento.md). El seguimiento ya muestra destino, última posición disponible, historial real y distingue las visitas fallidas de las entregas. Desde el Sprint 2, los avisos se envían por email y WhatsApp (ver [Sprint 2](sprint-2-notificaciones-retiro-y-neon.md)).
 
 El texto siguiente se conserva como antecedente del estado inicial y no debe usarse como lista vigente de trabajo pendiente.
 

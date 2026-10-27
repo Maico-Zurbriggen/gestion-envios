@@ -343,6 +343,7 @@ async def test_hu12_escenario_3_visita_email_idempotente_y_seguimiento(
     db_session,
     administrativo_token,
     correo,
+    whatsapp,
 ):
     id_, paquetes, usuario, headers, token = await _armar(client, db_session, administrativo_token, cantidad=1)
     cuerpo = {"operacion_id": str(uuid.uuid4()), "motivo_fallo": "Persona ausente"}
@@ -361,11 +362,20 @@ async def test_hu12_escenario_3_visita_email_idempotente_y_seguimiento(
     assert paquetes[0].estado == "ENTREGA_FALLIDA"
     evento = await db_session.get(EventoEntregaModel, uuid.UUID(evento_id))
     assert evento.motivo_fallo == "Persona ausente" and evento.usuario_registro_id == usuario.id
-    aviso = (await db_session.scalars(select(NotificacionEnvioModel))).one()
+    aviso = (await db_session.scalars(select(NotificacionEnvioModel).where(NotificacionEnvioModel.canal == "EMAIL"))).one()
     assert aviso.canal == "EMAIL" and aviso.estado == "ENVIADO"
     assert aviso.proveedor_mensaje_id and aviso.error_detalle is None
     assert str(aviso.evento_entrega_id) == evento_id
-    publico = (await client.get(f"/api/v1/seguimiento/{token}")).json()["data"]["paquetes"][0]
+    # HU12 Escenario 3: el aviso también sale por WhatsApp, una sola vez, sin el motivo libre.
+    assert len(whatsapp.mensajes_enviados) == 1
+    mensaje_wa = whatsapp.mensajes_enviados[0]
+    assert mensaje_wa["destinatario"] == "5493564333444"
+    assert token in mensaje_wa["texto"] and "Persona ausente" not in mensaje_wa["texto"]
+    aviso_wa = (
+        await db_session.scalars(select(NotificacionEnvioModel).where(NotificacionEnvioModel.canal == "WHATSAPP"))
+    ).one()
+    assert aviso_wa.estado == "ENVIADO" and str(aviso_wa.evento_entrega_id) == evento_id
+    publico =(await client.get(f"/api/v1/seguimiento/{token}")).json()["data"]["paquetes"][0]
     assert publico["historial"][-1]["estado"] == "ENTREGA_FALLIDA"
     assert "Aviso de visita" in publico["historial"][-1]["descripcion"]
     assert "Persona ausente" not in str(publico)
@@ -397,7 +407,7 @@ async def test_hu12_error_proveedor_conserva_visita_y_reintenta_solo_aviso_falli
     url = f"{BASE}/{id_}/paquetes/{paquetes[0].id}/visita-fallida"
     resp = await client.post(url, headers=headers, json=cuerpo)
     assert resp.status_code == 200, resp.text
-    aviso = (await db_session.scalars(select(NotificacionEnvioModel))).one()
+    aviso = (await db_session.scalars(select(NotificacionEnvioModel).where(NotificacionEnvioModel.canal == "EMAIL"))).one()
     await db_session.refresh(aviso)
     assert aviso.estado == "FALLIDO" and aviso.proveedor_mensaje_id is None
     assert "credencial-secreta" not in aviso.error_detalle
@@ -503,7 +513,7 @@ async def test_hu12_sin_email_registra_fallo_y_conserva_visita(client, db_sessio
         json={"operacion_id": str(uuid.uuid4()), "motivo_fallo": "No responde"},
     )
     assert resp.status_code == 200, resp.text
-    aviso = (await db_session.scalars(select(NotificacionEnvioModel))).one()
+    aviso = (await db_session.scalars(select(NotificacionEnvioModel).where(NotificacionEnvioModel.canal == "EMAIL"))).one()
     assert aviso.estado == "FALLIDO" and aviso.error_detalle
     assert not correo.mensajes_enviados
 

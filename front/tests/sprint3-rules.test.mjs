@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { getStatusStep } from '../src/features/tracking/trackingStatus.ts'
+import { getStatusLabel, getStatusStep } from '../src/features/tracking/trackingStatus.ts'
 import { receiverIsOldEnough } from '../src/features/delivery/deliveryValidation.ts'
 
 test('una visita fallida nunca representa una entrega completada', () => {
@@ -10,7 +10,8 @@ test('una visita fallida nunca representa una entrega completada', () => {
 test('los estados desconocidos y pendientes no se presentan como entregados', () => {
   assert.equal(getStatusStep('Pendiente'), 0)
   assert.equal(getStatusStep('NUEVO_ESTADO'), 0)
-  assert.equal(getStatusStep('EN_SUCURSAL_DESTINO'), 1)
+  assert.equal(getStatusStep('EN_SUCURSAL_ORIGEN'), 1)
+  assert.equal(getStatusStep('EN_SUCURSAL_DESTINO'), 2)
   assert.equal(getStatusStep('EN_REPARTO'), 2)
 })
 test('la edad respeta el límite estricto del contrato de entrega', () => {
@@ -26,4 +27,15 @@ test('fecha inválida y cumpleaños de año bisiesto', () => {
   assert.equal(receiverIsOldEnough('2001-02-29', '2026-10-27'), false)
   assert.equal(receiverIsOldEnough('2008-02-29', '2024-02-29'), false)
   assert.equal(receiverIsOldEnough('2008-02-29', '2024-03-01'), true)
+})
+test('el retiro en sucursal nunca retrocede al llegar a destino', () => {
+  const order = ['PENDIENTE', 'EN_SUCURSAL_ORIGEN', 'EN_TRANSITO', 'EN_SUCURSAL_DESTINO', 'ENTREGADO_EN_SUCURSAL']
+  assert.deepEqual(order.map((status) => getStatusStep(status, 'sucursal')), [0, 1, 2, 3, 4])
+  assert.equal(getStatusStep('LISTO_PARA_RETIRO', 'sucursal'), 3)
+  assert.equal(getStatusStep('EN_SUCURSAL_DESTINO', 'domicilio') > getStatusStep('EN_SUCURSAL_ORIGEN', 'domicilio'), true)
+})
+test('los estados se muestran con texto legible', () => {
+  assert.equal(getStatusLabel('LISTO_PARA_RETIRO'), 'Listo para retirar')
+  assert.equal(getStatusLabel('Pendiente'), 'Pendiente de ingreso')
+  assert.equal(getStatusLabel('OTRO'), 'OTRO')
 })

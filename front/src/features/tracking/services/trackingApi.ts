@@ -1,4 +1,6 @@
 import type {
+  PickupOptions,
+  PickupOptionsSuccessResponse,
   ShipmentTracking,
   TrackingSuccessResponse,
 } from '../types/tracking.types'
@@ -92,6 +94,7 @@ export async function getShipmentTracking(
 
   return {
     trackingToken: trackingResponse.data.token_seguimiento,
+    deliveryType: trackingResponse.data.tipo_entrega === 'sucursal' ? 'sucursal' : 'domicilio',
     destination: trackingResponse.data.destino,
     latitude: trackingResponse.data.latitud_destino ?? null,
     longitude: trackingResponse.data.longitud_destino ?? null,
@@ -107,5 +110,40 @@ export async function getShipmentTracking(
         latitude: shipmentPackage.ubicacion_repartidor.latitud, longitude: shipmentPackage.ubicacion_repartidor.longitud, updatedAt: shipmentPackage.ubicacion_repartidor.actualizado_at,
       } : null,
     })),
+  }
+}
+
+export async function getPickupOptions(token: string, signal?: AbortSignal): Promise<PickupOptions> {
+  if (!apiUrl) throw new TrackingApiError('No se configuró la URL de la API.')
+  let response: Response
+  try {
+    response = await fetch(`${apiUrl}/sucursales/opciones-retiro/${encodeURIComponent(token)}`, {
+      headers: { Accept: 'application/json' },
+      signal,
+    })
+  } catch (error) {
+    if (signal?.aborted) throw error
+    throw new TrackingApiError('No pudimos consultar la sucursal de retiro. Intentá nuevamente.')
+  }
+  const payload = await readJson(response)
+  if (!response.ok) throw new TrackingApiError(getErrorMessage(payload, response.status), response.status)
+
+  const options = payload as PickupOptionsSuccessResponse
+  if (options?.status !== 'success' || typeof options.data?.aplica_retiro !== 'boolean' || !Array.isArray(options.data.paquetes)) {
+    throw new TrackingApiError('El servidor devolvió una respuesta inesperada.')
+  }
+  const branch = options.data.sucursal_asignada
+  return {
+    applies: options.data.aplica_retiro,
+    reason: options.data.motivo_no_aplica,
+    branch: branch ? {
+      name: branch.nombre, address: branch.direccion, city: branch.ciudad, province: branch.provincia,
+      latitude: branch.latitud, longitude: branch.longitud,
+    } : null,
+    packages: options.data.paquetes.map((item) => ({ packageNumber: item.numero_paquete, ready: item.disponible_para_retirar })),
+    requirements: {
+      recipient: options.data.requisitos_retiro?.titular ?? '',
+      authorizedPerson: options.data.requisitos_retiro?.tercero_autorizado ?? '',
+    },
   }
 }

@@ -4,7 +4,7 @@ El backend utiliza Python 3.12 o superior y FastAPI. Las dependencias se declara
 
 Para desarrollo local se eligió SQLite mediante `sqlite+aiosqlite:///./gestion_envios.db`. Esto permite iniciar la API sin infraestructura adicional. PostgreSQL podrá configurarse más adelante reemplazando `DATABASE_URL`.
 
-El proceso de inicio crea las tablas, siembra los roles base y crea el superadministrador cuando todavía no existe. Las variables y credenciales de ejemplo están documentadas en `Back/.env.example` y no deben reutilizarse fuera del entorno local.
+El proceso de inicio aplica las migraciones de Alembic pendientes (también contra Neon; ver [`Back/docs/02-configuracion/base-de-datos-neon.md`](../Back/docs/02-configuracion/base-de-datos-neon.md)), siembra los roles base y crea el superadministrador cuando todavía no existe. Las variables y credenciales de ejemplo están documentadas en `Back/.env.example` y no deben reutilizarse fuera del entorno local.
 
 Comando de inicio:
 

@@ -8,14 +8,15 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.core.config import settings
-from app.infrastructure.db.engine_utils import obtener_connect_args
+from app.infrastructure.db.engine_utils import normalizar_url_base_datos, obtener_connect_args
 from app.infrastructure.db.models import Base
 
 # Configuración del motor asíncrono
-engine_kwargs = {"echo": settings.DEBUG, "connect_args": obtener_connect_args(settings.DATABASE_URL)}
+DATABASE_URL = normalizar_url_base_datos(settings.DATABASE_URL)
+engine_kwargs = {"echo": settings.DEBUG, "connect_args": obtener_connect_args(DATABASE_URL)}
 
 async_engine: AsyncEngine = create_async_engine(
-    settings.DATABASE_URL,
+    DATABASE_URL,
     **engine_kwargs,
 )
 

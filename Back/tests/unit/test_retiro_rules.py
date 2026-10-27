@@ -5,6 +5,8 @@ from app.domain.rules.retiro_rules import (
     envio_habilita_retiro_en_sucursal,
     evaluar_disponibilidad_retiro,
     paquete_disponible_en_sucursal,
+    validar_envio_para_retiro,
+    validar_receptor_retiro,
     validar_requisitos_retiro,
 )
 
@@ -14,11 +16,19 @@ def test_evaluar_disponibilidad_estados_validos():
         EstadoPaqueteEnum.LISTO_PARA_RETIRO.value,
         EstadoPaqueteEnum.EN_SUCURSAL.value,
         EstadoPaqueteEnum.EN_SUCURSAL_DESTINO.value,
-        "Pendiente",
     ]:
         disponible, motivo = evaluar_disponibilidad_retiro(estado)
         assert disponible is True
         assert motivo is None
+
+
+@pytest.mark.parametrize(
+    "estado", ["Pendiente", EstadoPaqueteEnum.PENDIENTE.value, EstadoPaqueteEnum.EN_SUCURSAL_ORIGEN.value]
+)
+def test_evaluar_disponibilidad_paquete_que_no_llego_a_la_sucursal(estado):
+    """HU13: un paquete que nunca ingresó a la red o sigue en origen no se puede retirar."""
+    disponible, motivo = evaluar_disponibilidad_retiro(estado)
+    assert disponible is False and "en sucursal" in motivo
 
 
 def test_evaluar_disponibilidad_estados_ya_entregados():
@@ -166,7 +176,30 @@ def test_hu09_paquete_en_sucursal_destino_esta_disponible(estado):
     ],
 )
 def test_hu09_paquete_que_no_llego_a_sucursal_no_esta_disponible(estado):
-    """La vista pública es más estricta que el mostrador de HU13: un paquete
-    "Pendiente" todavía no salió de la terminal de origen, así que no se
-    anuncia como retirable aunque `evaluar_disponibilidad_retiro` lo acepte."""
+    """Un paquete que todavía no llegó a la sucursal no se anuncia como retirable."""
     assert paquete_disponible_en_sucursal(estado) is False
+
+
+def test_validar_envio_para_retiro_acepta_sucursal_correcta():
+    assert validar_envio_para_retiro("sucursal", 1, 1, 1) == []
+
+
+@pytest.mark.parametrize(
+    ("tipo", "destino", "actual", "operador", "campo"),
+    [
+        ("domicilio", None, 1, 1, "tipo_entrega"),
+        ("sucursal", 1, 2, 1, "sucursal_actual"),
+        ("sucursal", 1, None, 1, "sucursal_actual"),
+        ("sucursal", 1, 1, 2, "sucursal_id"),
+    ],
+)
+def test_validar_envio_para_retiro_rechaza(tipo, destino, actual, operador, campo):
+    assert campo in [e["field"] for e in validar_envio_para_retiro(tipo, destino, actual, operador)]
+
+
+def test_validar_receptor_retiro():
+    assert validar_receptor_retiro("TITULAR", True, True, "40123456", None) == []
+    campos = [e["field"] for e in validar_receptor_retiro("TITULAR", False, False, "40123456", None)]
+    assert campos == ["receptor_fecha_nacimiento", "documento_original_verificado"]
+    distinto = validar_receptor_retiro("TERCERO_AUTORIZADO", True, True, "38999888", "11111111")
+    assert [e["field"] for e in distinto] == ["tercero_autorizado.documento"]
