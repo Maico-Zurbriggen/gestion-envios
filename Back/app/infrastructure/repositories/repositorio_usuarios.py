@@ -1,4 +1,3 @@
-from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -14,7 +13,7 @@ class RepositorioUsuarios:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def obtener_por_id(self, id: UUID) -> Optional[UsuarioModel]:
+    async def obtener_por_id(self, id: UUID) -> UsuarioModel | None:
         """Siempre carga la relación `rol` (`selectinload`): casi todo flujo
         de autenticación necesita el nombre del rol para armar el JWT o
         validar permisos."""
@@ -26,7 +25,7 @@ class RepositorioUsuarios:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def obtener_por_dni(self, dni: str) -> Optional[UsuarioModel]:
+    async def obtener_por_dni(self, dni: str) -> UsuarioModel | None:
         """Usado tanto en el login (HU01/HU02) como en la validación de
         unicidad al dar de alta un empleado (HU01 Escenario 4)."""
         stmt = (
@@ -37,7 +36,7 @@ class RepositorioUsuarios:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def obtener_por_email(self, email: str) -> Optional[UsuarioModel]:
+    async def obtener_por_email(self, email: str) -> UsuarioModel | None:
         """Validación de unicidad de email al dar de alta un empleado
         (HU01 Escenario 4)."""
         stmt = (

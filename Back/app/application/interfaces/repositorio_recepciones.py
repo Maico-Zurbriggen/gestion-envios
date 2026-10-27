@@ -1,4 +1,4 @@
-from typing import Any, Optional, Protocol
+from typing import Any, Protocol
 from uuid import UUID
 
 
@@ -10,7 +10,7 @@ class IRepositorioRecepciones(Protocol):
     paquete a la red y aquel su salida definitiva.
     """
 
-    async def buscar_paquete_por_codigo(self, codigo: str) -> Optional[Any]:
+    async def buscar_paquete_por_codigo(self, codigo: str) -> Any | None:
         """Busca un paquete por su `numero_paquete` (el valor del código de barras)
         o por su `id` (UUID), con el envío y las sucursales ya cargados."""
         ...

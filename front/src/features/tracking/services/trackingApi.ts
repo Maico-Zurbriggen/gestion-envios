@@ -22,6 +22,7 @@ export class TrackingApiError extends Error {
 }
 
 function getErrorMessage(payload: unknown, status: number) {
+  if (status >= 500) return 'El servicio no está disponible. Intentá nuevamente.'
   if (payload && typeof payload === 'object') {
     const { detail, errors, message } = payload as ApiErrorPayload
 
@@ -44,7 +45,6 @@ function getErrorMessage(payload: unknown, status: number) {
   }
 
   if (status === 404) return 'No encontramos un envío asociado a ese código.'
-  if (status >= 500) return 'El servicio no está disponible. Intentá nuevamente.'
   return 'No pudimos consultar el seguimiento. Revisá el código ingresado.'
 }
 
@@ -93,6 +93,8 @@ export async function getShipmentTracking(
   return {
     trackingToken: trackingResponse.data.token_seguimiento,
     destination: trackingResponse.data.destino,
+    latitude: trackingResponse.data.latitud_destino ?? null,
+    longitude: trackingResponse.data.longitud_destino ?? null,
     packages: trackingResponse.data.paquetes.map((shipmentPackage) => ({
       packageNumber: shipmentPackage.numero_paquete,
       status: shipmentPackage.estado,
@@ -100,6 +102,10 @@ export async function getShipmentTracking(
       notes: shipmentPackage.observaciones,
       registeredAt: shipmentPackage.fecha_registro,
       updatedAt: shipmentPackage.ultima_actualizacion,
+      history: (shipmentPackage.historial ?? []).map((event) => ({ previousStatus: event.estado_anterior, status: event.estado, occurredAt: event.fecha_hora, description: event.descripcion })),
+      driverLocation: shipmentPackage.ubicacion_repartidor ? {
+        latitude: shipmentPackage.ubicacion_repartidor.latitud, longitude: shipmentPackage.ubicacion_repartidor.longitud, updatedAt: shipmentPackage.ubicacion_repartidor.actualizado_at,
+      } : null,
     })),
   }
 }

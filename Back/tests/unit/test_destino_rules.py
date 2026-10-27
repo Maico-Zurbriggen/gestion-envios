@@ -11,7 +11,6 @@ from app.domain.rules.destino_rules import (
     formatear_destino_sucursal,
 )
 
-
 # --- Destino a domicilio ---
 
 

@@ -1,7 +1,8 @@
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
 import jwt
-from jwt.exceptions import PyJWTError, ExpiredSignatureError
+from jwt.exceptions import ExpiredSignatureError, PyJWTError
 
 from app.core.config import settings
 from app.core.exceptions import InvalidTokenException
@@ -16,10 +17,10 @@ class ManejadorJWT:
         usuario_id: str,
         rol: str,
         scope: str = ScopeEnum.FULL_ACCESS.value,
-        expiracion_delta: Optional[timedelta] = None,
+        expiracion_delta: timedelta | None = None,
     ) -> str:
         """Emite un token JWT firmado."""
-        ahora = datetime.now(timezone.utc)
+        ahora = datetime.now(UTC)
         if expiracion_delta is None:
             if scope == ScopeEnum.PASSWORD_RESET_ONLY.value:
                 expiracion_delta = settings.jwt_temp_token_expiration_timedelta
@@ -28,7 +29,7 @@ class ManejadorJWT:
 
         expiracion = ahora + expiracion_delta
 
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "sub": str(usuario_id),
             "rol": rol,
             "scope": scope,
@@ -44,7 +45,7 @@ class ManejadorJWT:
         return token
 
     @staticmethod
-    def decodificar_token(token: str) -> Dict[str, Any]:
+    def decodificar_token(token: str) -> dict[str, Any]:
         """Decodifica y valida un token JWT."""
         try:
             payload = jwt.decode(

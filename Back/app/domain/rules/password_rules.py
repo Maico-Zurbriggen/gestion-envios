@@ -1,7 +1,6 @@
 import re
 import secrets
 import string
-from typing import Optional, Tuple
 
 CARACTERES_ESPECIALES_PERMITIDOS = "!@#$%&*"
 LETRAS_MINUSCULAS = string.ascii_lowercase
@@ -11,7 +10,7 @@ DIGITOS = string.digits
 
 def generar_password_temporal(longitud: int = 12) -> str:
     """Genera una contraseña temporal criptográficamente segura.
-    
+
     Cumple con la política de la Adenda Sección B:
     - Longitud entre 10 y 12 caracteres.
     - Al menos una mayúscula, una minúscula, un número y un símbolo especial (!@#$%&*).
@@ -39,9 +38,9 @@ def generar_password_temporal(longitud: int = 12) -> str:
     return "".join(password_chars)
 
 
-def validar_politica_password(password: str) -> Tuple[bool, Optional[str]]:
+def validar_politica_password(password: str) -> tuple[bool, str | None]:
     """Valida que una contraseña cumpla con la política unificada del sistema.
-    
+
     Reglas:
     - Longitud mínima de 10 caracteres.
     - Al menos una letra mayúscula.

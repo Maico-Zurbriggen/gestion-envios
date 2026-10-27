@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test": "node --experimental-strip-types --test --test-isolation=none tests/sprint3-rules.test.mjs",
+    "test:browser": "node tests/sprint3-browser.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

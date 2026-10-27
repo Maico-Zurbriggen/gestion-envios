@@ -3,9 +3,7 @@ from httpx import AsyncClient
 
 from app.core.config import settings
 from app.domain.constants.error_codes import ErrorCodes
-from app.domain.constants.roles import RolEnum, RolIdEnum
-from app.domain.constants.scopes import ScopeEnum
-from app.infrastructure.auth.jwt_handler import ManejadorJWT
+from app.domain.constants.roles import RolIdEnum
 
 
 @pytest.mark.asyncio

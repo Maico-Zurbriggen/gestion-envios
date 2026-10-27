@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from app.application.interfaces.repositorio_recepciones import IRepositorioRecepciones
 from app.application.interfaces.repositorio_sucursales import IRepositorioSucursales
@@ -94,7 +94,7 @@ class ServicioRecepcionTerminal(IServicioRecepcionTerminal):
 
         estado_anterior = paquete.estado
         nuevo_estado = EstadoPaqueteEnum.EN_SUCURSAL_ORIGEN.value
-        ahora = datetime.now(timezone.utc)
+        ahora = datetime.now(UTC)
 
         # 3. Auditoría: una fila por cada cambio de estado, con quién y dónde.
         observacion = f"Paquete recibido en terminal {sucursal.nombre} mediante escaneo del código de barras."
@@ -166,7 +166,7 @@ class ServicioRecepcionTerminal(IServicioRecepcionTerminal):
         self,
         paquete: PaqueteModel,
         disponible: bool,
-        motivo: Optional[str],
+        motivo: str | None,
     ) -> PaqueteEscaneadoData:
         """Arma la respuesta del escaneo a partir del paquete y su envío."""
         envio = paquete.envio
@@ -221,7 +221,7 @@ class ServicioRecepcionTerminal(IServicioRecepcionTerminal):
             provincia=sucursal.provincia if sucursal else None,
         )
 
-    def _mapear_sucursal(self, sucursal: Optional[SucursalModel]) -> Optional[SucursalData]:
+    def _mapear_sucursal(self, sucursal: SucursalModel | None) -> SucursalData | None:
         """Convierte el modelo de sucursal al contrato público, tolerando `None`."""
         if not sucursal:
             return None

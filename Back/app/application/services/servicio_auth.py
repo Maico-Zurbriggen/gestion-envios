@@ -1,4 +1,3 @@
-from typing import Union
 from uuid import UUID
 
 from app.application.interfaces.repositorio_usuarios import IRepositorioUsuarios
@@ -37,7 +36,7 @@ class ServicioAuth:
 
     async def autenticar_usuario(
         self, dni: str, password_plana: str
-    ) -> Union[LoginSuccessResponse, LoginRequiresPasswordChangeResponse]:
+    ) -> LoginSuccessResponse | LoginRequiresPasswordChangeResponse:
         """Autentica a un usuario por su DNI y contraseña (Escenarios 1 y 2 de HU01, Escenario 1 y 4 de HU02)."""
         usuario = await self.repo_usuarios.obtener_por_dni(dni)
         if not usuario:
@@ -157,7 +156,7 @@ class ServicioAuth:
 
     async def autenticar_con_token(
         self, token: str
-    ) -> Union[LoginSuccessResponse, LoginRequiresPasswordChangeResponse]:
+    ) -> LoginSuccessResponse | LoginRequiresPasswordChangeResponse:
         """Inicia sesión o valida la sesión utilizando un token JWT previamente emitido."""
         if not token or not token.strip():
             raise InvalidTokenException("Token de autenticación no proporcionado.")

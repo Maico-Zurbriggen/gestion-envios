@@ -8,7 +8,6 @@ from app.domain.constants.estados_logistica import (
     EstadoPaqueteEnum,
     ResultadoEventoEntregaEnum,
     TipoEventoEntregaEnum,
-    TipoRetiroEnum,
 )
 from app.domain.constants.scopes import ScopeEnum
 from app.infrastructure.auth.jwt_handler import ManejadorJWT

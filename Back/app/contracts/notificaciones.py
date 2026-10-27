@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import List, Optional
 from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -17,7 +17,7 @@ class DatosNotificacionEnvio(BaseModel):
     destinatario_nombre: str
     destinatario_email: str
     destinatario_telefono: str
-    numeros_paquetes: List[str]
+    numeros_paquetes: list[str]
 
 
 class NotificacionItemData(BaseModel):
@@ -31,6 +31,6 @@ class NotificacionItemData(BaseModel):
     destinatario_tipo: str
     destino: str
     estado: str
-    proveedor_mensaje_id: Optional[str] = None
-    error_detalle: Optional[str] = None
+    proveedor_mensaje_id: str | None = None
+    error_detalle: str | None = None
     created_at: datetime

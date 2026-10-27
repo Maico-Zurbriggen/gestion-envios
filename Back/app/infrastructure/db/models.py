@@ -56,7 +56,7 @@ class RolModel(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     nombre: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    descripcion: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    descripcion: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     usuarios: Mapped[list["UsuarioModel"]] = relationship(
         "UsuarioModel",
@@ -118,8 +118,8 @@ class SucursalModel(Base):
     provincia: Mapped[str] = mapped_column(String(100), nullable=False)
     ciudad: Mapped[str] = mapped_column(String(100), nullable=False)
     direccion: Mapped[str] = mapped_column(String(255), nullable=False)
-    latitud: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    longitud: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    latitud: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitud: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     envios: Mapped[list["EnvioModel"]] = relationship(
         "EnvioModel",
@@ -165,13 +165,13 @@ class EnvioModel(Base):
     # Entrega: "domicilio" o "sucursal" — exactamente uno de los dos bloques de campos aplica
     tipo_entrega: Mapped[str] = mapped_column(String(20), nullable=False)
 
-    provincia_destino: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    ciudad_destino: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    direccion_destino: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    latitud_destino: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    longitud_destino: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    provincia_destino: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    ciudad_destino: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    direccion_destino: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    latitud_destino: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitud_destino: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    sucursal_destino_id: Mapped[Optional[int]] = mapped_column(
+    sucursal_destino_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("sucursales.id"), nullable=True
     )
 
@@ -226,11 +226,11 @@ class PaqueteModel(Base):
     largo_cm: Mapped[float] = mapped_column(Float, nullable=False)
     ancho_cm: Mapped[float] = mapped_column(Float, nullable=False)
     alto_cm: Mapped[float] = mapped_column(Float, nullable=False)
-    observaciones: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    observaciones: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     estado: Mapped[str] = mapped_column(String(30), nullable=False, default="Pendiente")
 
-    sucursal_actual_id: Mapped[Optional[int]] = mapped_column(
+    sucursal_actual_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("sucursales.id"), nullable=True
     )
     """Dónde está físicamente el paquete ahora mismo. `None` hasta que HU06
@@ -321,17 +321,17 @@ class HistorialEstadoPaqueteModel(Base):
         autoincrement=True,
     )
     paquete_id: Mapped[uuid.UUID] = mapped_column(types.Uuid(as_uuid=True), ForeignKey("paquetes.id"), nullable=False)
-    estado_anterior: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    estado_anterior: Mapped[str | None] = mapped_column(String(30), nullable=True)
     estado_nuevo: Mapped[str] = mapped_column(String(30), nullable=False)
-    usuario_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    usuario_id: Mapped[uuid.UUID | None] = mapped_column(
         types.Uuid(as_uuid=True), ForeignKey("usuarios.id"), nullable=True
     )
     """`None` cuando el cambio lo genera el sistema (ej. proximidad automática
     de HU11 Escenario 3); con valor cuando lo genera una persona."""
-    sucursal_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("sucursales.id"), nullable=True)
-    latitud: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    longitud: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    observacion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    sucursal_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("sucursales.id"), nullable=True)
+    latitud: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitud: Mapped[float | None] = mapped_column(Float, nullable=True)
+    observacion: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
 
     paquete: Mapped["PaqueteModel"] = relationship("PaqueteModel", back_populates="historial_estados")
@@ -360,18 +360,18 @@ class NotificacionEnvioModel(Base):
     envio_id: Mapped[uuid.UUID] = mapped_column(
         types.Uuid(as_uuid=True), ForeignKey("envios.id"), nullable=False, index=True
     )
-    evento_entrega_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    evento_entrega_id: Mapped[uuid.UUID | None] = mapped_column(
         types.Uuid(as_uuid=True), ForeignKey("eventos_entrega.id"), nullable=True
     )
-    procesando_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    procesando_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     canal: Mapped[str] = mapped_column(String(10), nullable=False)
     destinatario_tipo: Mapped[str] = mapped_column(String(15), nullable=False)
     destino: Mapped[str] = mapped_column(String(150), nullable=False)
     estado: Mapped[str] = mapped_column(String(15), nullable=False, default=EstadoNotificacionEnum.PENDIENTE.value)
-    proveedor_mensaje_id: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    proveedor_mensaje_id: Mapped[str | None] = mapped_column(String(150), nullable=True)
     """ID que devuelve el proveedor externo (ej. Twilio, SendGrid/SES), para
     poder rastrear un envío puntual sin acoplar el esquema a un proveedor."""
-    error_detalle: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    error_detalle: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False
@@ -396,7 +396,7 @@ class ReclamoModel(Base):
     envio_id: Mapped[uuid.UUID] = mapped_column(
         types.Uuid(as_uuid=True), ForeignKey("envios.id"), nullable=False, index=True
     )
-    paquete_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    paquete_id: Mapped[uuid.UUID | None] = mapped_column(
         types.Uuid(as_uuid=True), ForeignKey("paquetes.id"), nullable=True
     )
     """Opcional: el reclamo se inicia desde la vista de un envío, pero puede
@@ -404,11 +404,11 @@ class ReclamoModel(Base):
     tipo: Mapped[str] = mapped_column(String(20), nullable=False)
     descripcion: Mapped[str] = mapped_column(Text, nullable=False)
     contacto_nombre: Mapped[str] = mapped_column(String(150), nullable=False)
-    contacto_email: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
-    contacto_telefono: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    contacto_email: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    contacto_telefono: Mapped[str | None] = mapped_column(String(30), nullable=True)
     estado: Mapped[str] = mapped_column(String(15), nullable=False, default=EstadoReclamoEnum.ABIERTO.value)
-    resolucion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    usuario_resolucion_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    resolucion: Mapped[str | None] = mapped_column(Text, nullable=True)
+    usuario_resolucion_id: Mapped[uuid.UUID | None] = mapped_column(
         types.Uuid(as_uuid=True), ForeignKey("usuarios.id"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
@@ -429,7 +429,7 @@ class PreguntaFrecuenteModel(Base):
     __tablename__ = "preguntas_frecuentes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    categoria: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    categoria: Mapped[str | None] = mapped_column(String(80), nullable=True)
     pregunta: Mapped[str] = mapped_column(String(255), nullable=False)
     respuesta: Mapped[str] = mapped_column(Text, nullable=False)
     orden: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -468,8 +468,8 @@ class RecorridoModel(Base):
     (HU10 Escenario 1). Se guarda para que las estimaciones y la
     re-optimización tras una edición manual usen la misma métrica que la
     generación original."""
-    distancia_estimada_km: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    duracion_estimada_min: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    distancia_estimada_km: Mapped[float | None] = mapped_column(Float, nullable=True)
+    duracion_estimada_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     """Estimaciones del recorrido en su orden actual; se recalculan en cada edición."""
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
@@ -531,7 +531,7 @@ class AlertaRecorridoModel(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(types.Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     paquete_id: Mapped[uuid.UUID] = mapped_column(types.Uuid(as_uuid=True), ForeignKey("paquetes.id"), nullable=False)
-    recorrido_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    recorrido_id: Mapped[uuid.UUID | None] = mapped_column(
         types.Uuid(as_uuid=True), ForeignKey("recorridos.id"), nullable=True
     )
     """Recorrido durante cuya generación/edición se detectó la alerta, si
@@ -539,7 +539,7 @@ class AlertaRecorridoModel(Base):
     motivo: Mapped[str] = mapped_column(String(40), nullable=False, default="SIN_RECORRIDO_ASIGNADO")
     resuelta: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
-    resuelta_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    resuelta_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     paquete: Mapped["PaqueteModel"] = relationship("PaqueteModel", back_populates="alertas")
     recorrido: Mapped[Optional["RecorridoModel"]] = relationship("RecorridoModel", back_populates="alertas_generadas")
@@ -560,7 +560,7 @@ class PosicionActualRepartidorModel(Base):
     repartidor_id: Mapped[uuid.UUID] = mapped_column(
         types.Uuid(as_uuid=True), ForeignKey("repartidores.usuario_id"), primary_key=True
     )
-    recorrido_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    recorrido_id: Mapped[uuid.UUID | None] = mapped_column(
         types.Uuid(as_uuid=True), ForeignKey("recorridos.id"), nullable=True
     )
     latitud: Mapped[float] = mapped_column(Float, nullable=False)
@@ -597,30 +597,30 @@ class EventoEntregaModel(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(types.Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    operacion_id: Mapped[Optional[uuid.UUID]] = mapped_column(types.Uuid(as_uuid=True), nullable=True)
-    solicitud_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-    recorrido_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    operacion_id: Mapped[uuid.UUID | None] = mapped_column(types.Uuid(as_uuid=True), nullable=True)
+    solicitud_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    recorrido_id: Mapped[uuid.UUID | None] = mapped_column(
         types.Uuid(as_uuid=True), ForeignKey("recorridos.id"), nullable=True
     )
     paquete_id: Mapped[uuid.UUID] = mapped_column(types.Uuid(as_uuid=True), ForeignKey("paquetes.id"), nullable=False)
     tipo_evento: Mapped[str] = mapped_column(String(20), nullable=False)
     resultado: Mapped[str] = mapped_column(String(10), nullable=False)
-    receptor_nombre: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
-    receptor_documento: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    receptor_fecha_nacimiento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    receptor_nombre: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    receptor_documento: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    receptor_fecha_nacimiento: Mapped[date | None] = mapped_column(Date, nullable=True)
     es_autorizado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     """HU13 Escenario 2: True cuando retira una persona distinta al
     destinatario, presentando la Autorización de Retiro física."""
     documento_destinatario_verificado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    firma_imagen: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
-    firma_content_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    motivo_fallo: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    firma_imagen: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    firma_content_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    motivo_fallo: Mapped[str | None] = mapped_column(String(255), nullable=True)
     usuario_registro_id: Mapped[uuid.UUID] = mapped_column(
         types.Uuid(as_uuid=True), ForeignKey("usuarios.id"), nullable=False
     )
-    sucursal_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("sucursales.id"), nullable=True)
-    latitud: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    longitud: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    sucursal_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("sucursales.id"), nullable=True)
+    latitud: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitud: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
 
     paquete: Mapped["PaqueteModel"] = relationship("PaqueteModel", back_populates="eventos_entrega")

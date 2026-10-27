@@ -220,7 +220,7 @@ Estas decisiones son válidas para el alcance actual, pero no deben confundirse 
 - El cierre de sesión no revoca tokens. Si se necesita invalidación inmediata, será necesario registrar sesiones o versiones de token en el backend.
 - CORS está abierto para facilitar el desarrollo local; en ambientes desplegados debe limitarse a los orígenes conocidos.
 - La geocodificación consulta Nominatim desde el navegador. Para más volumen conviene incorporar caché, límites de uso o un proveedor/servicio intermedio acorde con su política.
-- Los recorridos se generan y se ven en el mapa (HU10), pero la ubicación en tiempo real del repartidor y el avance del recorrido llegan con HU11/HU12.
+- Los recorridos se generan y se ven en el mapa (HU10). HU11/HU12 incorporan la pantalla `/reparto`, ubicación GPS mientras la vista está abierta y resultados de visitas; el seguimiento público consulta la última posición disponible según las restricciones del backend. Ver [integración operativa](reparto-terminal-seguimiento.md).
 - La creación automática de tablas resulta útil localmente; en ambientes compartidos los cambios de esquema deben ejecutarse exclusivamente mediante migraciones Alembic controladas.
 - Los nombres de roles que interpreta el frontend deben mantenerse alineados con el catálogo del backend; a futuro puede formalizarse una matriz de permisos basada en capacidades en lugar de strings de rol.
 

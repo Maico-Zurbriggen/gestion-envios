@@ -1,7 +1,6 @@
 """Contratos de request/response de la recepción de paquetes en terminal (HU06)."""
 
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
 from pydantic import Field
@@ -69,7 +68,7 @@ class RecepcionarPaqueteRequest(ApiModel):
         description="Sucursal/terminal donde se recibe físicamente el paquete.",
         gt=0,
     )
-    observaciones: Optional[str] = Field(
+    observaciones: str | None = Field(
         None,
         description="Observaciones del vendedor sobre el estado en que recibió el paquete.",
         max_length=500,

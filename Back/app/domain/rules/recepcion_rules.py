@@ -7,7 +7,6 @@ habilitan registrarlo como recibido en la terminal.
 
 import re
 import uuid
-from typing import Dict, List, Optional
 
 from app.domain.constants.estados_logistica import EstadoPaqueteEnum
 from app.domain.rules.codigos_rules import LONGITUD_SUFIJO, PREFIJO_NUMERO_PAQUETE
@@ -74,13 +73,13 @@ def es_uuid_paquete(codigo: str) -> bool:
     return True
 
 
-def validar_codigo_escaneado(codigo: str) -> List[Dict[str, str]]:
+def validar_codigo_escaneado(codigo: str) -> list[dict[str, str]]:
     """Valida el formato del código escaneado antes de ir a la base de datos.
 
     Retorna una lista de errores estructurados `[{"field", "message"}]`; vacía
     si el código es utilizable.
     """
-    errores: List[Dict[str, str]] = []
+    errores: list[dict[str, str]] = []
     normalizado = normalizar_codigo_escaneado(codigo)
 
     if not normalizado:
@@ -102,7 +101,7 @@ def validar_codigo_escaneado(codigo: str) -> List[Dict[str, str]]:
     return errores
 
 
-def evaluar_disponibilidad_recepcion(estado_actual: str) -> tuple[bool, Optional[str]]:
+def evaluar_disponibilidad_recepcion(estado_actual: str) -> tuple[bool, str | None]:
     """Evalúa si el estado actual del paquete permite recibirlo en la terminal.
 
     Retorna `(disponible, motivo)`: `motivo` es `None` cuando se puede recibir y

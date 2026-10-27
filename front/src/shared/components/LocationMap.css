@@ -1,0 +1,6 @@
+.location-map-panel { min-width: 0; margin-block: var(--space-4); }
+.location-map { height: 20rem; width: 100%; z-index: 0; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-subtle); }
+.location-map__marker { display: grid; place-items: center; background: var(--color-primary); color: var(--color-text-on-primary); border: 2px solid var(--color-surface); border-radius: var(--radius-full); font-weight: 750; }
+:root[data-theme='dark'] .location-map__marker { color: var(--color-neutral-950); }
+.location-map-panel li { overflow-wrap: anywhere; font-size: var(--font-size-sm); }
+.location-map .leaflet-control-attribution, .location-map .leaflet-popup-content-wrapper, .location-map .leaflet-popup-tip { color: var(--color-text); background: var(--color-surface); }
