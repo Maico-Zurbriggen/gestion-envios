@@ -1,4 +1,5 @@
 from datetime import timedelta
+
 import pytest
 
 from app.core.exceptions import InvalidTokenException

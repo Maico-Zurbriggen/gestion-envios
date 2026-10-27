@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
-from typing import Any, Optional
 import uuid
+from datetime import UTC, datetime
+from typing import Any
 
 from app.application.interfaces.repositorio_entregas import IRepositorioEntregas
 from app.application.interfaces.servicio_retiro_sucursal import IServicioRetiroSucursal
@@ -109,7 +109,7 @@ class ServicioRetiroSucursal(IServicioRetiroSucursal):
 
         envio = paquete.envio
         nuevo_estado = EstadoPaqueteEnum.ENTREGADO_EN_SUCURSAL.value
-        ahora = datetime.now(timezone.utc)
+        ahora = datetime.now(UTC)
 
         # 3. Determinación de datos del receptor
         if datos.tipo_retiro == TipoRetiroEnum.TITULAR.value:
@@ -185,7 +185,7 @@ class ServicioRetiroSucursal(IServicioRetiroSucursal):
             )
         )
 
-    def _mapear_sucursal(self, sucursal: Optional[SucursalModel]) -> Optional[SucursalData]:
+    def _mapear_sucursal(self, sucursal: SucursalModel | None) -> SucursalData | None:
         if not sucursal:
             return None
         return SucursalData(

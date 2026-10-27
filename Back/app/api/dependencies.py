@@ -1,5 +1,6 @@
 import uuid
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any
 
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -265,8 +266,8 @@ def get_servicio_reparto(
 
 
 async def obtener_token_payload(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer),
-) -> Dict[str, Any]:
+    credentials: HTTPAuthorizationCredentials | None = Depends(security_bearer),
+) -> dict[str, Any]:
     """Extrae y decodifica el token JWT del encabezado Authorization: Bearer."""
     if not credentials or not credentials.credentials:
         raise InvalidTokenException("Token de autenticación ausente o inválido.")
@@ -274,7 +275,7 @@ async def obtener_token_payload(
 
 
 async def obtener_usuario_actual(
-    payload: Dict[str, Any] = Depends(obtener_token_payload),
+    payload: dict[str, Any] = Depends(obtener_token_payload),
     repo_usuarios: IRepositorioUsuarios = Depends(get_repositorio_usuarios),
 ) -> UsuarioModel:
     """Valida el token y recupera la entidad completa del usuario autenticado."""
@@ -295,7 +296,7 @@ async def obtener_usuario_actual(
 
 def requerir_scope(scope_requerido: str) -> Callable:
     """Fabrica una dependencia que restringe el acceso al scope JWT especificado."""
-    async def validador_scope(payload: Dict[str, Any] = Depends(obtener_token_payload)) -> Dict[str, Any]:
+    async def validador_scope(payload: dict[str, Any] = Depends(obtener_token_payload)) -> dict[str, Any]:
         scope_actual = payload.get("scope")
         if scope_actual != scope_requerido:
             raise ForbiddenScopeException(
@@ -307,8 +308,8 @@ def requerir_scope(scope_requerido: str) -> Callable:
 
 
 async def validar_token_para_cambio_password(
-    payload: Dict[str, Any] = Depends(obtener_token_payload),
-) -> Dict[str, Any]:
+    payload: dict[str, Any] = Depends(obtener_token_payload),
+) -> dict[str, Any]:
     """Permite el acceso al endpoint de cambio de clave tanto con token temporal como con token pleno."""
     scope_actual = payload.get("scope")
     if scope_actual not in [
@@ -322,7 +323,7 @@ async def validar_token_para_cambio_password(
 def requerir_rol(rol_requerido: RolEnum) -> Callable:
     """Fabrica una dependencia que valida que el usuario posea un rol específico y acceso pleno."""
     async def validador_rol(
-        payload: Dict[str, Any] = Depends(obtener_token_payload),
+        payload: dict[str, Any] = Depends(obtener_token_payload),
         repo_usuarios: IRepositorioUsuarios = Depends(get_repositorio_usuarios),
     ) -> UsuarioModel:
         # 1. Validar Scope primero: si tiene token restringido, denegar inmediatamente
@@ -356,7 +357,7 @@ def requerir_rol(rol_requerido: RolEnum) -> Callable:
 def requerir_roles(roles_permitidos: list[RolEnum]) -> Callable:
     """Fabrica una dependencia que valida que el usuario posea alguno de los roles indicados y acceso pleno."""
     async def validador_roles(
-        payload: Dict[str, Any] = Depends(obtener_token_payload),
+        payload: dict[str, Any] = Depends(obtener_token_payload),
         repo_usuarios: IRepositorioUsuarios = Depends(get_repositorio_usuarios),
     ) -> UsuarioModel:
         if payload.get("scope") == ScopeEnum.PASSWORD_RESET_ONLY.value:

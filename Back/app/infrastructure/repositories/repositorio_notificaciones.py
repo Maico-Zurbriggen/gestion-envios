@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -16,7 +15,7 @@ class RepositorioNotificaciones:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def obtener_aviso_visita(self, evento_id: UUID) -> Optional[NotificacionEnvioModel]:
+    async def obtener_aviso_visita(self, evento_id: UUID) -> NotificacionEnvioModel | None:
         resultado = await self.db.execute(
             select(NotificacionEnvioModel).where(
                 NotificacionEnvioModel.evento_entrega_id == evento_id,
@@ -40,7 +39,7 @@ class RepositorioNotificaciones:
         return resultado.rowcount == 1
 
     async def finalizar_aviso_visita(self, notificacion_id: UUID, estado: str,
-                                   proveedor_mensaje_id: Optional[str], error_detalle: Optional[str]) -> None:
+                                   proveedor_mensaje_id: str | None, error_detalle: str | None) -> None:
         await self.db.execute(
             update(NotificacionEnvioModel).where(NotificacionEnvioModel.id == notificacion_id)
             .values(estado=estado, proveedor_mensaje_id=proveedor_mensaje_id,
@@ -55,7 +54,7 @@ class RepositorioNotificaciones:
         await self.db.refresh(notificacion)
         return notificacion
 
-    async def obtener_por_envio_id(self, envio_id: UUID) -> List[NotificacionEnvioModel]:
+    async def obtener_por_envio_id(self, envio_id: UUID) -> list[NotificacionEnvioModel]:
         """Obtiene todas las notificaciones registradas para un envío ordenadas por fecha."""
         stmt = (
             select(NotificacionEnvioModel)
@@ -69,9 +68,9 @@ class RepositorioNotificaciones:
         self,
         notificacion_id: UUID,
         estado: str,
-        proveedor_mensaje_id: Optional[str] = None,
-        error_detalle: Optional[str] = None,
-    ) -> Optional[NotificacionEnvioModel]:
+        proveedor_mensaje_id: str | None = None,
+        error_detalle: str | None = None,
+    ) -> NotificacionEnvioModel | None:
         """Actualiza el estado de envío y los metadatos de respuesta del proveedor."""
         stmt = select(NotificacionEnvioModel).where(NotificacionEnvioModel.id == notificacion_id)
         result = await self.db.execute(stmt)

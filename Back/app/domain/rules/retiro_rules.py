@@ -9,7 +9,7 @@ las mismas reglas de estado para informar, en la vista pública, si el paquete
 ya está disponible para que el destinatario lo pase a buscar.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.domain.constants.estados_logistica import EstadoPaqueteEnum, TipoRetiroEnum
 
@@ -29,9 +29,9 @@ ESTADOS_YA_ENTREGADOS: set[str] = {
 }
 
 
-def evaluar_disponibilidad_retiro(estado_actual: str) -> tuple[bool, Optional[str]]:
+def evaluar_disponibilidad_retiro(estado_actual: str) -> tuple[bool, str | None]:
     """Evalúa si un estado de paquete permite realizar el retiro en sucursal.
-    
+
     Retorna una tupla (disponible: bool, motivo: Optional[str]).
     """
     estado_normalizado = estado_actual.strip()
@@ -53,14 +53,14 @@ def validar_requisitos_retiro(
     destinatario_mayor_16: bool,
     documento_tipo: str,
     documento_numero: str,
-    tercero_datos: Optional[Dict[str, Any]] = None,
-) -> List[Dict[str, str]]:
+    tercero_datos: dict[str, Any] | None = None,
+) -> list[dict[str, str]]:
     """Valida los requisitos de identidad y documentación para el retiro de un paquete.
-    
+
     Retorna una lista de errores estructurados [{"field": ..., "message": ...}].
     Si la lista está vacía, todos los requisitos de negocio se cumplen.
     """
-    errores: List[Dict[str, str]] = []
+    errores: list[dict[str, str]] = []
 
     # 1. Regla: Destinatario titular debe tener al menos 16 años
     if not destinatario_mayor_16:
@@ -136,7 +136,7 @@ TIPO_ENTREGA_DOMICILIO = "domicilio"
 """Valores que `EnvioModel.tipo_entrega` toma desde el registro de HU03."""
 
 
-def envio_habilita_retiro_en_sucursal(tipo_entrega: str) -> tuple[bool, Optional[str]]:
+def envio_habilita_retiro_en_sucursal(tipo_entrega: str) -> tuple[bool, str | None]:
     """Evalúa si un envío se gestiona para retiro en sucursal (HU09 Escenario 1).
 
     Es la condición "DADO que el envío se gestiona para retiro y no para

@@ -1,11 +1,10 @@
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.contracts.sucursales import SucursalData
-from app.domain.constants.estados_logistica import TipoRetiroEnum
 
 
 class DocumentoPresentadoDTO(BaseModel):
@@ -51,11 +50,11 @@ class RegistrarRetiroRequest(BaseModel):
         ...,
         description="Validación de que el destinatario titular es mayor o igual a 16 años",
     )
-    tercero_autorizado: Optional[TerceroAutorizadoDTO] = Field(
+    tercero_autorizado: TerceroAutorizadoDTO | None = Field(
         None,
         description="Requerido obligatoriamente si tipo_retiro es 'TERCERO_AUTORIZADO'",
     )
-    observaciones: Optional[str] = Field(
+    observaciones: str | None = Field(
         None,
         description="Observaciones operativas del personal de sucursal",
         max_length=500,
@@ -93,10 +92,10 @@ class ValidarRetiroData(BaseModel):
     peso_kg: float
     estado_actual: str
     disponible_para_retiro: bool
-    motivo_no_disponible: Optional[str] = None
+    motivo_no_disponible: str | None = None
     tipo_entrega: str
-    sucursal_destino: Optional[SucursalData] = None
-    sucursal_actual: Optional[SucursalData] = None
+    sucursal_destino: SucursalData | None = None
+    sucursal_actual: SucursalData | None = None
     datos_destinatario: DestinatarioRetiroInfo
     requisitos_retiro: RequisitosRetiroInfo = Field(default_factory=RequisitosRetiroInfo)
 
@@ -125,8 +124,8 @@ class RetiroRegistradoData(BaseModel):
     usuario_administrativo_id: UUID
     usuario_administrativo_nombre: str
     fecha_hora_entrega: datetime
-    sucursal_id: Optional[int] = None
-    observaciones: Optional[str] = None
+    sucursal_id: int | None = None
+    observaciones: str | None = None
 
 
 class RegistrarRetiroResponse(BaseModel):

@@ -1,8 +1,8 @@
 import asyncio
-from email.message import EmailMessage
 import smtplib
-from typing import Optional, Protocol
 import uuid
+from email.message import EmailMessage
+from typing import Protocol
 
 from app.core.config import settings
 from app.core.logging import logger
@@ -16,10 +16,10 @@ class IEmailProvider(Protocol):
         destinatario: str,
         asunto: str,
         cuerpo_texto: str,
-        cuerpo_html: Optional[str] = None,
-    ) -> tuple[bool, Optional[str], Optional[str]]:
+        cuerpo_html: str | None = None,
+    ) -> tuple[bool, str | None, str | None]:
         """Envía un correo electrónico.
-        
+
         Retorna:
             (exito: bool, proveedor_mensaje_id: Optional[str], error_detalle: Optional[str])
         """
@@ -29,18 +29,18 @@ class IEmailProvider(Protocol):
 class MockEmailProvider:
     """Proveedor mock en memoria para desarrollo local y tests automatizados."""
 
-    def __init__(self, forzar_error: bool = False, mensaje_error: Optional[str] = None):
+    def __init__(self, forzar_error: bool = False, mensaje_error: str | None = None):
         self.mensajes_enviados: list[dict] = []
         self.forzar_error: bool = forzar_error
-        self.mensaje_error: Optional[str] = mensaje_error
+        self.mensaje_error: str | None = mensaje_error
 
     async def enviar_email(
         self,
         destinatario: str,
         asunto: str,
         cuerpo_texto: str,
-        cuerpo_html: Optional[str] = None,
-    ) -> tuple[bool, Optional[str], Optional[str]]:
+        cuerpo_html: str | None = None,
+    ) -> tuple[bool, str | None, str | None]:
         if self.forzar_error:
             error = self.mensaje_error or "Error simulado en MockEmailProvider"
             logger.warning(f"[MockEmailProvider] Fallo simulado enviando a {destinatario}: {error}")
@@ -70,13 +70,13 @@ class SMTPEmailProvider:
 
     def __init__(
         self,
-        host: Optional[str] = None,
-        port: Optional[int] = None,
-        user: Optional[str] = None,
-        password: Optional[str] = None,
-        use_tls: Optional[bool] = None,
-        from_email: Optional[str] = None,
-        from_name: Optional[str] = None,
+        host: str | None = None,
+        port: int | None = None,
+        user: str | None = None,
+        password: str | None = None,
+        use_tls: bool | None = None,
+        from_email: str | None = None,
+        from_name: str | None = None,
     ):
         self.host = host or settings.SMTP_HOST
         self.port = port or settings.SMTP_PORT
@@ -91,8 +91,8 @@ class SMTPEmailProvider:
         destinatario: str,
         asunto: str,
         cuerpo_texto: str,
-        cuerpo_html: Optional[str] = None,
-    ) -> tuple[bool, Optional[str], Optional[str]]:
+        cuerpo_html: str | None = None,
+    ) -> tuple[bool, str | None, str | None]:
         """Envía el correo mediante smtplib delegando la operación bloqueante a un thread worker."""
         return await asyncio.to_thread(
             self._enviar_sync, destinatario, asunto, cuerpo_texto, cuerpo_html
@@ -103,8 +103,8 @@ class SMTPEmailProvider:
         destinatario: str,
         asunto: str,
         cuerpo_texto: str,
-        cuerpo_html: Optional[str] = None,
-    ) -> tuple[bool, Optional[str], Optional[str]]:
+        cuerpo_html: str | None = None,
+    ) -> tuple[bool, str | None, str | None]:
         try:
             msg = EmailMessage()
             msg["Subject"] = asunto
@@ -131,7 +131,7 @@ class SMTPEmailProvider:
             return False, None, error_msg
 
 
-_email_provider_instance: Optional[IEmailProvider] = None
+_email_provider_instance: IEmailProvider | None = None
 
 
 def obtener_proveedor_email() -> IEmailProvider:

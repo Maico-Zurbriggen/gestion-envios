@@ -12,7 +12,6 @@ from app.infrastructure.db.models import NotificacionEnvioModel
 from app.infrastructure.email.email_provider import (
     MockEmailProvider,
     establecer_proveedor_email_personalizado,
-    obtener_proveedor_email,
 )
 
 
@@ -75,7 +74,7 @@ async def test_hu05_despacho_notificaciones_al_crear_envio(client: AsyncClient, 
     logs = list(result.scalars().all())
 
     assert len(logs) == 2
-    tipos = {l.destinatario_tipo for l in logs}
+    tipos = {log.destinatario_tipo for log in logs}
     assert tipos == {
         DestinatarioNotificacionEnum.REMITENTE.value,
         DestinatarioNotificacionEnum.DESTINATARIO.value,

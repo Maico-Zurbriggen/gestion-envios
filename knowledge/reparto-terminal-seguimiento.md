@@ -61,4 +61,4 @@ Se comprobaron a 320 px: escaneo y confirmación separados, selección de sucurs
 
 ## Límites de entrega
 
-El frontend de las cuatro historias está implementado. Esto no acredita por sí solo el cierre formal del sprint: quedan aceptación del equipo, validación con GPS físico en HTTPS, configuración real de Mapbox/email y despliegue. La auditoría registra deuda global de Ruff y una discrepancia del control de imports. El conflicto preexistente de `knowledge/README.md` se conserva para que se resuelva conociendo la intención de sus versiones; no se eligió una versión automáticamente.
+El frontend de las cuatro historias está implementado. Esto no acredita por sí solo el cierre formal del sprint: quedan aceptación del equipo, validación con GPS físico en HTTPS, configuración real de Mapbox/email y despliegue. La deuda global de Ruff registrada en la auditoría se corrigió posteriormente y el README se limpió conservando los enlaces de ambas versiones, con autorización del usuario. La discrepancia del control de imports permanece como un hallazgo separado.

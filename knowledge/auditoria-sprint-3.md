@@ -2,11 +2,13 @@
 
 ## Alcance y fuentes
 
+**Actualización posterior a la auditoría:** el usuario autorizó corregir las observaciones de Ruff y los marcadores del README. Se modernizaron anotaciones compatibles con Python 3.12+, se ordenaron imports, se retiraron imports sin uso y se limpiaron espacios. Las nueve observaciones restantes tras las correcciones automáticas se revisaron manualmente: ocho afectaban espacios en docstrings y una correspondía a la variable ambigua `l` de una prueba, renombrada a `log`. Ruff global ahora aprueba sin observaciones. El README conserva los enlaces de ambas versiones y ya no contiene marcadores de conflicto. Las tablas siguientes conservan los resultados históricos de la auditoría inicial.
+
 Revisión del CSV `Pila_Sprint_3_Gestion_Envios.xlsm - Resumen Sprint 3.csv`, del código actual, de `AGENTS.md`, de los documentos de `knowledge/` y de los contratos y pruebas de `Back/`.
 
 El CSV contiene un resumen por historia, dependencias y condiciones de cierre; no contiene los 45 ítems desglosados ni los criterios completos de las 13 historias. Las conclusiones funcionales se contrastan con los contratos y documentos del repositorio. Esta revisión no acredita aceptación por el equipo ni despliegue en producción.
 
-La solicitud inicial autorizó completar el frontend de HU11/HU12 si ese era el único faltante y exigió consultar si había pendientes en otras HU. Tras comunicar los hallazgos, el usuario autorizó completar **HU04, HU06, HU11 y HU12**. Las tablas siguientes registran el diagnóstico inicial; los cambios posteriores y su verificación se documentan en [Reparto, recepción y seguimiento](reparto-terminal-seguimiento.md). No se modificaron archivos `.env` ni backend.
+La solicitud inicial autorizó completar el frontend de HU11/HU12 si ese era el único faltante y exigió consultar si había pendientes en otras HU. Tras comunicar los hallazgos, el usuario autorizó completar **HU04, HU06, HU11 y HU12**. Las tablas siguientes registran el diagnóstico inicial; los cambios posteriores y su verificación se documentan en [Reparto, recepción y seguimiento](reparto-terminal-seguimiento.md). Durante esa implementación no se modificó el backend. La limpieza posterior de Ruff sí actualizó su código, con autorización del usuario; no se modificaron archivos `.env`.
 
 ## Cobertura observada
 
@@ -81,4 +83,14 @@ Son principalmente modernización de anotaciones, orden de imports y espacios, a
 
 ## Alcance propuesto para acordar
 
-El usuario aprobó completar HU11/HU12, la integración pendiente de HU04 y la pantalla de HU06; su frontend ya fue implementado y verificado. La gestión administrativa de reclamos/FAQ sigue fuera de ese conjunto. La limpieza global de Ruff y la revisión del control de imports se mantienen como trabajo separado de calidad. Resolver el conflicto documental conociendo la intención de sus dos versiones antes de declarar entregable el repositorio.
+El usuario aprobó completar HU11/HU12, la integración pendiente de HU04 y la pantalla de HU06; su frontend ya fue implementado y verificado. Posteriormente autorizó la limpieza global de Ruff y la resolución del README, ambas completadas. La gestión administrativa de reclamos/FAQ sigue fuera de ese conjunto. La discrepancia del control de imports sigue registrada como trabajo separado de calidad.
+
+## Verificación de la limpieza de Ruff y del README
+
+- Ruff global: sin observaciones, manteniendo las reglas configuradas.
+- `pip check`: sin dependencias rotas.
+- Suite completa del backend: **377 pruebas aprobadas**, con cuatro advertencias preexistentes de Alembic por `path_separator`. Se usó `-p no:cacheprovider --basetemp=tests/.tmp-ruff-cleanup-20261027` para aislar archivos temporales.
+- Frontend: `npm run lint` y `npm run build` aprobados. Persiste la advertencia previa de Vite por un chunk mayor de 500 kB.
+- OpenAPI: generado correctamente, con 45 rutas.
+- Revisión de los 50 archivos Python modificados: cambios limitados a anotaciones, imports, limpieza documental y equivalencias previstas. Los cuerpos de las funciones de migración permanecen iguales.
+- README: diez enlaces locales válidos, sin marcadores de conflicto. `git diff --check` aprobado.

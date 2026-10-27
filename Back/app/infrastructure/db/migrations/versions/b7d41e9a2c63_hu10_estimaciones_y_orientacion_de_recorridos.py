@@ -13,16 +13,16 @@ ahora se usa para saber si un paquete ya está en un recorrido activo.
 Se usa `batch_alter_table` para que la migración también corra sobre SQLite,
 que no soporta `ALTER TABLE ... DROP COLUMN` en todas sus versiones.
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "b7d41e9a2c63"
-down_revision: Union[str, None] = "5c87e509d4e7"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "5c87e509d4e7"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

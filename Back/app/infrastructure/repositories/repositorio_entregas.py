@@ -1,4 +1,3 @@
-from typing import Optional
 import uuid
 
 from sqlalchemy import or_, select
@@ -20,16 +19,16 @@ class RepositorioEntregas(IRepositorioEntregas):
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def obtener_por_operacion(self, operacion_id: uuid.UUID) -> Optional[EventoEntregaModel]:
+    async def obtener_por_operacion(self, operacion_id: uuid.UUID) -> EventoEntregaModel | None:
         resultado = await self.db.execute(
             select(EventoEntregaModel).where(EventoEntregaModel.operacion_id == operacion_id)
         )
         return resultado.scalar_one_or_none()
 
-    async def obtener_evento(self, evento_id: uuid.UUID) -> Optional[EventoEntregaModel]:
+    async def obtener_evento(self, evento_id: uuid.UUID) -> EventoEntregaModel | None:
         return await self.db.get(EventoEntregaModel, evento_id)
 
-    async def buscar_paquete_por_id_o_codigo(self, id_o_codigo: str) -> Optional[PaqueteModel]:
+    async def buscar_paquete_por_id_o_codigo(self, id_o_codigo: str) -> PaqueteModel | None:
         """Busca un paquete por UUID o por numero_paquete (ej. PAQ-XXXXXXXXXX)."""
         codigo_limpio = id_o_codigo.strip()
         condiciones = [PaqueteModel.numero_paquete == codigo_limpio]
@@ -57,7 +56,7 @@ class RepositorioEntregas(IRepositorioEntregas):
         nuevo_estado: str,
         evento_entrega: EventoEntregaModel,
         historial_estado: HistorialEstadoPaqueteModel,
-        sucursal_actual_id: Optional[int] = None,
+        sucursal_actual_id: int | None = None,
     ) -> PaqueteModel:
         """Actualiza el estado del paquete y almacena el evento e historial transaccionalmente."""
         stmt = (

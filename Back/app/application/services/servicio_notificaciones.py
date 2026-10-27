@@ -1,5 +1,6 @@
 import uuid
-from typing import Any, Callable, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from app.application.interfaces.repositorio_notificaciones import IRepositorioNotificaciones
 from app.application.interfaces.servicio_notificaciones import IServicioNotificaciones
@@ -22,8 +23,8 @@ class ServicioNotificaciones(IServicioNotificaciones):
     def __init__(
         self,
         email_provider: IEmailProvider,
-        session_factory: Optional[Callable[[], Any]] = None,
-        repo_notificaciones: Optional[IRepositorioNotificaciones] = None,
+        session_factory: Callable[[], Any] | None = None,
+        repo_notificaciones: IRepositorioNotificaciones | None = None,
     ):
         self.email_provider = email_provider
         self.session_factory = session_factory
@@ -74,14 +75,14 @@ class ServicioNotificaciones(IServicioNotificaciones):
             None if exito else "No se pudo enviar el aviso de visita por email.",
         )
 
-    async def notificar_nuevo_envio(self, datos: DatosNotificacionEnvio) -> List[NotificacionEnvioModel]:
+    async def notificar_nuevo_envio(self, datos: DatosNotificacionEnvio) -> list[NotificacionEnvioModel]:
         """Envía las notificaciones de tracking por correo al emisor y destinatario y registra auditoría."""
         logger.info(
             f"[ServicioNotificaciones] Iniciando notificaciones para envío {datos.envio_id} "
             f"(Token: {datos.token_seguimiento})"
         )
 
-        resultados: List[NotificacionEnvioModel] = []
+        resultados: list[NotificacionEnvioModel] = []
         link_seguimiento = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/seguimiento?token={datos.token_seguimiento}"
         paquetes_str = ", ".join(datos.numeros_paquetes) if datos.numeros_paquetes else "Sin paquetes especificados"
 

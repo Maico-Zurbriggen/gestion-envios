@@ -1,5 +1,4 @@
 import uuid
-from typing import Optional
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +18,7 @@ class RepositorioRecepciones(IRepositorioRecepciones):
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def buscar_paquete_por_codigo(self, codigo: str) -> Optional[PaqueteModel]:
+    async def buscar_paquete_por_codigo(self, codigo: str) -> PaqueteModel | None:
         """Resuelve el código escaneado a un paquete precargado.
 
         Acepta tanto el `numero_paquete` impreso en el código de barras como el
