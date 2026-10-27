@@ -78,6 +78,14 @@ Los teléfonos se cargan como texto libre en el registro del envío. Antes de en
 
 ## Comprobar que funciona
 
+Prueba rápida, sin registrar un envío ni tocar la base (desde `Back/`):
+
+```powershell
+& .\.venv\Scripts\python.exe -m app.infrastructure.probar_notificaciones --email tu.correo@gmail.com --whatsapp "+54 9 3564 123456"
+```
+
+Muestra `OK` con el identificador del proveedor o `FALLÓ` con el motivo. Después, el flujo completo:
+
 1. Reiniciar la API. El log de arranque muestra `Notificaciones: email=gmail, whatsapp=twilio` (o los proveedores elegidos).
 2. Registrar un envío desde `/envios/nuevo` con un email y un teléfono propios (el teléfono debe estar unido al sandbox o en la lista permitida de Meta).
 3. En **Recepción en terminal**, escanear o tipear el `PAQ-…`: el panel **Avisos al cliente** muestra el resultado de los cuatro intentos y el motivo de cada fallo. **Reenviar avisos no enviados** reintenta solo los que fallaron.
