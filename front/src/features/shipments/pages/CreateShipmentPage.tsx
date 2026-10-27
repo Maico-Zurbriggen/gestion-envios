@@ -26,6 +26,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useAppSelector } from '../../../app/store'
 import { selectIsAuthenticated } from '../../auth/redux/authSlice'
 import { useTheme } from '../../../shared/hooks/useTheme'
+import { useInsidePanel } from '../../../layouts/MainLayout/panelContext'
 import { useBranches } from '../hooks/useBranches'
 import { useCreateShipment } from '../hooks/useCreateShipment'
 import { useGeocodeDestination } from '../hooks/useGeocodeDestination'
@@ -111,6 +112,7 @@ export function CreateShipmentPage() {
   ])
   const [clientError, setClientError] = useState<string | null>(null)
   const isAuthenticated = useAppSelector(selectIsAuthenticated)
+  const insidePanel = useInsidePanel()
   const { theme, toggleTheme } = useTheme()
   const branchesQuery = useBranches()
   const createShipmentMutation = useCreateShipment()
@@ -289,8 +291,8 @@ export function CreateShipmentPage() {
       : null
 
   return (
-    <main className="shipment-page">
-      <header className="shipment-public-header">
+    <main className={`shipment-page${insidePanel ? ' is-embedded' : ''}`}>
+      {!insidePanel && <header className="shipment-public-header">
         <Link className="shipment-brand" to={isAuthenticated ? '/' : '/login'}>
           <span aria-hidden="true">
             <PackageCheck size={22} />
@@ -317,7 +319,7 @@ export function CreateShipmentPage() {
             <span>{isAuthenticated ? 'Volver al panel' : 'Ingresar'}</span>
           </Link>
         </div>
-      </header>
+      </header>}
 
       <div className="shipment-page__content">
         <header className="shipment-page__intro">

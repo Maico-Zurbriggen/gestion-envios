@@ -32,6 +32,11 @@ Cambios y decisiones del 27 de octubre de 2026 (rama `sprint-2-cambios-y-arreglo
 - Etapas visuales según la modalidad: con retiro en sucursal son cinco (registrado, recibido, en viaje, para retirar, retirado); la llegada a la sucursal de destino ya no retrocede a "En sucursal".
 - El historial público describe recepción, viaje, disponibilidad y retiro sin datos personales.
 
+## Navegación del panel
+
+- "Registrar envío", "Seguir envío", "Sucursales" y "Preguntas frecuentes" son públicas y estaban fuera del layout: al entrar desde el menú se perdía el panel lateral. Ahora `layouts/PublicPageLayout.tsx` las muestra dentro de `MainLayout` cuando hay sesión (sin su encabezado público duplicado, vía `useInsidePanel`) y sueltas, como antes, para clientes sin sesión.
+- Verificación: `tests/panel-navigation.mjs` (Vite en `localhost:5173` y Chrome con CDP en 9227) recorre las secciones por URL y con clics del menú.
+
 ## Base de datos Neon
 
 - La API ya no usa `create_all`. Al arrancar aplica `alembic upgrade head` (con candado asesor en PostgreSQL) y adopta bases creadas antes con `create_all`.

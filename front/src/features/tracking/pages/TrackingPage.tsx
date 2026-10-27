@@ -26,6 +26,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useAppSelector } from '../../../app/store'
 import { selectIsAuthenticated } from '../../auth/redux/authSlice'
 import { useTheme } from '../../../shared/hooks/useTheme'
+import { useInsidePanel } from '../../../layouts/MainLayout/panelContext'
 import { ShipmentClaims } from '../../claims/components/ShipmentClaims'
 import { useShipmentTracking } from '../hooks/useShipmentTracking'
 import type { TrackedPackage } from '../types/tracking.types'
@@ -138,6 +139,7 @@ export function TrackingPage() {
   const [tokenInput, setTokenInput] = useState(initialToken)
   const [submittedToken, setSubmittedToken] = useState(initialToken)
   const isAuthenticated = useAppSelector(selectIsAuthenticated)
+  const insidePanel = useInsidePanel()
   const { theme, toggleTheme } = useTheme()
   const trackingQuery = useShipmentTracking(submittedToken)
   const locations: MapLocation[] = []
@@ -176,8 +178,8 @@ export function TrackingPage() {
   )
 
   return (
-    <main className="tracking-page">
-      <header className="tracking-public-header">
+    <main className={`tracking-page${insidePanel ? ' is-embedded' : ''}`}>
+      {!insidePanel && <header className="tracking-public-header">
         <Link className="tracking-brand" to={isAuthenticated ? '/' : '/login'}>
           <span aria-hidden="true"><PackageCheck size={22} /></span>
           <strong>Gestión de envíos</strong>
@@ -191,7 +193,7 @@ export function TrackingPage() {
             <span>{isAuthenticated ? 'Volver al panel' : 'Ingresar'}</span>
           </Link>
         </div>
-      </header>
+      </header>}
 
       <div className="tracking-page__content">
         <section className="tracking-hero" aria-labelledby="tracking-title">

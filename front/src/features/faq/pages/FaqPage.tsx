@@ -6,6 +6,7 @@ import {
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAppSelector } from '../../../app/store'
 import { useTheme } from '../../../shared/hooks/useTheme'
+import { useInsidePanel } from '../../../layouts/MainLayout/panelContext'
 import { selectIsAuthenticated } from '../../auth/redux/authSlice'
 import { useFaqs } from '../hooks/useFaqs'
 import type { FaqQuestion } from '../types/faq.types'
@@ -55,6 +56,7 @@ export function FaqPage() {
   const category = (searchParams.get('categoria') ?? '').trim().slice(0, 80)
   const query = useFaqs({ search, category })
   const isAuthenticated = useAppSelector(selectIsAuthenticated)
+  const insidePanel = useInsidePanel()
   const { theme, toggleTheme } = useTheme()
   const loading = query.isPending || query.isPlaceholderData
   const hasFilters = Boolean(search || category)
@@ -75,8 +77,8 @@ export function FaqPage() {
   }
 
   return (
-    <main className="faq-page">
-      <header className="faq-public-header">
+    <main className={`faq-page${insidePanel ? ' is-embedded' : ''}`}>
+      {!insidePanel && <header className="faq-public-header">
         <Link className="faq-brand" to={isAuthenticated ? '/' : '/login'}>
           <span aria-hidden="true"><PackageCheck size={22} /></span><strong>Gestión de envíos</strong>
         </Link>
@@ -89,7 +91,7 @@ export function FaqPage() {
             <span>{isAuthenticated ? 'Volver al panel' : 'Ingresar'}</span>
           </Link>
         </div>
-      </header>
+      </header>}
 
       <div className="faq-page__content">
         <header className="faq-hero">

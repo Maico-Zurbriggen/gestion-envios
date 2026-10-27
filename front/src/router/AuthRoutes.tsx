@@ -5,12 +5,9 @@ import { FaqPage } from '../features/faq/pages/FaqPage'
 import { CreateShipmentRoute } from '../features/shipments/components/CreateShipmentRoute'
 import { BranchesPage } from '../features/shipments/pages/BranchesPage'
 import { TrackingRoute } from '../features/tracking/components/TrackingRoute'
+import { PublicPageLayout } from '../layouts/PublicPageLayout'
 
 export const authRoutes: RouteObject[] = [
-  {
-    path: '/preguntas-frecuentes',
-    element: <FaqPage />,
-  },
   {
     path: '/login',
     element: <LoginPage />,
@@ -20,15 +17,12 @@ export const authRoutes: RouteObject[] = [
     element: <ChangePasswordPage />,
   },
   {
-    path: '/envios/nuevo',
-    element: <CreateShipmentRoute />,
-  },
-  {
-    path: '/sucursales',
-    element: <BranchesPage />,
-  },
-  {
-    path: '/seguimiento',
-    element: <TrackingRoute />,
+    element: <PublicPageLayout />,
+    children: [
+      { path: '/envios/nuevo', element: <CreateShipmentRoute /> },
+      { path: '/seguimiento', element: <TrackingRoute /> },
+      { path: '/sucursales', element: <BranchesPage /> },
+      { path: '/preguntas-frecuentes', element: <FaqPage /> },
+    ],
   },
 ]

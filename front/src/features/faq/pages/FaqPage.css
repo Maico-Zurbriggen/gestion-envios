@@ -414,3 +414,9 @@
     width: 100%;
   }
 }
+
+/* Dentro del panel (personal con sesión): el layout ya aporta fondo, márgenes y navegación. */
+.faq-page.is-embedded {
+  min-height: auto;
+  background: none;
+}

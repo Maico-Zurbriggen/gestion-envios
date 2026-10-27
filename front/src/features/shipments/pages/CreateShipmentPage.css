@@ -1043,3 +1043,9 @@ a.shipment-inline-action {
     page-break-after: auto;
   }
 }
+
+/* Dentro del panel (personal con sesión): el layout ya aporta fondo, márgenes y navegación. */
+.shipment-page.is-embedded {
+  min-height: auto;
+  background: none;
+}

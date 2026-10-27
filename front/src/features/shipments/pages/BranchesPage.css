@@ -24,3 +24,9 @@
 .branches-page__feedback svg { flex: 0 0 auto; }
 @media (max-width: 760px) { .branches-page__layout { grid-template-columns: 1fr; } .branches-page__map-panel { position: static; } }
 @media (max-width: 380px) { .branches-page__card-actions button, .branches-page__card-actions a { width: 100%; } }
+
+/* Dentro del panel (personal con sesión): el layout ya aporta fondo, márgenes y navegación. */
+.branches-page.is-embedded {
+  min-height: auto;
+  background: none;
+}

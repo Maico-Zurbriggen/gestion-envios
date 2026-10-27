@@ -19,6 +19,7 @@ import {
   selectCurrentUser,
 } from '../../features/auth/redux/authSlice'
 import { useTheme } from '../../shared/hooks/useTheme'
+import { PanelLayoutContext } from './panelContext'
 import './MainLayout.css'
 
 export function MainLayout() {
@@ -172,7 +173,9 @@ export function MainLayout() {
           <span>Gestión de envíos</span>
         </header>
         <div className="app-content__body">
-          <Outlet />
+          <PanelLayoutContext.Provider value={true}>
+            <Outlet />
+          </PanelLayoutContext.Provider>
         </div>
       </div>
     </div>
