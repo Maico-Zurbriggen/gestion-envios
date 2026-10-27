@@ -6,7 +6,7 @@ import { isRoadPoint } from '../services/mapboxRoutingApi'
 import type { DeliveryRoute } from '../types/route.types'
 import type { RoadRoutingState } from '../types/roadRoute.types'
 
-export function DeliveryRouteMap({ route, routing }: { route: DeliveryRoute; routing: RoadRoutingState }) {
+export function DeliveryRouteMap({ route, routing, position }: { route: DeliveryRoute; routing: RoadRoutingState; position?: { latitude: number; longitude: number } | null }) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const layersRef = useRef<L.FeatureGroup | null>(null)
@@ -26,6 +26,13 @@ export function DeliveryRouteMap({ route, routing }: { route: DeliveryRoute; rou
     resize.observe(element)
     return () => { resize.disconnect(); map.remove(); mapRef.current = null; layersRef.current = null }
   }, [])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !position) return
+    const point = L.circleMarker([position.latitude, position.longitude], { radius: 9, className: 'delivery-map__driver' }).bindTooltip('Última posición del repartidor').addTo(map)
+    return () => { point.remove() }
+  }, [position])
 
   useEffect(() => {
     const map = mapRef.current

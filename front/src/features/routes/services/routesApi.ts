@@ -59,7 +59,7 @@ function mapDriver(driver: ApiDriver): Driver {
     distanceType: driver.tipo_reparto, active: driver.activo, available: driver.disponible_para_recorridos }
 }
 
-function mapSummary(route: ApiRouteSummary): DeliveryRouteSummary {
+export function mapSummary(route: ApiRouteSummary): DeliveryRouteSummary {
   return { id: route.id, date: route.fecha, distanceType: route.tipo_distancia, status: route.estado,
     automatic: route.generado_automaticamente, branchId: route.sucursal_origen_id, branchName: route.sucursal_origen_nombre,
     driver: { id: route.repartidor.usuario_id, name: route.repartidor.nombre, phone: route.repartidor.telefono },
@@ -68,7 +68,7 @@ function mapSummary(route: ApiRouteSummary): DeliveryRouteSummary {
     createdAt: route.created_at, updatedAt: route.updated_at }
 }
 
-function mapRoute(route: ApiRouteDetail): DeliveryRoute {
+export function mapRoute(route: ApiRouteDetail): DeliveryRoute {
   return { ...mapSummary(route), streetOrientation: route.orientacion_calles_grados,
     returnsToBranch: route.vuelve_a_sucursal, branch: mapBranch(route.sucursal_origen),
     packagesWithoutLocation: route.paquetes_sin_ubicacion,

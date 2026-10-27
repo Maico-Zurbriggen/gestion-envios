@@ -4,6 +4,7 @@ import {
   PackagePlus,
   Route,
   Truck,
+  ScanBarcode,
   UserPlus,
   type LucideIcon,
 } from 'lucide-react'
@@ -71,6 +72,12 @@ export const NAVIGATION_MODULES: NavigationModule[] = [
     icon: Truck,
     allowedRoles: ['ADMINISTRATIVO', 'SUPERADMIN'],
     showAsQuickAccess: true,
+  },
+  {
+    id: 'terminal-reception', label: 'Recibir paquetes', description: 'Identificá un paquete y confirmá su ingreso físico a la terminal.', path: '/terminal/recepcion', section: 'general', icon: ScanBarcode, allowedRoles: ['VENDEDOR', 'ADMINISTRATIVO', 'SUPERADMIN'], showAsQuickAccess: true,
+  },
+  {
+    id: 'driver-delivery', label: 'Mi reparto', description: 'Consultá tus recorridos, compartí ubicación y registrá entregas o visitas.', path: '/reparto', section: 'general', icon: Truck, allowedRoles: ['REPARTIDOR'], showAsQuickAccess: true,
   },
   {
     id: 'create-user',

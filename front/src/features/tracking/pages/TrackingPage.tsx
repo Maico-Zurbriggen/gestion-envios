@@ -28,6 +28,8 @@ import { useTheme } from '../../../shared/hooks/useTheme'
 import { ShipmentClaims } from '../../claims/components/ShipmentClaims'
 import { useShipmentTracking } from '../hooks/useShipmentTracking'
 import type { TrackedPackage } from '../types/tracking.types'
+import { getStatusStep } from '../trackingStatus'
+import { LocationMap, type MapLocation } from '../../../shared/components/LocationMap'
 import './TrackingPage.css'
 
 const TRACKING_STEPS = [
@@ -39,31 +41,6 @@ const TRACKING_STEPS = [
 
 function normalizeToken(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 30)
-}
-
-function getStatusStep(status: string) {
-  const normalizedStatus = status
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('es-AR')
-
-  if (normalizedStatus.includes('entreg')) return 3
-  if (
-    normalizedStatus.includes('viaje') ||
-    normalizedStatus.includes('transito') ||
-    normalizedStatus.includes('camino') ||
-    normalizedStatus.includes('reparto')
-  ) {
-    return 2
-  }
-  if (
-    normalizedStatus.includes('sucursal') ||
-    normalizedStatus.includes('admit') ||
-    normalizedStatus.includes('recib')
-  ) {
-    return 1
-  }
-  return 0
 }
 
 function formatDate(value: string) {
@@ -127,6 +104,8 @@ function PackageProgress({ shipmentPackage }: { shipmentPackage: TrackedPackage 
           })}
         </ol>
 
+        {shipmentPackage.status === 'ENTREGA_FALLIDA' && <p role="status">La visita no pudo completarse. El paquete aún no fue entregado.</p>}
+        {shipmentPackage.history.length > 0 && <details><summary>Historial real del paquete</summary><ol>{shipmentPackage.history.map((event, index) => <li key={`${event.occurredAt}-${index}`}><time dateTime={event.occurredAt}>{formatDate(event.occurredAt)}</time> · {event.description} ({event.status})</li>)}</ol></details>}
         <footer className="tracked-package__dates">
           <span>
             <CalendarClock size={15} aria-hidden="true" />
@@ -150,6 +129,18 @@ export function TrackingPage() {
   const isAuthenticated = useAppSelector(selectIsAuthenticated)
   const { theme, toggleTheme } = useTheme()
   const trackingQuery = useShipmentTracking(submittedToken)
+  const locations: MapLocation[] = []
+  const tracking = trackingQuery.data
+  if (tracking?.latitude != null && tracking.longitude != null) locations.push({ latitude: tracking.latitude, longitude: tracking.longitude, label: 'Destino del envío' })
+  const seenPositions = new Set<string>()
+  for (const item of tracking?.packages ?? []) {
+    const position = item.driverLocation
+    if (!position) continue
+    const key = `${position.latitude}-${position.longitude}-${position.updatedAt}`
+    if (seenPositions.has(key)) continue
+    seenPositions.add(key)
+    locations.push({ latitude: position.latitude, longitude: position.longitude, label: `Última posición del reparto · ${formatDate(position.updatedAt)}` })
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -261,8 +252,9 @@ export function TrackingPage() {
 
             <div className="tracking-result__notice">
               <Route size={20} aria-hidden="true" />
-              <div><strong>Recorrido operativo</strong><p>La ubicación en tiempo real se verá cuando el repartidor de la ciudad destino comience su recorrido.</p></div>
+              <div><strong>Ubicación del envío</strong><p>El destino es fijo. La posición del reparto se muestra únicamente mientras el paquete está pendiente en un recorrido activo; la fecha indica cuándo se recibió la última ubicación. Durante el traslado, la consulta se actualiza cada 15 segundos.</p></div>
             </div>
+            {locations.length ? <LocationMap locations={locations} name="Destino y última ubicación disponible del reparto" /> : <p role="status">Ubicación no disponible para este envío.</p>}
 
             <div className="tracked-packages">
               {trackingQuery.data.packages.map((shipmentPackage) => (

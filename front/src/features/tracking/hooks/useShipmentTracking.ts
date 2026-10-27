@@ -11,5 +11,6 @@ export function useShipmentTracking(token: string) {
       return failureCount < 1
     },
     staleTime: 30 * 1000,
+    refetchInterval: (query) => query.state.data?.packages.some((item) => ['EN_REPARTO', 'EN_TRANSITO'].includes(item.status)) ? 15000 : false,
   })
 }
