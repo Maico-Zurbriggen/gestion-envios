@@ -729,7 +729,7 @@
   padding: var(--space-2);
 }
 
-.route-map-card .delivery-map {
+.route-map-card .delivery-map.map-view {
   height: min(70vh, 38rem);
 }
 
@@ -1125,7 +1125,7 @@
     margin-left: 0;
   }
 
-  .route-map-card .delivery-map {
+  .route-map-card .delivery-map.map-view {
     height: 22rem;
   }
 }

@@ -7,6 +7,7 @@ from typing import Any
 from app.application.interfaces.repositorio_recorridos import IRepositorioRecorridos
 from app.application.interfaces.repositorio_sucursales import IRepositorioSucursales
 from app.application.interfaces.servicio_recorridos import IServicioRecorridos
+from app.application.interfaces.servicio_rutas import IServicioRutas
 from app.contracts.recorridos import (
     TIPOS_DISTANCIA_VALIDOS,
     AlertaRecorridoData,
@@ -50,6 +51,8 @@ from app.domain.rules.recepcion_rules import normalizar_codigo_escaneado
 from app.domain.rules.recorrido_rules import (
     DESCRIPCIONES_MOTIVO_ALERTA,
     ESTADOS_RECORRIDO_EDITABLES,
+    MINUTOS_POR_PARADA_DOMICILIO,
+    MINUTOS_POR_PARADA_SUCURSAL,
     ParadaPlanificable,
     Punto,
     SucursalUbicada,
@@ -61,7 +64,7 @@ from app.domain.rules.recorrido_rules import (
     misma_ciudad,
     ordenar_paradas,
     paquete_listo_para_despacho,
-    planificar_recorridos,
+    repartir_paradas_equitativamente,
     vuelve_a_la_sucursal,
 )
 from app.domain.rules.retiro_rules import TIPO_ENTREGA_DOMICILIO, TIPO_ENTREGA_SUCURSAL
@@ -143,7 +146,10 @@ class ServicioRecorridos(IServicioRecorridos):
         self,
         repositorio_recorridos: IRepositorioRecorridos,
         repositorio_sucursales: IRepositorioSucursales,
+        rutas: IServicioRutas | None = None,
     ):
+        self.rutas = rutas
+        """Tiempos reales de manejo por calles (OSRM). Sin él, se estima por distancia."""
         self.repo = repositorio_recorridos
         self.repo_sucursales = repositorio_sucursales
 
@@ -180,7 +186,10 @@ class ServicioRecorridos(IServicioRecorridos):
 
         ids_generados: list[uuid.UUID] = []
         if paradas and repartidores:
-            grupos = planificar_recorridos(origen, paradas, len(repartidores), tipo, orientacion)
+            grupos = [
+                await self._ordenar(origen, grupo, tipo, orientacion) if grupo else []
+                for grupo in repartir_paradas_equitativamente(origen, paradas, len(repartidores))
+            ]
             for repartidor, grupo in zip(repartidores, grupos, strict=True):
                 if not grupo:
                     continue
@@ -197,7 +206,7 @@ class ServicioRecorridos(IServicioRecorridos):
                 paquetes = [p for parada in grupo for p in paquetes_por_clave[parada.clave]]
                 for orden, paquete in enumerate(paquetes, start=1):
                     recorrido.paquetes.append(RecorridoPaqueteModel(paquete_id=paquete.id, orden=orden))
-                recorrido.distancia_estimada_km, recorrido.duracion_estimada_min = estimar_recorrido(
+                recorrido.distancia_estimada_km, recorrido.duracion_estimada_min = await self._estimar_paradas(
                     origen, grupo, tipo, orientacion
                 )
                 await self.repo.agregar(recorrido)
@@ -486,7 +495,7 @@ class ServicioRecorridos(IServicioRecorridos):
                 )
         for actual in afectados:
             paquetes = [rp.paquete for rp in sorted(actual.paquetes, key=lambda rp: rp.orden)]
-            actual.distancia_estimada_km, actual.duracion_estimada_min = self._estimar(
+            actual.distancia_estimada_km, actual.duracion_estimada_min = await self._estimar(
                 actual, paquetes, actual.sucursal_origen, sucursales
             )
             actual.estado = EstadoRecorridoEnum.EN_EDICION.value
@@ -509,9 +518,15 @@ class ServicioRecorridos(IServicioRecorridos):
             alertas=await self._alertas_de_paquetes(list(pendientes)),
         )
 
-    async def optimizar(self, id: uuid.UUID) -> RecorridoResponse:
-        """Recalcula el mejor orden de los paquetes actuales con la misma métrica
-        de la generación (útil después de agregar paquetes a mano)."""
+    async def optimizar(self, id: uuid.UUID, desde: Punto | None = None) -> RecorridoResponse:
+        """Recalcula el orden de visita más rápido por calles (tiempos reales de OSRM).
+
+        Antes de salir ordena todo desde la sucursal. En reparto reordena solo lo
+        pendiente, desde `desde` (la ubicación del repartidor) o su última posición.
+        """
+        recorrido = await self._obtener_recorrido(id)
+        if recorrido.estado == EstadoRecorridoEnum.EN_CURSO.value:
+            return await self._optimizar_en_reparto(recorrido, desde)
         recorrido = await self._obtener_editable(id)
         sucursal = recorrido.sucursal_origen
         sucursales = await self.repo_sucursales.listar_todas()
@@ -530,11 +545,8 @@ class ServicioRecorridos(IServicioRecorridos):
                 destino.clave, destino.punto[0], destino.punto[1], len(paquetes_por_clave[destino.clave])
             )
 
-        ordenadas = ordenar_paradas(
-            self._punto_sucursal(sucursal),
-            list(planificables.values()),
-            funcion_distancia(tipo, recorrido.orientacion_calles_grados),
-            vuelve_a_la_sucursal(tipo),
+        ordenadas = await self._ordenar(
+            self._punto_sucursal(sucursal), list(planificables.values()), tipo, recorrido.orientacion_calles_grados
         )
         nuevo_orden = [p for parada in ordenadas for p in paquetes_por_clave[parada.clave]] + sin_ubicacion
 
@@ -543,6 +555,55 @@ class ServicioRecorridos(IServicioRecorridos):
             message="Orden de visita optimizado.",
             data=await self._detalle(recorrido.id, sucursales),
             alertas=alertas,
+        )
+
+    async def _optimizar_en_reparto(self, recorrido: RecorridoModel, desde: Punto | None) -> RecorridoResponse:
+        """Lo entregado o visitado queda como está; lo pendiente se ordena desde donde está el vehículo."""
+        sucursal = recorrido.sucursal_origen
+        sucursales = await self.repo_sucursales.listar_todas()
+        tipo = recorrido.tipo_distancia
+        if desde is None:
+            posicion = await self.repo.obtener_posicion(recorrido.repartidor_id)
+            if posicion is not None and posicion.recorrido_id == recorrido.id:
+                desde = (posicion.latitud, posicion.longitud)
+        desde = desde or self._punto_sucursal(sucursal)
+
+        hechos: list[RecorridoPaqueteModel] = []
+        por_clave: dict[str, list[RecorridoPaqueteModel]] = {}
+        planificables: dict[str, ParadaPlanificable] = {}
+        sin_ubicacion: list[RecorridoPaqueteModel] = []
+        for rp in sorted(recorrido.paquetes, key=lambda rp: rp.orden):
+            if rp.estado_en_recorrido != EstadoRecorridoPaqueteEnum.PENDIENTE.value:
+                hechos.append(rp)
+                continue
+            destino = self._destino(rp.paquete, tipo, sucursal, sucursales)
+            if destino.punto is None:
+                sin_ubicacion.append(rp)
+                continue
+            por_clave.setdefault(destino.clave, []).append(rp)
+            planificables[destino.clave] = ParadaPlanificable(
+                destino.clave, destino.punto[0], destino.punto[1], len(por_clave[destino.clave])
+            )
+        if len(planificables) < 2:
+            return RecorridoResponse(
+                message="Queda una sola parada: no hay nada que reordenar.",
+                data=await self._detalle(recorrido.id, sucursales),
+            )
+
+        # Desde el vehículo hacia lo que falta (sin volver: la vuelta la decide el repartidor).
+        ordenadas = await self._ordenar(desde, list(planificables.values()), tipo, recorrido.orientacion_calles_grados, vuelve=False)
+        nuevo = hechos + [rp for parada in ordenadas for rp in por_clave[parada.clave]] + sin_ubicacion
+        # Dos pasos para no chocar con la restricción única (recorrido, orden).
+        for indice, rp in enumerate(nuevo, start=1):
+            rp.orden = 10_000 + indice
+        await self.repo.sincronizar()
+        for indice, rp in enumerate(nuevo, start=1):
+            rp.orden = indice
+        await self.repo.sincronizar()
+        await self.repo.confirmar()
+        return RecorridoResponse(
+            message="Recorrido optimizado: las paradas pendientes quedaron en el orden más rápido desde la ubicación actual.",
+            data=await self._detalle(recorrido.id, sucursales),
         )
 
     async def reasignar_repartidor(self, id: uuid.UUID, datos: ReasignarRepartidorRequest) -> RecorridoResponse:
@@ -954,7 +1015,7 @@ class ServicioRecorridos(IServicioRecorridos):
         for orden, paquete in enumerate(paquetes, start=1):
             recorrido.paquetes.append(RecorridoPaqueteModel(paquete_id=paquete.id, orden=orden))
 
-        recorrido.distancia_estimada_km, recorrido.duracion_estimada_min = self._estimar(
+        recorrido.distancia_estimada_km, recorrido.duracion_estimada_min = await self._estimar(
             recorrido, paquetes, sucursal, sucursales
         )
         if edicion_manual:
@@ -974,7 +1035,41 @@ class ServicioRecorridos(IServicioRecorridos):
         await self.repo.confirmar()
         return await self._alertas_de_paquetes(list(sin_asignar))
 
-    def _estimar(
+    async def _ordenar(
+        self, origen: Punto | None, paradas: list[ParadaPlanificable], tipo: str, orientacion: float,
+        vuelve: bool | None = None,
+    ) -> list[ParadaPlanificable]:
+        """El orden de visita que menos tarda: vecino más cercano + 2-opt sobre los tiempos
+        reales de manejo por calles (OSRM). Sin OSRM, sobre la distancia estimada."""
+        vuelve = vuelve_a_la_sucursal(tipo) if vuelve is None else vuelve
+        respaldo = funcion_distancia(tipo, orientacion)
+        if origen is None or len(paradas) < 2 or self.rutas is None:
+            return ordenar_paradas(origen, paradas, respaldo, vuelve) if origen else list(paradas)
+        puntos = list(dict.fromkeys([origen, *(p.punto for p in paradas)]))
+        matriz = await self.rutas.matriz(puntos)
+        if matriz is None:
+            return ordenar_paradas(origen, paradas, respaldo, vuelve)
+        indice = {punto: i for i, punto in enumerate(puntos)}
+        return ordenar_paradas(origen, paradas, lambda a, b: matriz[indice[a]][indice[b]], vuelve)
+
+    async def _estimar_paradas(
+        self, origen: Punto | None, paradas: list[ParadaPlanificable], tipo: str, orientacion: float,
+        paradas_sin_ubicacion: int = 0,
+    ) -> tuple[float, int]:
+        """Kilómetros y minutos del recorrido en ese orden: por calles (OSRM) más la atención en cada parada."""
+        if origen is not None and paradas and self.rutas is not None:
+            puntos = [origen, *(p.punto for p in paradas), *([origen] if vuelve_a_la_sucursal(tipo) else [])]
+            real = await self.rutas.recorrido(puntos)
+            if real is not None:
+                metros, segundos = real
+                por_parada = MINUTOS_POR_PARADA_DOMICILIO if tipo == TipoDistanciaEnum.CORTA.value else MINUTOS_POR_PARADA_SUCURSAL
+                minutos = segundos / 60 + (len(paradas) + paradas_sin_ubicacion) * por_parada
+                return round(metros / 1000, 2), int(round(minutos))
+        if origen is None:
+            return 0.0, 0
+        return estimar_recorrido(origen, paradas, tipo, orientacion, paradas_sin_ubicacion=paradas_sin_ubicacion)
+
+    async def _estimar(
         self,
         recorrido: RecorridoModel,
         paquetes: list[PaqueteModel],
@@ -989,12 +1084,9 @@ class ServicioRecorridos(IServicioRecorridos):
             if grupo[0].punto is not None
         ]
         sin_ubicacion = sum(1 for grupo in grupos if grupo[0].punto is None)
-        return estimar_recorrido(
-            self._punto_sucursal(sucursal),
-            planificables,
-            recorrido.tipo_distancia,
-            recorrido.orientacion_calles_grados,
-            paradas_sin_ubicacion=sin_ubicacion,
+        return await self._estimar_paradas(
+            self._punto_sucursal(sucursal), planificables, recorrido.tipo_distancia,
+            recorrido.orientacion_calles_grados, paradas_sin_ubicacion=sin_ubicacion,
         )
 
     async def _pendientes_sin_recorrido(

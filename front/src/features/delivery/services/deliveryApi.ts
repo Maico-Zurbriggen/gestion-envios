@@ -25,6 +25,14 @@ export async function startMyRoute(id: string, token: string) {
   const { data } = await operationalRequest<{ data: ApiRouteDetail }>(`${routePath(id)}/iniciar`, token, { method: 'POST' })
   return mapRoute(data)
 }
+/** Mejor orden por calles de lo que falta, desde la ubicación del repartidor (si la comparte). */
+export async function optimizeMyRoute(id: string, position: { latitude: number; longitude: number } | null, token: string) {
+  const { data, message } = await operationalRequest<{ data: ApiRouteDetail; message: string | null }>(`${routePath(id)}/optimizar`, token, {
+    method: 'POST', body: JSON.stringify(position ? { latitud: position.latitude, longitud: position.longitude } : {}),
+  })
+  return { route: mapRoute(data), message: message ?? 'Recorrido optimizado.' }
+}
+
 export async function getPosition(id: string, token: string, signal?: AbortSignal) {
   const { data } = await operationalRequest<{ data: ApiDriverPosition | null }>(`${routePath(id)}/ubicacion`, token, { signal })
   return mapPosition(data)

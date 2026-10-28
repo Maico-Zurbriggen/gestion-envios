@@ -4,32 +4,23 @@ export interface RoadPoint {
 }
 
 export interface RoadRoute {
-  segments: RoadPoint[][]
+  /** Recorrido [longitud, latitud] para dibujar. */
+  path: Array<[number, number]>
   distanceMeters: number
   durationSeconds: number
+  /** Sin cálculo por calles: línea recta con distancia y tiempo aproximados. */
+  approximate: boolean
 }
 
 export interface RoadRoutePlan {
   points: RoadPoint[]
   missingStops: number
-  error: Error | null
-}
-
-export interface MapboxDirectionsResponse {
-  code?: string
-  routes?: Array<{
-    distance: number
-    duration: number
-    geometry: { type: string; coordinates: number[][] }
-  }>
 }
 
 export interface RoadRoutingState {
   data: RoadRoute | undefined
-  error: Error | null
   loading: boolean
-  fetching: boolean
   missingStops: number
-  canRetry: boolean
-  retry: () => void
+  /** Puntos en orden, para dibujar algo mientras llega el recorrido por calles. */
+  points: RoadPoint[]
 }

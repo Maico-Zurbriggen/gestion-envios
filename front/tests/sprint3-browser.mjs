@@ -128,7 +128,7 @@ try {
   await waitFor('Boolean(document.querySelector("dialog.modal[open] .tracking-history"))')
   assert.equal(await evaluate('document.querySelector("dialog.modal[open]").innerText.includes("Visita no completada")'), true)
   await evaluate('document.querySelector("dialog.modal[open] .modal__close").click()')
-  assert.equal(await evaluate('Boolean(document.querySelector(".location-map .leaflet-marker-icon"))'), true)
+  await waitFor('Boolean(document.querySelector(".location-map .maplibregl-marker"))')
   await screenshot('tracking-320')
   console.log('HU04: mapa, historial real y visita fallida aprobados')
 
@@ -151,7 +151,7 @@ try {
   await click('Registrar entrega o visita')
   await waitFor('document.body.innerText.includes("No hay teléfono disponible")')
   await fill('receiver-name', 'Ana Gómez'); await fill('receiver-document', '30111222'); await fill('receiver-birthdate', '2000-01-01')
-  await evaluate(`(() => { const canvas = document.querySelector('canvas'); const rect = canvas.getBoundingClientRect(); for (const [type,x,y] of [['pointerdown',20,20],['pointermove',60,45],['pointerup',90,40]]) canvas.dispatchEvent(new PointerEvent(type, { pointerId: 1, clientX: rect.left+x, clientY: rect.top+y, bubbles: true })); })()`)
+  await evaluate(`(() => { const canvas = document.querySelector('canvas:not(.maplibregl-canvas)'); const rect = canvas.getBoundingClientRect(); for (const [type,x,y] of [['pointerdown',20,20],['pointermove',60,45],['pointerup',90,40]]) canvas.dispatchEvent(new PointerEvent(type, { pointerId: 1, clientX: rect.left+x, clientY: rect.top+y, bubbles: true })); })()`)
   await click('Confirmar entrega')
   await waitFor('document.body.innerText.includes("Reintentar la misma operación")')
   await click('Reintentar la misma operación')

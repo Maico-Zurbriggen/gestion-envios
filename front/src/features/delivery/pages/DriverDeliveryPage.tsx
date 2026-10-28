@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle2, LocateFixed, Navigation, Play, RefreshCw, Truck } from 'lucide-react'
+import { CheckCircle2, LoaderCircle, LocateFixed, Navigation, Play, RefreshCw, Truck, WandSparkles } from 'lucide-react'
 import { useMyRoute, useMyRoutes } from '../hooks/useDelivery'
 import { useDriverGps } from '../hooks/useDriverGps'
 import { DeliveryAction } from '../components/DeliveryAction'
@@ -15,13 +15,14 @@ import '../../../shared/styles/operations.css'
 import './DriverDeliveryPage.css'
 
 function DriverRoute({ id, onBack }: { id: string; onBack: () => void }) {
-  const { detail, position, start } = useMyRoute(id)
+  const { detail, position, start, optimize } = useMyRoute(id)
   const route = detail.data
   const routing = useRoadRoute(route)
   const gps = useDriverGps(id, !detail.isError && route?.status === 'EN_CURSO')
   const [packageCode, setPackageCode] = useState('')
   const [confirmStart, setConfirmStart] = useState(false)
   const pendingPackages = route?.stops.flatMap((stop) => stop.packages).filter((item) => item.routeStatus === 'PENDIENTE').length ?? 0
+  const pendingStops = route?.stops.filter((stop) => stop.packages.some((item) => item.routeStatus === 'PENDIENTE')).length ?? 0
 
   // El código leído abre el mismo registro que "Registrar entrega o visita" de ese paquete.
   function openScannedPackage(code: string) {
@@ -45,6 +46,13 @@ function DriverRoute({ id, onBack }: { id: string; onBack: () => void }) {
       <section className="ops-panel ops-stack" aria-label="Resumen del recorrido">
         <h2>{distanceLabels[route.distanceType]} · {route.branchName}</h2><p>{route.date} · {routeStatusLabels[route.status]} · {pendingPackages} de {route.packageCount} paquetes pendientes</p>
         <button className="ops-button" type="button" disabled={detail.isFetching || start.isPending} onClick={() => { void detail.refetch(); void position.refetch() }}><RefreshCw size={18} aria-hidden="true" /> Actualizar recorrido</button>
+        {route.status !== 'FINALIZADO' && pendingStops > 1 && <button className="ops-button" type="button" disabled={optimize.isPending || start.isPending} onClick={() => optimize.mutate()}
+          title="Ordena las paradas que faltan por el camino más rápido, desde donde estás">
+          {optimize.isPending ? <LoaderCircle size={18} className="loading-icon" aria-hidden="true" /> : <WandSparkles size={18} aria-hidden="true" />}
+          {optimize.isPending ? 'Calculando el mejor recorrido…' : 'Optimizar recorrido'}
+        </button>}
+        {optimize.isSuccess && <p className="ops-success" role="status"><CheckCircle2 size={18} aria-hidden="true" /> {optimize.data.message}</p>}
+        {optimize.isError && <p className="form-error" role="alert">{optimize.error.message}</p>}
         {(route.status === 'GENERADO' || route.status === 'EN_EDICION') && !detail.isError && <div className="ops-stack">
           <button className="ops-button ops-button--primary" type="button" aria-haspopup="dialog" onClick={() => setConfirmStart(true)}><Play size={18} aria-hidden="true" /> Iniciar recorrido</button>
           <Modal open={confirmStart} onClose={() => { if (!start.isPending) setConfirmStart(false) }} size="narrow" icon={Play} eyebrow="Mi reparto" title="¿Listo para salir?" description="¿Confirmás que estás listo para salir? Los paquetes pasarán a traslado o reparto."

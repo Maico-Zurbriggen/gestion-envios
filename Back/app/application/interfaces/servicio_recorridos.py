@@ -71,7 +71,7 @@ class IServicioRecorridos(Protocol):
         self, id: UUID, codigo: str, datos: CompletarUbicacionPaqueteRequest
     ) -> RecorridoResponse: ...
 
-    async def optimizar(self, id: UUID) -> RecorridoResponse:
+    async def optimizar(self, id: UUID, desde: tuple[float, float] | None = None) -> RecorridoResponse:
         """Vuelve a calcular el mejor orden de visita de los paquetes actuales."""
         ...
 

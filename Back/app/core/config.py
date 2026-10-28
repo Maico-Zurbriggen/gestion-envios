@@ -83,6 +83,22 @@ class Settings(BaseSettings):
     INTERVALO_PLAZOS_MINUTOS: int = 30
     """Cada cuánto se revisan los plazos vencidos (0 desactiva la revisión automática)."""
 
+    # Mapas, como en Rumbo: recorridos por calle (OSRM) y ubicación de direcciones (Georef + Nominatim)
+    OSRM_URL: str = "https://router.project-osrm.org"
+    """OSRM con el mapa de calles: por defecto el servidor público de demostración (uso liviano,
+    una consulta por segundo). En producción conviene el propio con Docker (ver deploy/osrm)."""
+    RUTAS_FACTOR_TRAFICO: float = 1.2
+    """Multiplicador sobre el tiempo que calcula OSRM."""
+    RUTAS_VELOCIDAD_MEDIA_KMH: float = 30.0
+    """Velocidad media urbana para estimar sin OSRM."""
+    RUTAS_FACTOR_DESVIO: float = 1.35
+    """Cuánto más larga es la calle real que la línea recta (estimación sin OSRM)."""
+    GEOREF_HABILITADO: bool = True
+    GEOREF_URL: str = "https://apis.datos.gob.ar/georef/api"
+    """API del Estado Argentino para ubicar direcciones (gratis, sin clave)."""
+    NOMINATIM_URL: str = "https://nominatim.openstreetmap.org"
+    """Respaldo de Georef (OpenStreetMap, 1 consulta por segundo). Vacío lo desactiva."""
+
     # Notificaciones por WhatsApp (HU05 y aviso de visita de HU12)
     WHATSAPP_PROVIDER: str = "mock"  # "mock" | "meta" | "twilio" | "deshabilitado"
     WHATSAPP_CODIGO_PAIS: str = "54"

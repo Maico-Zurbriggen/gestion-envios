@@ -42,7 +42,7 @@ Todo requiere `ADMINISTRATIVO` o `SUPERADMIN`.
    - `GET /api/v1/recorridos/pendientes?sucursal_id=&tipo_distancia=`: los paquetes de una sucursal, con destino, si tienen ubicación y el `motivo` si no se pueden planificar.
 3. **Armar a mano**: `POST /api/v1/recorridos` con `sucursal_id`, `tipo_distancia`, `fecha`, `repartidor_id` (libre ese día) y `paquetes` (códigos en orden). Queda `EN_EDICION`.
 4. **Armar automáticamente**: `POST /api/v1/recorridos/generar` con `sucursal_id`, `tipo_distancia` y opcionales `fecha` y `repartidor_ids`. Reparte por zonas solo lo que espera recorrido, entre los repartidores libres, y optimiza el orden. **Lo ya armado se respeta.** Con `reemplazar_existentes: true` descarta los recorridos sin iniciar y vuelve a repartir todo. `orientacion_calles_grados` es opcional (0 por defecto). Devuelve `resumen`, `recorridos` y `alertas`.
-5. **Visualizar**: `GET /api/v1/recorridos?desde=&hasta=` (una semana) y `GET /api/v1/recorridos/{id}` trae `paradas` en orden (con coordenadas y paquetes) y `trazado` (polilínea lista para Leaflet).
+5. **Visualizar**: `GET /api/v1/recorridos?desde=&hasta=` (una semana) y `GET /api/v1/recorridos/{id}` trae `paradas` en orden (con coordenadas y paquetes) y `trazado` (puntos de las paradas en orden; el recorrido por calles lo da `POST /api/v1/mapa/trayecto`).
 6. **Editar** (solo `GENERADO`/`EN_EDICION`): `PUT /{id}/paquetes` con la lista completa en orden, `DELETE /{id}/paquetes/{codigo}`, `POST /{id}/optimizar`, `PATCH /{id}/repartidor`, `DELETE /{id}`. Cada respuesta trae las `alertas` vigentes.
 7. **Iniciar**: `POST /{id}/iniciar` (desde `GENERADO` o `EN_EDICION`; normalmente lo hace el repartidor desde su app). Los paquetes pasan a `EN_REPARTO` (corta) o `EN_TRANSITO` (larga) y el seguimiento público lo refleja.
 8. **Alertas** de paquetes sin recorrido: `GET /api/v1/recorridos/alertas?sucursal_id=`. Se resuelven solas cuando el paquete entra en un recorrido; el monitor las muestra en Incidencias.
@@ -78,5 +78,5 @@ Pantalla `/recorridos` (módulo «Recorridos»), al estilo de las hojas de ruta 
   - a la derecha, el mapa, el panel «Agregar» con los paquetes en espera, o «Ubicar domicilio» para paradas sin coordenadas.
 
   Un recorrido en reparto o finalizado es de consulta y se actualiza cada 30 segundos.
-- El trayecto por calles usa [Mapbox Directions](./mapbox-routing.md) solo si hay token; sin token, el mapa une las paradas en línea recta y usa la estimación del servidor, sin mostrar errores.
+- El trayecto por calles usa [OSRM](./mapas.md) por calles y rutas, sin diagonales; el orden de las paradas sale de los tiempos reales de manejo.
 - Los estilos base (botones, avisos, mapa) están en `features/routes/routes.css` y los importa cada componente; la app del repartidor reutiliza el mapa sin cargar la página de recorridos.

@@ -14,6 +14,15 @@ class UbicacionRequest(ApiModel):
     longitud: float = Field(..., ge=-180, le=180, strict=True)
 
 
+class OptimizarRecorridoRequest(ApiModel):
+    """Ubicación actual del repartidor (opcional): desde ahí se ordena lo que falta."""
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    latitud: float | None = Field(None, ge=-90, le=90)
+    longitud: float | None = Field(None, ge=-180, le=180)
+
+
 class UbicacionData(UbicacionRequest):
     actualizado_at: datetime
 

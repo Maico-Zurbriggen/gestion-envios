@@ -60,6 +60,7 @@ from app.infrastructure.auth.jwt_handler import ManejadorJWT
 from app.infrastructure.db.models import UsuarioModel
 from app.infrastructure.db.session import AsyncSessionLocal, obtener_sesion_db
 from app.infrastructure.email.email_provider import obtener_proveedor_email
+from app.infrastructure.mapas.rutas import ServicioRutasOsrm
 from app.infrastructure.repositories.repositorio_descargas import RepositorioDescargas
 from app.infrastructure.repositories.repositorio_entregas import RepositorioEntregas
 from app.infrastructure.repositories.repositorio_envios import RepositorioEnvios
@@ -273,7 +274,9 @@ def get_servicio_recorridos(
 ) -> IServicioRecorridos:
     """Generación, visualización y edición de recorridos (HU10). Necesita el
     catálogo de sucursales para ubicar el origen y las paradas de larga distancia."""
-    return ServicioRecorridos(repositorio_recorridos=repo_recorridos, repositorio_sucursales=repo_sucursales)
+    return ServicioRecorridos(
+        repositorio_recorridos=repo_recorridos, repositorio_sucursales=repo_sucursales, rutas=ServicioRutasOsrm()
+    )
 
 
 def get_servicio_reparto(

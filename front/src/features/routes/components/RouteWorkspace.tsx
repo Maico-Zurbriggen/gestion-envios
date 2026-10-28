@@ -62,6 +62,10 @@ export function RouteWorkspace({ id, drivers, busyDriverIds, onBack, onDeleted }
   const failed = stops.flatMap((s) => s.packages).filter((p) => p.routeStatus === 'FALLIDO').length
   const unlocated = stops.filter((s) => s.latitude == null || s.longitude == null).length
   const day = dayParts(route.date)
+  const byStreets = Boolean(routing.data && !routing.data.approximate)
+  const pendingStops = stops.filter((stop) => stop.packages.some((item) => item.routeStatus === 'PENDIENTE')).length
+  // Antes de salir se ordena todo; en reparto, lo que falta desde donde está el vehículo.
+  const canOptimize = (editable && stops.length > 1) || (route.status === 'EN_CURSO' && pendingStops > 1)
 
   function run(next: RouteCommand, done?: (message: string) => void) {
     setNotice('')
@@ -119,8 +123,8 @@ export function RouteWorkspace({ id, drivers, busyDriverIds, onBack, onDeleted }
       <dl className="route-head__metrics">
         <div><dt>Paquetes</dt><dd>{total}</dd><small>{stops.length} {stops.length === 1 ? 'parada' : 'paradas'}</small></div>
         <div><dt>Avance</dt><dd>{delivered}/{total}</dd><small>{failed ? `${failed} sin entregar` : route.status === 'FINALIZADO' ? 'Recorrido cerrado' : `${total - delivered - failed} pendientes`}</small></div>
-        <div><dt>Distancia</dt><dd>{routing.data ? formatRouteDistance(routing.data.distanceMeters / 1000) : formatRouteDistance(route.distanceKm)}</dd><small>{routing.data ? 'por calles' : 'estimada'}</small></div>
-        <div><dt>Tiempo</dt><dd>{routing.data ? formatRouteDuration(Math.ceil(routing.data.durationSeconds / 60)) : formatRouteDuration(route.durationMinutes)}</dd><small>de manejo</small></div>
+        <div><dt>Distancia</dt><dd>{byStreets ? formatRouteDistance(routing.data!.distanceMeters / 1000) : formatRouteDistance(route.distanceKm)}</dd><small>{byStreets ? 'por calles' : 'estimada'}</small></div>
+        <div><dt>Tiempo</dt><dd>{byStreets ? formatRouteDuration(Math.ceil(routing.data!.durationSeconds / 60)) : formatRouteDuration(route.durationMinutes)}</dd><small>{byStreets ? 'de manejo' : 'con atención en paradas'}</small></div>
       </dl>
 
       {editable && <div className="route-checklist" aria-label="Qué falta para salir">
@@ -141,8 +145,9 @@ export function RouteWorkspace({ id, drivers, busyDriverIds, onBack, onDeleted }
       <section className="surface-card route-stops-panel" aria-labelledby="route-stops-title">
         <header className="route-stops-panel__head">
           <h3 id="route-stops-title">Paradas <span className="badge badge--muted">{stops.length}</span></h3>
-          {editable && stops.length > 1 && <button className="route-button" type="button" disabled={busy} onClick={() => run({ id, action: 'optimize' })} title="Ordena las paradas para que el recorrido tarde lo menos posible">
-            <WandSparkles size={16} aria-hidden="true" /> Optimizar
+          {canOptimize && <button className="route-button" type="button" disabled={busy} onClick={() => run({ id, action: 'optimize' })}
+            title={route.status === 'EN_CURSO' ? 'Ordena lo que falta por el camino más rápido, desde la última posición del repartidor' : 'Ordena las paradas por el camino más rápido por calles'}>
+            <WandSparkles size={16} aria-hidden="true" /> Optimizar recorrido
           </button>}
           {editable && <button className={`route-button${side === 'add' ? ' route-button--primary' : ''}`} type="button" aria-pressed={side === 'add'} onClick={() => setSide(side === 'add' ? 'map' : 'add')}>
             <Plus size={16} aria-hidden="true" /> Agregar

@@ -290,8 +290,8 @@ export function CreateShipmentPage() {
           <span className="eyebrow">Registro público</span>
           <h1>Prepará tu envío</h1>
           <p>
-            Cargá los datos, imprimí la etiqueta y acercá cada paquete a una
-            sucursal. No necesitás iniciar sesión.
+            Cargá los datos, recibí el comprobante y llevá el paquete a una
+            sucursal dentro de los 10 días. No necesitás iniciar sesión.
           </p>
           <Link className="shipment-inline-action" to="/preguntas-frecuentes" target="_blank" rel="noopener noreferrer"><CircleHelp size={17} aria-hidden="true" /> Preguntas frecuentes</Link>
         </header>
@@ -421,7 +421,7 @@ export function CreateShipmentPage() {
                 )}
                 <section className="shipment-map-block shipment-form__full" aria-labelledby="home-map-title">
                   <header>
-                    <div><MapPinned size={19} aria-hidden="true" /><span><strong id="home-map-title">Ubicación en el mapa</strong><small>Opcional: hacé clic para marcar el punto exacto.</small></span></div>
+                    <div><MapPinned size={19} aria-hidden="true" /><span><strong id="home-map-title">Ubicación en el mapa</strong><small>Opcional: tocá el mapa para marcar el punto exacto; después podés arrastrarlo.</small></span></div>
                     {form.destinationLatitude !== null && (
                       <button type="button" onClick={clearDestinationLocation}>Quitar ubicación</button>
                     )}

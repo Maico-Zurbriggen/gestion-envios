@@ -19,6 +19,9 @@ from app.infrastructure.auth.hasher import HasherContrasenas
 from app.infrastructure.auth.jwt_handler import ManejadorJWT
 from app.infrastructure.db.models import Base, RolModel, SucursalModel, UsuarioModel
 
+# Las pruebas no salen a internet: sin OSRM, los recorridos se ordenan con la distancia estimada.
+settings.OSRM_URL = ""
+
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 test_engine = create_async_engine(

@@ -12,6 +12,7 @@ from app.api.v1.routers.correos import router as correos_router
 from app.api.v1.routers.descargas import router as descargas_router
 from app.api.v1.routers.envios import router as envios_router
 from app.api.v1.routers.health import router as health_router
+from app.api.v1.routers.mapas import router as mapas_router
 from app.api.v1.routers.monitor import router as monitor_router
 from app.api.v1.routers.notificaciones import router as notificaciones_router
 from app.api.v1.routers.preguntas_frecuentes import router as preguntas_frecuentes_router
@@ -128,6 +129,7 @@ def crear_aplicacion() -> FastAPI:
     app.include_router(correos_router, prefix=settings.API_V1_STR)
     app.include_router(monitor_router, prefix=settings.API_V1_STR)
     app.include_router(descargas_router, prefix=settings.API_V1_STR)
+    app.include_router(mapas_router, prefix=settings.API_V1_STR)
 
     # Health check también en la raíz
     app.include_router(health_router)

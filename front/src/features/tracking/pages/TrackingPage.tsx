@@ -212,7 +212,7 @@ export function TrackingPage() {
     const key = `${position.latitude}-${position.longitude}-${position.updatedAt}`
     if (seenPositions.has(key)) continue
     seenPositions.add(key)
-    locations.push({ latitude: position.latitude, longitude: position.longitude, label: `Última posición del reparto · ${formatDate(position.updatedAt)}` })
+    locations.push({ latitude: position.latitude, longitude: position.longitude, label: `Última posición del reparto · ${formatDate(position.updatedAt)}`, kind: 'vehiculo' })
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {

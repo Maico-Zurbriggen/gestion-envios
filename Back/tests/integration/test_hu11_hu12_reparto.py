@@ -18,6 +18,7 @@ from app.infrastructure.db.models import (
     NotificacionEnvioModel,
     PaqueteModel,
     PosicionActualRepartidorModel,
+    RecorridoPaqueteModel,
     RepartidorModel,
     SucursalModel,
 )
@@ -597,3 +598,39 @@ async def test_hu11_hu12_flujo_http_desde_registro_hasta_entrega(
     assert [h["estado"] for h in paquete["historial"]] == ["EN_SUCURSAL_ORIGEN", "EN_REPARTO", "ENTREGADO"]
     assert paquete["ubicacion_repartidor"] is None
     assert (await client.get(base, headers=headers)).json()["data"]["estado"] == "FINALIZADO"
+
+
+async def test_optimizar_en_reparto_desde_la_ubicacion_del_repartidor(client, db_session, administrativo_token):
+    """El repartidor reordena lo que falta desde donde está; lo ya entregado no se mueve."""
+    db_session.autoflush = False
+    usuario = await _crear_repartidor(db_session, "Repartidor optimiza")
+    puntos = {"oeste": (-31.41, -64.25), "centro": (-31.41, -64.19), "este": (-31.41, -64.13)}
+    codigos = {}
+    for nombre, (lat, lon) in puntos.items():
+        [paquete] = await _crear_paquete(db_session, latitud=lat, longitud=lon)
+        codigos[paquete.numero_paquete] = nombre
+    id_ = (await _generar(client, administrativo_token))["data"]["recorridos"][0]["id"]
+    headers = _headers(usuario)
+    assert (await client.post(f"{BASE}/{id_}/iniciar", headers=headers)).status_code == 200
+
+    # La primera parada ya se entregó.
+    detalle = (await client.get(f"{BASE}/{id_}", headers=headers)).json()["data"]
+    primera = detalle["paradas"][0]["paquetes"][0]["numero_paquete"]
+    filas = (await db_session.execute(select(RecorridoPaqueteModel).where(RecorridoPaqueteModel.recorrido_id == uuid.UUID(id_)))).scalars().all()
+    for fila in filas:
+        if fila.orden == 1:
+            fila.estado_en_recorrido = "ENTREGADO"
+    await db_session.commit()
+
+    # Está en el extremo este: lo pendiente arranca por lo más cercano a él.
+    resp = await client.post(f"{BASE}/{id_}/optimizar", headers=headers, json={"latitud": -31.41, "longitud": -64.12})
+    assert resp.status_code == 200, resp.text
+    paradas = resp.json()["data"]["paradas"]
+    orden = [p["paquetes"][0]["numero_paquete"] for p in paradas]
+    assert orden[0] == primera, "lo entregado queda donde estaba"
+    pendientes = [codigos[c] for c in orden[1:]]
+    assert pendientes == sorted(pendientes, key=lambda n: -puntos[n][1]), "de este a oeste desde la posición"
+
+    # Logística también puede optimizar un recorrido en reparto (desde la última posición conocida).
+    admin = await client.post(f"/api/v1/recorridos/{id_}/optimizar", headers={"Authorization": f"Bearer {administrativo_token}"})
+    assert admin.status_code == 200, admin.text

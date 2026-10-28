@@ -102,6 +102,12 @@ class ServicioReparto(IServicioReparto):
         await self._autorizado(id, usuario, bloquear=True)
         return await self.recorridos.iniciar(id, usuario)
 
+    async def optimizar(self, id: uuid.UUID, usuario: Any, desde: tuple[float, float] | None):
+        recorrido = await self._autorizado(id, usuario, bloquear=True)
+        if recorrido.estado == EstadoRecorridoEnum.FINALIZADO.value:
+            raise ValidationException(message="El recorrido ya terminó: no hay nada que reordenar.")
+        return await self.recorridos.optimizar(id, desde)
+
     async def obtener_ubicacion(self, id: uuid.UUID, usuario: Any):
         recorrido = await self._autorizado(id, usuario)
         posicion = await self.repo.obtener_posicion(usuario.id)

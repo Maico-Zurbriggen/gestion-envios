@@ -558,7 +558,7 @@ function TraceMap({ trace }: { trace: PackageTrace }) {
   if (trace.destinationLocation) locations.push({ ...trace.destinationLocation, label: 'Destino' })
   for (const delivery of trace.deliveries) {
     if (delivery.location) {
-      locations.push({ ...delivery.location, label: `${delivery.successful ? 'Entrega' : 'Visita fallida'} ${formatDateTime(delivery.date)}` })
+      locations.push({ ...delivery.location, label: `${delivery.successful ? 'Entrega' : 'Visita fallida'} ${formatDateTime(delivery.date)}`, tone: delivery.successful ? 'success' : 'danger' })
     }
   }
   if (!locations.length) return <p className="trace-empty">El destino no tiene ubicación en el mapa.</p>

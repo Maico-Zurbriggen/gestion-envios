@@ -13,7 +13,7 @@ Este directorio registra criterios compartidos para evitar que las decisiones de
 - [Autenticación](./authentication.md)
 - [Registro de envíos y seguimiento público](./envios-seguimiento.md)
 - [Reclamos, preguntas frecuentes y recorridos](./reclamos-preguntas-recorridos.md)
-- [Trayectos por calles con Mapbox](./mapbox-routing.md)
+- [Mapas, recorridos por calles y ubicación de direcciones](./mapas.md)
 - [Sprint 2: notificaciones, recepción, retiro y base Neon](./sprint-2-notificaciones-retiro-y-neon.md)
 - [Estándares y buenas prácticas de codificación](./estandares-codificacion.md)
 

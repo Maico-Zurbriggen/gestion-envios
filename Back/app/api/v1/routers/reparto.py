@@ -10,6 +10,7 @@ from app.contracts.recorridos import ListarRecorridosResponse, RecorridoResponse
 from app.contracts.reparto import (
     ContactoEntregaResponse,
     EventoEntregaResponse,
+    OptimizarRecorridoRequest,
     RegistrarEntregaRequest,
     RegistrarVisitaFallidaRequest,
     UbicacionRequest,
@@ -64,6 +65,22 @@ async def iniciar_recorrido(
             for paquete in parada.paquetes:
                 tareas.add_task(notificaciones.notificar_hito, paquete.paquete_id, TipoAvisoEnum.EN_REPARTO.value)
     return resultado
+
+
+@router.post(
+    "/{id}/optimizar",
+    response_model=RecorridoResponse,
+    summary="Optimizar mi recorrido",
+    description="Recalcula el orden más rápido por calles de las paradas pendientes, desde la ubicación enviada.",
+)
+async def optimizar_recorrido(
+    id: uuid.UUID,
+    datos: OptimizarRecorridoRequest | None = None,
+    usuario: UsuarioModel = Depends(repartidor_autorizado),
+    servicio: IServicioReparto = Depends(get_servicio_reparto),
+):
+    desde = (datos.latitud, datos.longitud) if datos and datos.latitud is not None and datos.longitud is not None else None
+    return await servicio.optimizar(id, usuario, desde)
 
 
 @router.put(

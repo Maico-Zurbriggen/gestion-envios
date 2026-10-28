@@ -1,5 +1,4 @@
-.delivery-map__driver { fill: var(--color-accent); fill-opacity: 1; stroke: var(--color-neutral-950); stroke-width: 3; }
-.ops-page .delivery-map { height: clamp(15rem, 45vh, 26rem); }
+.ops-page .delivery-map.map-view { height: clamp(16rem, 50vh, 30rem); }
 .ops-page .ops-list .ops-list { margin-top: var(--space-4); }
 
 .driver-badge { margin-left: var(--space-2); vertical-align: middle; }
