@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from 'react'
 import { Check, CircleAlert, LoaderCircle, X } from 'lucide-react'
+import '../routes.css'
 
 export function ConfirmRouteAction({ title, description, confirmLabel, pending, onConfirm, onCancel }: {
   title: string

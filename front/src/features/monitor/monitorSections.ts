@@ -41,7 +41,7 @@ export const MONITOR_SECTIONS: Record<string, PackagesSectionConfig> = {
     empty: 'No hay incidencias abiertas. Todo en orden.',
     related: [
       { label: 'Reclamos', to: '/monitor/reclamos' },
-      { label: 'Gestionar recorridos', to: '/recorridos' },
+      { label: 'Recorridos', to: '/recorridos' },
       { label: 'Carga y descarga', to: '/terminal/descarga' },
     ],
   },

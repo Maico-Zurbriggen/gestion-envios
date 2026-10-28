@@ -3,6 +3,8 @@ import type { MapboxDirectionsResponse, RoadPoint, RoadRoute, RoadRoutePlan } fr
 
 const directionsUrl = 'https://api.mapbox.com/directions/v5/mapbox/driving'
 const accessToken = (import.meta.env.VITE_MAPBOX_ACCESS_TOKEN ?? import.meta.env.VITE_GESTION_ENVIOS_MAPBOX_TOKEN ?? '').trim()
+/** Sin token, el mapa une las paradas en línea recta y usa la estimación del servidor. */
+export const roadRoutingEnabled = Boolean(accessToken)
 const maxCoordinates = 25
 
 export class MapboxRoutingError extends Error {

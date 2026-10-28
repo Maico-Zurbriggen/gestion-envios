@@ -144,9 +144,9 @@ const NAVIGATION_MODULES: NavigationModule[] = [
   },
   {
     id: 'delivery-routes',
-    label: 'Gestionar recorridos',
+    label: 'Recorridos',
     shortLabel: 'Recorridos',
-    description: 'Generá recorridos, organizá las paradas y revisá los paquetes sin asignar.',
+    description: 'Armá el reparto del día: repartidor, paquetes y orden de visita, a mano o automático.',
     path: '/recorridos',
     section: 'operation',
     icon: Truck,

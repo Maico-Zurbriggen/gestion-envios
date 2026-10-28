@@ -5,14 +5,17 @@ from uuid import UUID
 from app.contracts.recorridos import (
     AlertaRecorridoResponse,
     CompletarUbicacionPaqueteRequest,
+    CrearRecorridoRequest,
     EliminarRecorridoResponse,
     GenerarRecorridosRequest,
     GenerarRecorridosResponse,
     ListarAlertasRecorridoResponse,
     ListarRecorridosResponse,
+    PaquetesPendientesResponse,
     ReasignarRepartidorRequest,
     RecorridoResponse,
     ReemplazarPaquetesRecorridoRequest,
+    ResumenEsperaResponse,
 )
 
 
@@ -23,6 +26,18 @@ class IServicioRecorridos(Protocol):
         """Generación automática (Escenario 1) con alertas de lo que quedó afuera (Escenario 3)."""
         ...
 
+    async def crear(self, datos: CrearRecorridoRequest) -> RecorridoResponse:
+        """Alta manual de un recorrido con su repartidor y sus paquetes."""
+        ...
+
+    async def resumen_espera(self) -> ResumenEsperaResponse:
+        """Cuántos paquetes no llegaron a una sucursal y cuántos esperan recorrido en cada una."""
+        ...
+
+    async def pendientes(self, sucursal_id: int, tipo_distancia: str) -> PaquetesPendientesResponse:
+        """Paquetes listos en la sucursal que esperan un recorrido de ese tipo."""
+        ...
+
     async def listar(
         self,
         sucursal_id: int | None = None,
@@ -30,6 +45,8 @@ class IServicioRecorridos(Protocol):
         tipo_distancia: str | None = None,
         estado: str | None = None,
         repartidor_id: UUID | None = None,
+        desde: date | None = None,
+        hasta: date | None = None,
     ) -> ListarRecorridosResponse: ...
 
     async def obtener(self, id: UUID) -> RecorridoResponse:

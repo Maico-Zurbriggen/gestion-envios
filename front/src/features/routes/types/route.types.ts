@@ -30,8 +30,24 @@ export interface ApiRouteSummary {
   cantidad_paquetes: number
   distancia_estimada_km: number | null
   duracion_estimada_min: number | null
+  paquetes_entregados?: number
+  paquetes_no_entregados?: number
   created_at: string
   updated_at: string
+}
+
+export interface ApiPendingPackage {
+  paquete_id: string
+  numero_paquete: string
+  descripcion: string
+  peso_kg: number
+  destinatario_nombre: string
+  destino: string
+  token_seguimiento: string
+  tiene_ubicacion: boolean
+  motivo: string | null
+  visitas_previas: number
+  en_devolucion: boolean
 }
 
 export interface ApiRouteDetail extends ApiRouteSummary {
@@ -133,8 +149,45 @@ export interface DeliveryRouteSummary {
   packageCount: number
   distanceKm: number | null
   durationMinutes: number | null
+  delivered: number
+  failed: number
   createdAt: string
   updatedAt: string
+}
+
+export interface ApiWaitingSummary {
+  sin_llegar: number
+  sucursales: Array<{ sucursal_id: number; nombre: string; a_domicilio: number; entre_sucursales: number }>
+}
+
+/** Dónde hay paquetes esperando recorrido y cuántos todavía no llegaron a una sucursal. */
+export interface WaitingSummary {
+  notArrived: number
+  branches: Array<{ id: number; name: string; home: number; between: number }>
+}
+
+/** Paquete listo en la sucursal que todavía no tiene recorrido. */
+export interface PendingPackage {
+  id: string
+  code: string
+  description: string
+  weightKg: number
+  recipientName: string
+  destination: string
+  trackingToken: string
+  located: boolean
+  /** Por qué no se puede planificar todavía (por ejemplo, sin ubicación). */
+  issue: string | null
+  previousVisits: number
+  isReturn: boolean
+}
+
+export interface NewRouteInput {
+  branchId: number
+  date: string
+  distanceType: DistanceType
+  driverId: string
+  packages: string[]
 }
 
 export interface RoutePackage {
@@ -189,16 +242,22 @@ export interface RouteAlert {
   createdAt: string
 }
 
-export interface RouteFilters {
+interface RouteFilters {
   branchId: number
   date: string
   distanceType: DistanceType
 }
 
+/** Recorridos de un rango de días (la semana que se está viendo). */
+export interface RouteRange {
+  branchId: number
+  distanceType: DistanceType
+  from: string
+  to: string
+}
+
 export interface GenerateRoutesInput extends RouteFilters {
-  streetOrientation: number
-  driverIds: string[] | null
-  replaceExisting: boolean
+  driverIds: string[]
 }
 
 export interface GenerationResult {

@@ -8,14 +8,17 @@ from app.application.interfaces.servicio_recorridos import IServicioRecorridos
 from app.contracts.recorridos import (
     AlertaRecorridoResponse,
     CompletarUbicacionPaqueteRequest,
+    CrearRecorridoRequest,
     EliminarRecorridoResponse,
     GenerarRecorridosRequest,
     GenerarRecorridosResponse,
     ListarAlertasRecorridoResponse,
     ListarRecorridosResponse,
+    PaquetesPendientesResponse,
     ReasignarRepartidorRequest,
     RecorridoResponse,
     ReemplazarPaquetesRecorridoRequest,
+    ResumenEsperaResponse,
 )
 from app.domain.constants.roles import RolEnum
 from app.infrastructure.db.models import UsuarioModel
@@ -47,6 +50,51 @@ async def generar_recorridos(
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
     return await servicio.generar(datos, usuario)
+
+
+@router.post(
+    "",
+    response_model=RecorridoResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Crear un recorrido a mano",
+    description="Con un repartidor libre ese día y los paquetes elegidos, en el orden de visita. Queda en edición.",
+)
+async def crear_recorrido(
+    datos: CrearRecorridoRequest,
+    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
+):
+    return await servicio.crear(datos)
+
+
+@router.get(
+    "/pendientes/resumen",
+    response_model=ResumenEsperaResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Dónde hay paquetes esperando recorrido",
+    description="Cuántos registrados todavía no llegaron a una sucursal, y cuántos esperan en cada sucursal y tipo.",
+)
+async def resumen_espera(
+    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
+):
+    return await servicio.resumen_espera()
+
+
+@router.get(
+    "/pendientes",
+    response_model=PaquetesPendientesResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Paquetes que esperan un recorrido",
+    description="Listos en la sucursal, sin recorrido activo y que necesitan un reparto de ese tipo.",
+)
+async def listar_pendientes(
+    sucursal_id: int = Query(..., gt=0),
+    tipo_distancia: str = Query(..., max_length=10, description="CORTA o LARGA."),
+    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
+):
+    return await servicio.pendientes(sucursal_id, tipo_distancia)
 
 
 # --- Escenario 3: alertas (declaradas antes de /{id} para que no las capture) ---
@@ -98,6 +146,8 @@ async def listar_recorridos(
     tipo_distancia: str | None = Query(None, max_length=10, description="CORTA o LARGA."),
     estado: str | None = Query(None, max_length=15, description="GENERADO, EN_EDICION, EN_CURSO o FINALIZADO."),
     repartidor_id: uuid.UUID | None = Query(None),
+    desde: date | None = Query(None, description="Desde este día (para ver una semana)."),
+    hasta: date | None = Query(None, description="Hasta este día, inclusive."),
     _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
@@ -107,6 +157,8 @@ async def listar_recorridos(
         tipo_distancia=tipo_distancia,
         estado=estado,
         repartidor_id=repartidor_id,
+        desde=desde,
+        hasta=hasta,
     )
 
 

@@ -1,8 +1,8 @@
 import type { ApiBranch, Branch } from '../../shipments/types/shipment.types'
 import type {
-  ApiDriver, ApiGeneration, ApiRouteAlert, ApiRouteDetail, ApiRouteEnvelope, ApiRouteSummary,
+  ApiDriver, ApiGeneration, ApiPendingPackage, ApiWaitingSummary, ApiRouteAlert, ApiRouteDetail, ApiRouteEnvelope, ApiRouteSummary,
   DeliveryRoute, DeliveryRouteSummary, Driver, DriverProfileInput, GenerateRoutesInput,
-  GenerationResult, RouteAlert, RouteApiErrorResponse, RouteCommand, RouteFilters, RouteUpdate,
+  GenerationResult, NewRouteInput, PendingPackage, RouteAlert, RouteApiErrorResponse, RouteCommand, RouteRange, RouteUpdate, WaitingSummary,
 } from '../types/route.types'
 
 const apiUrl = import.meta.env.VITE_API_URL?.replace(/\/+$/, '')
@@ -65,6 +65,7 @@ export function mapSummary(route: ApiRouteSummary): DeliveryRouteSummary {
     driver: { id: route.repartidor.usuario_id, name: route.repartidor.nombre, phone: route.repartidor.telefono },
     stopCount: route.cantidad_paradas, packageCount: route.cantidad_paquetes,
     distanceKm: route.distancia_estimada_km, durationMinutes: route.duracion_estimada_min,
+    delivered: route.paquetes_entregados ?? 0, failed: route.paquetes_no_entregados ?? 0,
     createdAt: route.created_at, updatedAt: route.updated_at }
 }
 
@@ -108,9 +109,9 @@ export async function saveDriverProfile(input: DriverProfileInput, token: string
   return mapDriver(result.data)
 }
 
-export async function getRoutes(filters: RouteFilters, token: string, signal?: AbortSignal): Promise<DeliveryRouteSummary[]> {
-  const params = new URLSearchParams({ fecha: filters.date, tipo_distancia: filters.distanceType })
-  if (filters.branchId) params.set('sucursal_id', String(filters.branchId))
+export async function getRoutes(range: RouteRange, token: string, signal?: AbortSignal): Promise<DeliveryRouteSummary[]> {
+  const params = new URLSearchParams({ desde: range.from, hasta: range.to, tipo_distancia: range.distanceType })
+  if (range.branchId) params.set('sucursal_id', String(range.branchId))
   const result = await request<ApiRouteSummary[]>(`/recorridos?${params}`, token, { signal })
   if (!Array.isArray(result.data)) throw new RoutesApiError('No pudimos leer los recorridos. Intentá nuevamente.')
   return result.data.map(mapSummary)
@@ -121,24 +122,40 @@ export async function getRoute(id: string, token: string, signal?: AbortSignal):
   return mapRoute(result.data)
 }
 
-export async function getRouteAlerts(branchId: number, token: string, signal?: AbortSignal): Promise<RouteAlert[]> {
-  const query = branchId ? `?sucursal_id=${branchId}` : ''
-  const result = await request<ApiRouteAlert[]>(`/recorridos/alertas${query}`, token, { signal })
-  if (!Array.isArray(result.data)) throw new RoutesApiError('No pudimos leer las alertas. Intentá nuevamente.')
-  return result.data.map(mapAlert)
+export async function getPendingPackages(branchId: number, distanceType: string, token: string, signal?: AbortSignal): Promise<PendingPackage[]> {
+  const params = new URLSearchParams({ sucursal_id: String(branchId), tipo_distancia: distanceType })
+  const result = await request<ApiPendingPackage[]>(`/recorridos/pendientes?${params}`, token, { signal })
+  if (!Array.isArray(result.data)) throw new RoutesApiError('No pudimos leer los paquetes en espera. Intentá nuevamente.')
+  return result.data.map((item) => ({
+    id: item.paquete_id, code: item.numero_paquete, description: item.descripcion, weightKg: item.peso_kg,
+    recipientName: item.destinatario_nombre, destination: item.destino, trackingToken: item.token_seguimiento,
+    located: item.tiene_ubicacion, issue: item.motivo, previousVisits: item.visitas_previas, isReturn: item.en_devolucion,
+  }))
 }
 
-export async function resolveRouteAlert(id: string, token: string): Promise<RouteAlert> {
-  const result = await request<ApiRouteAlert>(`/recorridos/alertas/${encodeURIComponent(id)}/resolver`, token, { method: 'PATCH' })
-  return mapAlert(result.data)
+export async function getWaitingSummary(token: string, signal?: AbortSignal): Promise<WaitingSummary> {
+  const { data } = await request<ApiWaitingSummary>('/recorridos/pendientes/resumen', token, { signal })
+  return {
+    notArrived: data.sin_llegar,
+    branches: data.sucursales.map((item) => ({ id: item.sucursal_id, name: item.nombre, home: item.a_domicilio, between: item.entre_sucursales })),
+  }
+}
+
+export async function createRoute(input: NewRouteInput, token: string): Promise<DeliveryRoute> {
+  const result = await request<ApiRouteDetail>('/recorridos', token, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sucursal_id: input.branchId, fecha: input.date, tipo_distancia: input.distanceType,
+      repartidor_id: input.driverId, paquetes: input.packages }),
+  })
+  return mapRoute(result.data)
 }
 
 export async function generateRoutes(input: GenerateRoutesInput, token: string): Promise<GenerationResult> {
   const result = await request<ApiGeneration>('/recorridos/generar', token, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
+    // Sin reemplazar: lo ya armado se respeta y se reparte solo lo que espera recorrido.
     body: JSON.stringify({ sucursal_id: input.branchId, fecha: input.date, tipo_distancia: input.distanceType,
-      orientacion_calles_grados: input.streetOrientation, repartidor_ids: input.driverIds,
-      reemplazar_existentes: input.replaceExisting }),
+      repartidor_ids: input.driverIds }),
   })
   const summary = result.data.resumen
   return { message: result.message || 'Planificación generada.',

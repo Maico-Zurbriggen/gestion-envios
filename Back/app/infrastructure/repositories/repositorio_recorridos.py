@@ -14,6 +14,7 @@ from app.domain.constants.estados_logistica import (
     ResultadoEventoEntregaEnum,
     TipoControlEnum,
 )
+from app.domain.rules.circuito_rules import ESTADOS_PRE_REGISTRO
 from app.domain.rules.recorrido_rules import (
     ESTADOS_PAQUETE_LISTOS_PARA_DESPACHO,
     ESTADOS_RECORRIDO_ACTIVOS,
@@ -73,6 +74,12 @@ class RepositorioRecorridos(IRepositorioRecorridos):
             )
         )
         return control.estado, int(verificados or 0)
+
+    async def contar_sin_llegar(self) -> int:
+        resultado = await self.db.execute(
+            select(func.count()).select_from(PaqueteModel).where(PaqueteModel.estado.in_(ESTADOS_PRE_REGISTRO))
+        )
+        return int(resultado.scalar() or 0)
 
     async def listar_paquetes_listos_en_sucursal(self, sucursal_id: int) -> list[PaqueteModel]:
         stmt = (
@@ -183,8 +190,14 @@ class RepositorioRecorridos(IRepositorioRecorridos):
         tipo_distancia: str | None = None,
         estado: str | None = None,
         repartidor_id: uuid.UUID | None = None,
+        desde: date | None = None,
+        hasta: date | None = None,
     ) -> list[RecorridoModel]:
         stmt = self._select_recorrido_completo()
+        if desde is not None:
+            stmt = stmt.where(RecorridoModel.fecha >= desde)
+        if hasta is not None:
+            stmt = stmt.where(RecorridoModel.fecha <= hasta)
         if sucursal_id is not None:
             stmt = stmt.where(RecorridoModel.sucursal_origen_id == sucursal_id)
         if fecha is not None:

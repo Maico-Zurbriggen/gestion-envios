@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { isRoadPoint } from '../services/mapboxRoutingApi'
 import type { DeliveryRoute } from '../types/route.types'
 import type { RoadRoutingState } from '../types/roadRoute.types'
+import '../routes.css'
 
 export function DeliveryRouteMap({ route, routing, position }: { route: DeliveryRoute; routing: RoadRoutingState; position?: { latitude: number; longitude: number } | null }) {
   const container = useRef<HTMLDivElement>(null)

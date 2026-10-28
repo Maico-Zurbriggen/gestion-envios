@@ -1,86 +1,300 @@
-import { useState } from 'react'
-import { CalendarDays, MapPinned, RefreshCw, Route, Truck } from 'lucide-react'
-import { useSearchParams } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import {
+  CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Cpu, Inbox, Package, Plus, RefreshCw, Route, ScanBarcode, Truck, XCircle,
+} from 'lucide-react'
 import { useAppSelector } from '../../../app/store'
+import { PageHeader } from '../../../shared/components/PageHeader'
 import { selectCurrentUser } from '../../auth/redux/authSlice'
 import { useBranches } from '../../shipments/hooks/useBranches'
-import { DeliveryRouteDetail } from '../components/DeliveryRouteDetail'
-import { DriverProfiles } from '../components/DriverProfiles'
-import { RouteAlerts } from '../components/RouteAlerts'
+import { AutoPlanModal } from '../components/AutoPlanModal'
+import { DriverProfilesButton } from '../components/DriverProfiles'
+import { NewRouteModal } from '../components/NewRouteModal'
 import { RouteError, RouteLoading } from '../components/RouteFeedback'
-import { RouteGenerationForm } from '../components/RouteGenerationForm'
-import { useDrivers, useRoutes, useRoutesBusy } from '../hooks/useRoutes'
-import { distanceLabels, formatRouteDistance, formatRouteDuration, localToday, routeStatusLabels } from '../routePresentation'
-import type { DistanceType, GenerationResult, RouteFilters, RouteStatus } from '../types/route.types'
+import { RouteWorkspace } from '../components/RouteWorkspace'
+import { useDrivers, usePendingPackages, useRoutes, useRoutesBusy, useWaitingSummary } from '../hooks/useRoutes'
+import {
+  dayParts, formatRouteDistance, formatRouteDuration, isRouteEditable, localToday, routeStatusLabels, routeStatusTone, shiftDay, weekOf,
+} from '../routePresentation'
+import type { DeliveryRouteSummary, DistanceType, WaitingSummary } from '../types/route.types'
+import '../routes.css'
 import './DeliveryRoutesPage.css'
 
+const BRANCH_KEY = 'recorridos-sucursal'
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/** Sucursal elegida antes en este equipo; `null` si nunca se eligió (se propone la que tiene paquetes esperando). */
+function storedBranch(): number | null {
+  try {
+    const value = localStorage.getItem(BRANCH_KEY)
+    return value === null ? null : Number(value) || 0
+  } catch {
+    return null
+  }
+}
+
 export function DeliveryRoutesPage() {
-  const [filters, setFilters] = useState<RouteFilters>({ branchId: 0, date: localToday(), distanceType: 'CORTA' })
-  const [status, setStatus] = useState('')
-  const [driverFilter, setDriverFilter] = useState('')
-  const [editing, setEditing] = useState(false)
   const [params, setParams] = useSearchParams()
+  const today = localToday()
+  const date = DAY_RE.test(params.get('fecha') ?? '') ? params.get('fecha')! : today
   const selectedId = params.get('recorrido') ?? ''
+  // `null`: nunca se eligió una sucursal en este equipo; se propone la que tiene paquetes esperando.
+  const [chosenBranch, setChosenBranch] = useState(storedBranch)
+  const [modal, setModal] = useState<'new' | 'auto' | null>(null)
+
+  const waiting = useWaitingSummary()
+  const suggested = chosenBranch === null ? waiting.data?.branches[0] : undefined
+  const branchId = chosenBranch ?? suggested?.id ?? 0
+  const typeParam = params.get('tipo')
+  const distanceType: DistanceType = typeParam ? (typeParam === 'larga' ? 'LARGA' : 'CORTA') : suggested && !suggested.home && suggested.between ? 'LARGA' : 'CORTA'
+  const week = useMemo(() => weekOf(date), [date])
   const branches = useBranches()
   const drivers = useDrivers()
-  const routes = useRoutes(filters)
+  const routes = useRoutes({ branchId, distanceType, from: week[0], to: week[6] })
+  const pending = usePendingPackages(branchId, distanceType)
   const busy = useRoutesBusy()
   const user = useAppSelector(selectCurrentUser)
-  const disabled = busy || editing
-  const visibleRoutes = routes.data?.filter((route) => (!status || route.status === status) && (!driverFilter || route.driver.id === driverFilter)) ?? []
+  const branchName = branches.data?.find((branch) => branch.id === branchId)?.name ?? ''
 
-  function selectRoute(id: string) {
-    setParams(id ? { recorrido: id } : {}, { replace: true })
-    setEditing(false)
+  const dayRoutes = useMemo(() => (routes.data ?? []).filter((route) => route.date === date)
+    .sort((a, b) => order(a) - order(b) || a.driver.name.localeCompare(b.driver.name)), [routes.data, date])
+  // Repartidores aptos para esta sucursal y tipo, y los que ya tienen recorrido activo ese día.
+  const eligible = (drivers.data ?? []).filter((driver) => driver.available && driver.branch?.id === branchId && driver.distanceType === distanceType)
+  const busyDriverIds = new Set(dayRoutes.filter((route) => route.status !== 'FINALIZADO').map((route) => route.driver.id))
+
+  /** Cambia la URL: el día, el tipo y el recorrido abierto se pueden compartir y el botón Atrás vuelve. */
+  function go(next: { fecha?: string; tipo?: DistanceType; recorrido?: string | null }, replace = false) {
+    setParams((current) => {
+      const url = new URLSearchParams(current)
+      if (next.fecha) url.set('fecha', next.fecha)
+      if (next.tipo) url.set('tipo', next.tipo === 'LARGA' ? 'larga' : 'corta')
+      if (next.recorrido !== undefined) {
+        if (next.recorrido) url.set('recorrido', next.recorrido)
+        else url.delete('recorrido')
+      }
+      return url
+    }, { replace })
   }
 
-  function changeFilters(next: Partial<RouteFilters>) {
-    setFilters((current) => ({ ...current, ...next }))
-    selectRoute('')
-    setDriverFilter('')
+  function setBranchId(value: number) {
+    setChosenBranch(value)
+    try { localStorage.setItem(BRANCH_KEY, String(value)) } catch { /* sin almacenamiento: solo dura la sesión */ }
   }
 
-  function generated(result: GenerationResult) {
-    setStatus(''); setDriverFilter('')
-    selectRoute(result.routes[0]?.id ?? '')
+  if (selectedId) {
+    const open = routes.data?.find((route) => route.id === selectedId)
+    const forRoute = (drivers.data ?? []).filter((driver) => driver.available
+      && (!open || (driver.branch?.id === open.branchId && driver.distanceType === open.distanceType)))
+    return <main className="routes-page">
+      <RouteWorkspace key={selectedId} id={selectedId} drivers={forRoute} busyDriverIds={busyDriverIds}
+        onBack={() => go({ recorrido: null })} onDeleted={() => go({ recorrido: null }, true)} />
+    </main>
   }
 
-  return <main className="delivery-routes-page">
-    <header className="delivery-routes-page__intro"><span className="eyebrow"><Truck size={16} aria-hidden="true" /> Logística y distribución</span><h1>Gestionar recorridos</h1><p>Planificá el reparto, revisá las paradas y detectá los paquetes que necesitan una asignación.</p></header>
-    <section className="route-panel" aria-labelledby="route-filters-title">
-      <div className="route-panel__heading"><CalendarDays size={22} aria-hidden="true" /><div><h2 id="route-filters-title">Planificación del día</h2><p>La corta distancia entrega en domicilios. La larga distancia traslada paquetes entre sucursales.</p></div></div>
-      <fieldset className="route-form-grid route-fieldset" disabled={disabled}>
-        <div className="form-field"><label htmlFor="routes-branch">Sucursal de partida</label><select id="routes-branch" className="form-control" value={filters.branchId} onChange={(event) => changeFilters({ branchId: Number(event.target.value) })} disabled={disabled || branches.isPending || branches.isError}><option value={0}>Todas las sucursales</option>{branches.data?.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></div>
-        <div className="form-field"><label htmlFor="routes-date">Fecha de reparto</label><input className="form-control" id="routes-date" type="date" value={filters.date} onChange={(event) => changeFilters({ date: event.target.value })} required /></div>
-        <div className="form-field"><label htmlFor="routes-distance">Tipo de recorrido</label><select className="form-control" id="routes-distance" value={filters.distanceType} onChange={(event) => changeFilters({ distanceType: event.target.value as DistanceType })}><option value="CORTA">Corta distancia · domicilios</option><option value="LARGA">Larga distancia · sucursales</option></select></div>
-      </fieldset>
-      {branches.isPending && <RouteLoading label="Cargando sucursales…" />}
-      {branches.isError && <RouteError error={branches.error} onRetry={() => void branches.refetch()} pending={branches.isFetching} />}
-      {drivers.isPending && <RouteLoading label="Cargando repartidores…" />}
-      {drivers.isError && <RouteError error={drivers.error} onRetry={() => void drivers.refetch()} pending={drivers.isFetching} />}
-    </section>
+  const needsBranch = !branchId
+  const planTitle = needsBranch ? 'Elegí una sucursal para armar recorridos' : undefined
 
-    {drivers.data && <DriverProfiles drivers={drivers.data} branches={branches.data ?? []} busy={disabled || branches.isPending || branches.isError} canCreateUser={user?.role === 'SUPERADMIN'} />}
-    <RouteGenerationForm key={`${filters.branchId}:${filters.date}:${filters.distanceType}`} filters={filters} drivers={drivers.data ?? []} routes={routes.data ?? []} busy={disabled || drivers.isPending || drivers.isError || branches.isError} onGenerated={generated} />
+  return <main className="routes-page">
+    <PageHeader icon={Route} title="Recorridos"
+      description="Armá el reparto del día: cada recorrido es un repartidor con sus paquetes en orden de visita."
+      actions={<>
+        <DriverProfilesButton drivers={drivers.data ?? []} branches={branches.data ?? []} busy={busy} canCreateUser={user?.role === 'SUPERADMIN'} />
+        <button className="btn btn--ghost" type="button" onClick={() => setModal('auto')} disabled={needsBranch} title={planTitle}><Cpu size={17} aria-hidden="true" /> Armar automáticamente</button>
+        <button className="btn btn--primary" type="button" onClick={() => setModal('new')} disabled={needsBranch} title={planTitle}><Plus size={17} aria-hidden="true" /> Nuevo recorrido</button>
+      </>} />
 
-    <section className="route-panel" aria-labelledby="routes-list-title">
-      <div className="route-panel__heading"><Route size={22} aria-hidden="true" /><div><h2 id="routes-list-title">Recorridos planificados</h2><p>{distanceLabels[filters.distanceType]} · {filters.date || 'Elegí una fecha'}</p></div><button className="route-button" type="button" disabled={disabled || routes.isFetching || !filters.date} onClick={() => void routes.refetch()}><RefreshCw size={17} aria-hidden="true" /> Actualizar recorridos</button></div>
-      <div className="route-list-filters"><div className="form-field"><label htmlFor="routes-status">Filtrar recorridos por estado</label><select id="routes-status" className="form-control" value={status} disabled={disabled} onChange={(event) => setStatus(event.target.value)}><option value="">Todos los estados</option>{Object.entries(routeStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div><div className="form-field"><label htmlFor="routes-driver">Filtrar recorridos por repartidor</label><select id="routes-driver" className="form-control" value={driverFilter} disabled={disabled} onChange={(event) => setDriverFilter(event.target.value)}><option value="">Todos los repartidores</option>{drivers.data?.map((driver) => <option key={driver.id} value={driver.id}>{driver.name}</option>)}</select></div></div>
-      {editing && <p className="route-warning" role="status">Guardá o cancelá la edición antes de cambiar de recorrido o de planificación.</p>}
-      {!filters.date && <p className="route-empty">Elegí una fecha para consultar los recorridos.</p>}
-      {routes.isPending && filters.date && <RouteLoading label="Consultando recorridos…" />}
-      {routes.isError && <RouteError error={routes.error} onRetry={() => void routes.refetch()} pending={routes.isFetching} />}
-      {routes.data && <div className={`route-workspace${!selectedId ? ' route-workspace--unselected' : ''}`}>
-        <div className="route-list" aria-label="Lista de recorridos">
-          {visibleRoutes.length === 0 && <p className="route-empty">No hay recorridos para estos filtros. Si vas a generar, asegurate de que los paquetes ya estén recibidos en sucursal y los repartidores tengan perfil activo.</p>}
-          {visibleRoutes.map((route) => <button className={`route-card${selectedId === route.id ? ' is-selected' : ''}`} key={route.id} type="button" disabled={disabled} aria-pressed={selectedId === route.id} onClick={() => selectRoute(route.id)}>
-            <span className="route-card__heading"><Truck size={20} aria-hidden="true" /><strong>{route.driver.name}</strong></span><span className="route-status">{routeStatusLabels[route.status as RouteStatus]}</span><small>{route.branchName} · #{route.id.slice(0, 8)}</small><span>{route.packageCount} paquetes · {route.stopCount} paradas</span><small>Planificación: ≈ {formatRouteDistance(route.distanceKm)} · {formatRouteDuration(route.durationMinutes)}</small>
-          </button>)}
+    <Flow waiting={waiting.data} branchId={branchId} distanceType={distanceType} dayPackages={dayRoutes.reduce((sum, route) => sum + route.packageCount, 0)}
+      onPick={(id, type) => { setBranchId(id); go({ tipo: type }, true) }} />
+
+    <section className="surface-card routes-toolbar" aria-label="Qué recorridos ver">
+      <div className="routes-toolbar__row">
+        <label className="form-field routes-toolbar__branch">
+          <span>Sucursal</span>
+          <select className="form-control" value={branchId} onChange={(event) => setBranchId(Number(event.target.value))} disabled={branches.isPending}>
+            <option value={0}>Todas las sucursales</option>
+            {branches.data?.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+          </select>
+        </label>
+        <div className="segmented routes-toolbar__type" role="group" aria-label="Tipo de reparto">
+          <button type="button" aria-pressed={distanceType === 'CORTA'} onClick={() => go({ tipo: 'CORTA' }, true)}><Truck size={15} aria-hidden="true" /> A domicilio</button>
+          <button type="button" aria-pressed={distanceType === 'LARGA'} onClick={() => go({ tipo: 'LARGA' }, true)}><Route size={15} aria-hidden="true" /> Entre sucursales</button>
         </div>
-        {!selectedId && visibleRoutes.length > 0 && <div className="route-empty"><MapPinned size={28} aria-hidden="true" /><p>Elegí un recorrido para ver su mapa y gestionar las paradas.</p></div>}
-        {selectedId && <DeliveryRouteDetail key={selectedId} id={selectedId} drivers={drivers.data ?? []} busy={busy} editing={editing} onEditingChange={setEditing} onDeleted={() => selectRoute('')} />}
-      </div>}
+        <span className="routes-toolbar__spacer" />
+        <button className="icon-action" type="button" onClick={() => void routes.refetch()} disabled={routes.isFetching} aria-label="Actualizar" title="Actualizar">
+          <RefreshCw size={16} className={routes.isFetching ? 'loading-icon' : undefined} aria-hidden="true" />
+        </button>
+      </div>
+      <WeekStrip week={week} date={date} today={today} routes={routes.data} onDay={(day) => go({ fecha: day }, true)} />
+      <p className="routes-week__help">Elegí el día en que salen los recorridos. Los paquetes en espera no tienen fecha: se suman al recorrido del día que elijas.</p>
     </section>
-    <RouteAlerts branchId={filters.branchId} busy={disabled} />
+
+    {branches.isError && <RouteError error={branches.error} onRetry={() => void branches.refetch()} pending={branches.isFetching} />}
+    {routes.isError && <RouteError error={routes.error} onRetry={() => void routes.refetch()} pending={routes.isFetching} />}
+
+    <DayStats routes={dayRoutes} loading={routes.isPending} />
+
+    {!needsBranch && (pending.data?.length ?? 0) > 0 && <div className="routes-waiting" role="status">
+      <Inbox size={20} aria-hidden="true" />
+      <p><strong>{pending.data!.length} {pending.data!.length === 1 ? 'paquete espera' : 'paquetes esperan'} recorrido</strong> en {branchName}.
+        {pending.data!.some((item) => item.issue) && ' Algunos necesitan atención (por ejemplo, ubicar el domicilio).'}</p>
+      <button className="route-button" type="button" onClick={() => setModal('auto')}><Cpu size={16} aria-hidden="true" /> Armar automáticamente</button>
+      <button className="route-button" type="button" onClick={() => setModal('new')}><Plus size={16} aria-hidden="true" /> Nuevo recorrido</button>
+    </div>}
+
+    <section aria-labelledby="routes-day-title" className="routes-day">
+      <h2 id="routes-day-title" className="routes-day__title"><span>Recorridos del {dayParts(date).long}</span>{date === today && <span className="badge badge--info">Hoy</span>}</h2>
+      {routes.isPending
+        ? <RouteLoading label="Cargando recorridos…" />
+        : dayRoutes.length === 0
+          ? <div className="surface-card routes-empty">
+            <Truck size={30} aria-hidden="true" />
+            <strong>{date < today ? 'No hubo recorridos este día' : 'Todavía no hay recorridos para este día'}</strong>
+            <p>{needsBranch ? 'Elegí una sucursal para armar los recorridos.' : 'Creá uno a mano eligiendo repartidor y paquetes, o dejá que se armen solos con los repartidores libres.'}</p>
+            {!needsBranch && date >= today && <div className="route-actions">
+              <button className="btn btn--primary" type="button" onClick={() => setModal('new')}><Plus size={17} aria-hidden="true" /> Nuevo recorrido</button>
+              <button className="btn btn--ghost" type="button" onClick={() => setModal('auto')}><Cpu size={17} aria-hidden="true" /> Armar automáticamente</button>
+            </div>}
+            {date !== today && <button className="btn btn--ghost" type="button" onClick={() => go({ fecha: today }, true)}><CalendarDays size={17} aria-hidden="true" /> Ir a hoy</button>}
+          </div>
+          : <ul className="routes-grid">{dayRoutes.map((route) => <li key={route.id}><RouteCard route={route} onOpen={() => go({ recorrido: route.id })} /></li>)}</ul>}
+    </section>
+
+    {modal === 'new' && <NewRouteModal branchId={branchId} branchName={branchName} date={date} distanceType={distanceType} drivers={eligible}
+      busyDriverIds={busyDriverIds} onClose={() => setModal(null)} onCreated={(id, day) => { setModal(null); go({ fecha: day, recorrido: id }) }} />}
+    {modal === 'auto' && <AutoPlanModal branchId={branchId} branchName={branchName} date={date} distanceType={distanceType} drivers={eligible}
+      busyDriverIds={busyDriverIds} onClose={() => setModal(null)} onDone={() => setModal(null)} />}
   </main>
+}
+
+/** El circuito en tres pasos, con números reales: así se entiende de dónde salen los paquetes que se arman. */
+function Flow({ waiting, branchId, distanceType, dayPackages, onPick }: {
+  waiting: WaitingSummary | undefined
+  branchId: number
+  distanceType: DistanceType
+  dayPackages: number
+  onPick: (branchId: number, type: DistanceType) => void
+}) {
+  const totalWaiting = waiting?.branches.reduce((sum, branch) => sum + branch.home + branch.between, 0)
+  return <ol className="routes-flow" aria-label="Cómo llegan los paquetes a un recorrido">
+    <li className="surface-card">
+      <span className="routes-flow__head">Registrados, sin llegar</span>
+      <span className="routes-flow__value">{waiting?.notArrived ?? '…'}</span>
+      <p>El cliente registró el envío pero todavía no lo llevó. Cuando llega, se recibe en la sucursal.</p>
+      <Link className="route-button" to="/terminal/recepcion"><ScanBarcode size={16} aria-hidden="true" /> Recibir paquetes</Link>
+    </li>
+    <li className="surface-card">
+      <span className="routes-flow__head">En sucursal, esperan recorrido</span>
+      <span className="routes-flow__value">{totalWaiting ?? '…'}</span>
+      {waiting && waiting.branches.length === 0 && <p>Ninguno: todo lo recibido ya tiene recorrido.</p>}
+      {waiting && waiting.branches.length > 0 && <div className="routes-flow__branches">
+        {waiting.branches.map((branch) => {
+          const type: DistanceType = branch.home || !branch.between ? 'CORTA' : 'LARGA'
+          return <button key={branch.id} type="button" className={`routes-flow__branch${branch.id === branchId ? ' is-active' : ''}`} onClick={() => onPick(branch.id, type)}>
+            <strong>{branch.name}</strong>
+            <small>{[branch.home && `${branch.home} a domicilio`, branch.between && `${branch.between} entre sucursales`].filter(Boolean).join(' · ')}</small>
+          </button>
+        })}
+      </div>}
+    </li>
+    <li className="surface-card">
+      <span className="routes-flow__head">En recorrido este día</span>
+      <span className="routes-flow__value">{dayPackages}</span>
+      <p>{distanceType === 'CORTA' ? 'A domicilio' : 'Entre sucursales'}: los paquetes que ya tienen repartidor y orden de visita.</p>
+    </li>
+  </ol>
+}
+
+/** Primero lo que está en la calle, después lo que falta salir y al final lo cerrado. */
+function order(route: DeliveryRouteSummary) {
+  return route.status === 'EN_CURSO' ? 0 : isRouteEditable(route.status) ? 1 : 2
+}
+
+function WeekStrip({ week, date, today, routes, onDay }: {
+  week: string[]; date: string; today: string; routes: DeliveryRouteSummary[] | undefined; onDay: (day: string) => void
+}) {
+  const first = dayParts(week[0])
+  const last = dayParts(week[6])
+  return <div className="routes-week">
+    <div className="routes-week__nav">
+      <button className="icon-action" type="button" onClick={() => onDay(shiftDay(date, -7))} aria-label="Semana anterior" title="Semana anterior"><ChevronLeft size={17} aria-hidden="true" /></button>
+      <button className="icon-action" type="button" onClick={() => onDay(shiftDay(date, 7))} aria-label="Semana siguiente" title="Semana siguiente"><ChevronRight size={17} aria-hidden="true" /></button>
+      <strong>Semana del {first.number} al {last.long.split(' ').slice(1).join(' ')}</strong>
+      <span className="routes-toolbar__spacer" />
+      {date !== today && <button className="btn btn--ghost" type="button" onClick={() => onDay(today)}><CalendarDays size={16} aria-hidden="true" /> Hoy</button>}
+      <input className="form-control routes-week__picker" type="date" value={date} onChange={(event) => event.target.value && onDay(event.target.value)} aria-label="Elegir fecha" />
+    </div>
+    <div className="routes-week__days" role="tablist" aria-label="Días de la semana">
+      {week.map((day) => {
+        const parts = dayParts(day)
+        const list = routes?.filter((route) => route.date === day) ?? []
+        const packages = list.reduce((sum, route) => sum + route.packageCount, 0)
+        const delivered = list.reduce((sum, route) => sum + route.delivered, 0)
+        return <button key={day} type="button" role="tab" aria-selected={day === date} onClick={() => onDay(day)}
+          className={`routes-day-tab${day === date ? ' is-active' : ''}${day === today ? ' is-today' : ''}${day < today ? ' is-past' : ''}`}
+          aria-label={`${parts.long}: ${list.length} ${list.length === 1 ? 'recorrido' : 'recorridos'}`}>
+          <span className="routes-day-tab__weekday">{parts.weekday}{day === today && <em>hoy</em>}</span>
+          <span className="routes-day-tab__number">{parts.number}</span>
+          <span className="routes-day-tab__count">{routes === undefined ? ' ' : list.length ? `${list.length} rec. · ${packages} paq.` : 'Sin recorridos'}</span>
+          {packages > 0 && <span className="routes-progress" aria-hidden="true"><span style={{ width: `${(delivered / packages) * 100}%` }} /></span>}
+        </button>
+      })}
+    </div>
+  </div>
+}
+
+function DayStats({ routes, loading }: { routes: DeliveryRouteSummary[]; loading: boolean }) {
+  const packages = routes.reduce((sum, route) => sum + route.packageCount, 0)
+  const delivered = routes.reduce((sum, route) => sum + route.delivered, 0)
+  const failed = routes.reduce((sum, route) => sum + route.failed, 0)
+  const onStreet = routes.filter((route) => route.status === 'EN_CURSO').length
+  const toLeave = routes.filter((route) => isRouteEditable(route.status)).length
+  const tiles = [
+    { label: 'Recorridos', value: routes.length, hint: routes.length ? [onStreet && `${onStreet} en reparto`, toLeave && `${toLeave} sin salir`].filter(Boolean).join(' · ') || 'Todos finalizados' : 'Ninguno', icon: Truck },
+    { label: 'Paquetes', value: packages, hint: `${packages - delivered - failed} pendientes`, icon: Package },
+    { label: 'Entregados', value: delivered, hint: packages ? `${Math.round((delivered / packages) * 100)} % del día` : 'Sin paquetes', icon: CheckCircle2 },
+    { label: 'Sin entregar', value: failed, hint: failed ? 'Vuelven a la sucursal' : 'Ninguno', icon: XCircle },
+  ]
+  return <dl className="routes-stats">
+    {tiles.map((tile) => <div key={tile.label} className="surface-card">
+      <dt><tile.icon size={15} aria-hidden="true" />{tile.label}</dt>
+      <dd>{loading ? '…' : tile.value}</dd>
+      <small>{loading ? ' ' : tile.hint}</small>
+    </div>)}
+  </dl>
+}
+
+function RouteCard({ route, onOpen }: { route: DeliveryRouteSummary; onOpen: () => void }) {
+  const pending = route.packageCount - route.delivered - route.failed
+  const parts = route.driver.name.trim().split(/\s+/)
+  const initials = ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase()
+  return <article className={`surface-card route-card${route.status === 'EN_CURSO' ? ' is-live' : ''}`}>
+    <header className="route-card__head">
+      <span className="route-avatar" aria-hidden="true">{initials}</span>
+      <div>
+        <h3><button type="button" className="route-card__open" onClick={onOpen}>{route.driver.name}</button></h3>
+        <small>{route.branchName}</small>
+      </div>
+      <span className={`badge ${routeStatusTone[route.status]}`}>{routeStatusLabels[route.status]}</span>
+    </header>
+    <dl className="route-card__numbers">
+      <div><dt>Paquetes</dt><dd>{route.packageCount}</dd></div>
+      <div><dt>Paradas</dt><dd>{route.stopCount}</dd></div>
+      <div><dt>Distancia</dt><dd>{route.distanceKm == null ? '—' : formatRouteDistance(route.distanceKm)}</dd></div>
+    </dl>
+    {route.packageCount > 0 && <>
+      <span className="routes-progress routes-progress--card" aria-hidden="true">
+        <span style={{ width: `${(route.delivered / route.packageCount) * 100}%` }} />
+        <span className="is-failed" style={{ width: `${(route.failed / route.packageCount) * 100}%` }} />
+      </span>
+      <p className="route-card__progress">
+        <span className="is-ok">{route.delivered} entregados</span>
+        {route.failed > 0 && <span className="is-failed"> · {route.failed} sin entregar</span>}
+        <span> · {pending} pendientes</span>
+      </p>
+    </>}
+    <footer className="route-card__foot">
+      <small>{route.durationMinutes == null ? '' : `≈ ${formatRouteDuration(route.durationMinutes)} de manejo`}</small>
+      <button className="route-button" type="button" onClick={onOpen}>{isRouteEditable(route.status) ? 'Armar' : 'Ver'}</button>
+    </footer>
+  </article>
 }

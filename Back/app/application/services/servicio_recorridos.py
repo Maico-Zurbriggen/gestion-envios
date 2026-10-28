@@ -13,13 +13,17 @@ from app.contracts.recorridos import (
     AlertaRecorridoResponse,
     CompletarUbicacionPaqueteRequest,
     ControlCargaResumenData,
+    CrearRecorridoRequest,
     EliminarRecorridoResponse,
+    EsperaSucursalData,
     GeneracionRecorridosData,
     GenerarRecorridosRequest,
     GenerarRecorridosResponse,
     ListarAlertasRecorridoResponse,
     ListarRecorridosResponse,
+    PaquetePendienteData,
     PaqueteRecorridoData,
+    PaquetesPendientesResponse,
     ParadaRecorridoData,
     PuntoMapaData,
     ReasignarRepartidorRequest,
@@ -28,6 +32,8 @@ from app.contracts.recorridos import (
     RecorridoResumenData,
     ReemplazarPaquetesRecorridoRequest,
     RepartidorRecorridoData,
+    ResumenEsperaData,
+    ResumenEsperaResponse,
     ResumenGeneracionData,
 )
 from app.contracts.sucursales import SucursalData
@@ -35,6 +41,7 @@ from app.core.config import settings
 from app.core.exceptions import DuplicateEntryException, NotFoundException, ValidationException
 from app.domain.constants.estados_logistica import (
     EstadoRecorridoEnum,
+    EstadoRecorridoPaqueteEnum,
     MotivoAlertaRecorridoEnum,
     TipoDistanciaEnum,
 )
@@ -151,15 +158,11 @@ class ServicioRecorridos(IServicioRecorridos):
         sucursal = await self._obtener_sucursal_origen(datos.sucursal_id)
         origen = self._punto_sucursal(sucursal)
 
-        existentes = await self.repo.listar_recorridos_editables(sucursal.id, fecha, tipo)
-        if existentes and not datos.reemplazar_existentes:
-            raise DuplicateEntryException(
-                message=(
-                    f"Ya hay {len(existentes)} recorrido(s) de {tipo.lower()} distancia sin iniciar para esta "
-                    "sucursal y fecha. Enviá `reemplazar_existentes: true` para generarlos de nuevo."
-                ),
-                errors=[{"field": "reemplazar_existentes", "message": "Existen recorridos sin iniciar."}],
-            )
+        # Sin `reemplazar_existentes`, lo ya armado se respeta: se reparte solo lo que no tiene
+        # recorrido, entre los repartidores que todavía están libres ese día.
+        existentes = (
+            await self.repo.listar_recorridos_editables(sucursal.id, fecha, tipo) if datos.reemplazar_existentes else []
+        )
         ids_reemplazo = {r.id for r in existentes}
 
         repartidores = await self._repartidores_para_generar(
@@ -216,7 +219,9 @@ class ServicioRecorridos(IServicioRecorridos):
 
         mensaje = f"Se generaron {len(recorridos)} recorrido(s) con {asignados} paquete(s)."
         if not candidatos:
-            mensaje = "No hay paquetes pendientes de un recorrido de este tipo en la sucursal."
+            mensaje = "No hay paquetes esperando un recorrido de este tipo en la sucursal."
+        elif not repartidores:
+            mensaje = "No hay repartidores libres para ese día: todos ya tienen recorrido o no están activos."
         if sin_asignar:
             mensaje += f" {len(sin_asignar)} paquete(s) quedaron sin recorrido: revisá las alertas."
 
@@ -251,6 +256,8 @@ class ServicioRecorridos(IServicioRecorridos):
         tipo_distancia: str | None = None,
         estado: str | None = None,
         repartidor_id: uuid.UUID | None = None,
+        desde: date | None = None,
+        hasta: date | None = None,
     ) -> ListarRecorridosResponse:
         tipo = tipo_distancia.strip().upper() if tipo_distancia and tipo_distancia.strip() else None
         estado_filtro = estado.strip().upper() if estado and estado.strip() else None
@@ -268,6 +275,8 @@ class ServicioRecorridos(IServicioRecorridos):
             tipo_distancia=tipo,
             estado=estado_filtro,
             repartidor_id=repartidor_id,
+            desde=desde,
+            hasta=hasta,
         )
         sucursales = await self.repo_sucursales.listar_todas()
         return ListarRecorridosResponse(
@@ -284,14 +293,100 @@ class ServicioRecorridos(IServicioRecorridos):
     # Escenario 2: edición manual
     # ------------------------------------------------------------------
 
+    async def crear(self, datos: CrearRecorridoRequest) -> RecorridoResponse:
+        fecha = datos.fecha or date.today()
+        sucursal = await self._obtener_sucursal_origen(datos.sucursal_id)
+        # Valida que el repartidor sea de esta sucursal y tipo, y que esté libre ese día.
+        await self._repartidores_para_generar(sucursal.id, datos.tipo_distancia, fecha, [datos.repartidor_id], set())
+        sucursales = await self.repo_sucursales.listar_todas()
+        recorrido = RecorridoModel(
+            id=uuid.uuid4(),
+            repartidor_id=datos.repartidor_id,
+            sucursal_origen_id=sucursal.id,
+            tipo_distancia=datos.tipo_distancia,
+            fecha=fecha,
+            estado=EstadoRecorridoEnum.EN_EDICION.value,
+            generado_automaticamente=False,
+            orientacion_calles_grados=0.0,
+        )
+        recorrido.sucursal_origen = sucursal
+        recorrido.paquetes = []  # colección ya cargada: así no se consulta en diferido después de guardar
+        ordenados = await self._paquetes_validos(recorrido, sucursal, sucursales, datos.paquetes)
+        await self.repo.agregar(recorrido)
+        await self.repo.sincronizar()
+        alertas = await self._aplicar_composicion(recorrido, ordenados, sucursales, edicion_manual=True)
+        return RecorridoResponse(
+            message=f"Recorrido creado con {len(ordenados)} paquete(s).",
+            data=await self._detalle(recorrido.id, sucursales),
+            alertas=alertas,
+        )
+
+    async def resumen_espera(self) -> ResumenEsperaResponse:
+        sucursales = await self.repo_sucursales.listar_todas()
+        por_sucursal = []
+        for sucursal in sucursales:
+            clasificacion = await self._clasificar(sucursal, sucursales)
+            corta = len(clasificacion.pendientes[TipoDistanciaEnum.CORTA.value])
+            larga = len(clasificacion.pendientes[TipoDistanciaEnum.LARGA.value])
+            if corta or larga:
+                por_sucursal.append(EsperaSucursalData(
+                    sucursal_id=sucursal.id, nombre=sucursal.nombre, a_domicilio=corta, entre_sucursales=larga,
+                ))
+        por_sucursal.sort(key=lambda s: -(s.a_domicilio + s.entre_sucursales))
+        return ResumenEsperaResponse(data=ResumenEsperaData(
+            sin_llegar=await self.repo.contar_sin_llegar(), sucursales=por_sucursal,
+        ))
+
+    async def pendientes(self, sucursal_id: int, tipo_distancia: str) -> PaquetesPendientesResponse:
+        tipo = tipo_distancia.strip().upper()
+        if tipo not in TIPOS_DISTANCIA_VALIDOS:
+            raise ValidationException(
+                message="El tipo de distancia no es válido.",
+                errors=[{"field": "tipo_distancia", "message": "Usá CORTA o LARGA."}],
+            )
+        sucursal = await self._obtener_sucursal_origen(sucursal_id)
+        sucursales = await self.repo_sucursales.listar_todas()
+        clasificacion = await self._clasificar(sucursal, sucursales)
+        paquetes = clasificacion.pendientes[tipo]
+        visitas = await self.repo.visitas_fallidas_de([p.id for p in paquetes])
+        datos = []
+        for paquete in paquetes:
+            destino = self._destino(paquete, tipo, sucursal, sucursales)
+            motivo = destino.motivo_no_planificable
+            datos.append(PaquetePendienteData(
+                paquete_id=paquete.id,
+                numero_paquete=paquete.numero_paquete,
+                descripcion=paquete.descripcion,
+                peso_kg=paquete.peso_kg,
+                destinatario_nombre=paquete.envio.destinatario_nombre,
+                destino=destino.texto,
+                token_seguimiento=paquete.envio.token_seguimiento,
+                tiene_ubicacion=destino.punto is not None,
+                motivo=DESCRIPCIONES_MOTIVO_ALERTA.get(motivo, motivo) if motivo else None,
+                visitas_previas=visitas.get(paquete.id, 0),
+                en_devolucion=bool(paquete.en_devolucion),
+            ))
+        return PaquetesPendientesResponse(total=len(datos), data=datos)
+
     async def reemplazar_paquetes(
         self, id: uuid.UUID, datos: ReemplazarPaquetesRecorridoRequest
     ) -> RecorridoResponse:
         recorrido = await self._obtener_editable(id)
         sucursal = recorrido.sucursal_origen
         sucursales = await self.repo_sucursales.listar_todas()
+        ordenados = await self._paquetes_validos(recorrido, sucursal, sucursales, datos.paquetes)
+        alertas = await self._aplicar_composicion(recorrido, ordenados, sucursales, edicion_manual=True)
+        return RecorridoResponse(
+            message="Recorrido actualizado manualmente.",
+            data=await self._detalle(recorrido.id, sucursales),
+            alertas=alertas,
+        )
 
-        codigos = [normalizar_codigo_escaneado(c) for c in datos.paquetes]
+    async def _paquetes_validos(
+        self, recorrido: RecorridoModel, sucursal: SucursalModel, sucursales: list[SucursalModel], codigos_pedidos: list[str]
+    ) -> list[PaqueteModel]:
+        """Paquetes pedidos, en ese orden, si todos existen, no se repiten y pueden ir en este recorrido."""
+        codigos = [normalizar_codigo_escaneado(c) for c in codigos_pedidos]
         paquetes_encontrados = await self.repo.buscar_paquetes_por_codigos(codigos)
         por_codigo: dict[str, PaqueteModel] = {}
         for paquete in paquetes_encontrados:
@@ -328,13 +423,7 @@ class ServicioRecorridos(IServicioRecorridos):
                 message="Hay paquetes que no se pueden incluir en este recorrido.",
                 errors=errores,
             )
-
-        alertas = await self._aplicar_composicion(recorrido, ordenados, sucursales, edicion_manual=True)
-        return RecorridoResponse(
-            message="Recorrido actualizado manualmente.",
-            data=await self._detalle(recorrido.id, sucursales),
-            alertas=alertas,
-        )
+        return ordenados
 
     async def quitar_paquete(self, id: uuid.UUID, codigo: str) -> RecorridoResponse:
         recorrido = await self._obtener_editable(id)
@@ -1092,6 +1181,12 @@ class ServicioRecorridos(IServicioRecorridos):
             repartidor=RepartidorRecorridoData(usuario_id=usuario.id, nombre=usuario.nombre, telefono=usuario.telefono),
             cantidad_paradas=len(self._paradas(recorrido, sucursales)),
             cantidad_paquetes=len(recorrido.paquetes),
+            paquetes_entregados=sum(
+                1 for rp in recorrido.paquetes if rp.estado_en_recorrido == EstadoRecorridoPaqueteEnum.ENTREGADO.value
+            ),
+            paquetes_no_entregados=sum(
+                1 for rp in recorrido.paquetes if rp.estado_en_recorrido == EstadoRecorridoPaqueteEnum.FALLIDO.value
+            ),
             distancia_estimada_km=recorrido.distancia_estimada_km,
             duracion_estimada_min=recorrido.duracion_estimada_min,
             created_at=recorrido.created_at,

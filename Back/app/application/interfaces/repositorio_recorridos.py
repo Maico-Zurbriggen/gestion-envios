@@ -14,6 +14,10 @@ class IRepositorioRecorridos(Protocol):
 
     # --- Paquetes ---
 
+    async def contar_sin_llegar(self) -> int:
+        """Paquetes registrados que todavía no se recibieron en ninguna sucursal."""
+        ...
+
     async def listar_paquetes_listos_en_sucursal(self, sucursal_id: int) -> list[Any]:
         """Paquetes ubicados en la sucursal y en un estado listo para despacho,
         con su envío y la sucursal de destino precargados."""
@@ -53,6 +57,8 @@ class IRepositorioRecorridos(Protocol):
         tipo_distancia: str | None = None,
         estado: str | None = None,
         repartidor_id: UUID | None = None,
+        desde: date | None = None,
+        hasta: date | None = None,
     ) -> list[Any]: ...
 
     async def obtener_recorrido(self, id: UUID) -> Any | None:

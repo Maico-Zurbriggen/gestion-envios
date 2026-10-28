@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { getMapboxRoadRoute, planRoadRoute } from '../services/mapboxRoutingApi'
+import { getMapboxRoadRoute, planRoadRoute, roadRoutingEnabled } from '../services/mapboxRoutingApi'
 import type { DeliveryRoute } from '../types/route.types'
 import type { RoadRoutingState } from '../types/roadRoute.types'
 
 export function useRoadRoute(route: DeliveryRoute | undefined): RoadRoutingState {
-  const plan = route ? planRoadRoute(route) : null
+  const plan = route && roadRoutingEnabled ? planRoadRoute(route) : null
   const query = useQuery({
     queryKey: ['mapbox-road-route', 'driving', plan?.points ?? []],
     queryFn: ({ signal }) => getMapboxRoadRoute(plan!.points, signal),

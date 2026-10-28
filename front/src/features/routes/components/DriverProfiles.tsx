@@ -7,6 +7,7 @@ import { useSaveDriverProfile } from '../hooks/useRoutes'
 import { distanceLabels } from '../routePresentation'
 import type { DistanceType, Driver } from '../types/route.types'
 import { RouteError } from './RouteFeedback'
+import '../routes.css'
 
 function ProfileForm({ driver, branches, busy }: { driver: Driver; branches: Branch[]; busy: boolean }) {
   const [branchId, setBranchId] = useState(driver.branch?.id ?? 0)
@@ -31,25 +32,24 @@ function ProfileForm({ driver, branches, busy }: { driver: Driver; branches: Bra
   </form>
 }
 
-export function DriverProfiles({ drivers, branches, busy, canCreateUser }: { drivers: Driver[]; branches: Branch[]; busy: boolean; canCreateUser: boolean }) {
+/** Botón «Repartidores» del encabezado: abre la configuración de sucursal base, tipo y disponibilidad. */
+export function DriverProfilesButton({ drivers, branches, busy, canCreateUser }: { drivers: Driver[]; branches: Branch[]; busy: boolean; canCreateUser: boolean }) {
   const [selectedId, setSelectedId] = useState('')
   const [open, setOpen] = useState(false)
   const driver = drivers.find((item) => item.id === selectedId)
-  const configured = drivers.filter((item) => item.configured).length
-  return <section className="route-panel route-profiles" aria-labelledby="route-profiles-title">
-    <div className="route-profiles__summary">
-      <span className="route-profiles__icon" aria-hidden="true"><UsersRound size={21} /></span>
-      <span><strong id="route-profiles-title">Repartidores</strong><small>Configurá la sucursal base y el tipo de reparto antes de generar.</small></span>
-      <span className="badge badge--muted">{configured} de {drivers.length} con perfil</span>
-      <button className="route-button" type="button" aria-haspopup="dialog" onClick={() => setOpen(true)}><UsersRound size={18} aria-hidden="true" /> Configurar repartidores</button>
-    </div>
-    <Modal open={open} onClose={() => setOpen(false)} eyebrow="Logística" title="Perfiles de repartidores" description="Sucursal base, tipo de reparto y disponibilidad para recibir recorridos." icon={UsersRound} size="wide">
-    <div className="route-profiles__body">
-      {drivers.length === 0 ? <p>No hay usuarios con rol Repartidor. {canCreateUser ? <Link to="/admin/usuarios?nuevo=1">Registrar un repartidor</Link> : 'Pedile al superadministrador que registre los usuarios.'}</p> : <>
-        <div className="form-field"><label htmlFor="driver-profile-user">Repartidor a configurar</label><select id="driver-profile-user" className="form-control" value={selectedId} onChange={(event) => setSelectedId(event.target.value)} disabled={busy}><option value="">Seleccioná un repartidor</option>{drivers.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.configured ? item.available ? 'Perfil activo' : 'No disponible' : 'Sin perfil'}</option>)}</select></div>
-        {driver && <ProfileForm key={driver.id} driver={driver} branches={branches} busy={busy} />}
-      </>}
-    </div>
+  const missing = drivers.filter((item) => !item.configured).length
+  return <>
+    <button className="btn btn--ghost" type="button" aria-haspopup="dialog" onClick={() => setOpen(true)}>
+      <UsersRound size={17} aria-hidden="true" /> Repartidores
+      {missing > 0 && <span className="badge badge--warning" title="Sin perfil: no reciben recorridos">{missing} sin perfil</span>}
+    </button>
+    <Modal open={open} onClose={() => setOpen(false)} eyebrow="Logística" title="Repartidores" description="Sucursal base, tipo de reparto y si están disponibles para recibir recorridos." icon={UsersRound} size="wide">
+      <div className="route-profiles__body">
+        {drivers.length === 0 ? <p>No hay usuarios con rol Repartidor. {canCreateUser ? <Link to="/admin/usuarios?nuevo=1">Registrar un repartidor</Link> : 'Pedile al superadministrador que registre los usuarios.'}</p> : <>
+          <div className="form-field"><label htmlFor="driver-profile-user">Repartidor a configurar</label><select id="driver-profile-user" className="form-control" value={selectedId} onChange={(event) => setSelectedId(event.target.value)} disabled={busy}><option value="">Seleccioná un repartidor</option>{drivers.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.configured ? item.available ? 'Perfil activo' : 'No disponible' : 'Sin perfil'}</option>)}</select></div>
+          {driver && <ProfileForm key={driver.id} driver={driver} branches={branches} busy={busy} />}
+        </>}
+      </div>
     </Modal>
-  </section>
+  </>
 }

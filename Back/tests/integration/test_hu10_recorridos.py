@@ -400,7 +400,7 @@ async def test_hu10_resolver_alerta_manualmente(
 
 
 @pytest.mark.asyncio
-async def test_hu10_regenerar_exige_confirmacion_y_reemplaza(
+async def test_hu10_regenerar_respeta_lo_armado_y_reemplaza_si_se_pide(
     client: AsyncClient, db_session: AsyncSession, administrativo_token: str
 ):
     headers = {"Authorization": f"Bearer {administrativo_token}"}
@@ -408,9 +408,11 @@ async def test_hu10_regenerar_exige_confirmacion_y_reemplaza(
     await _crear_repartidor(db_session, "Ana Repartidora")
     primero = (await _generar(client, administrativo_token))["data"]["recorridos"][0]
 
-    repetido = await client.post(f"{BASE}/generar", headers=headers, json={"sucursal_id": 1, "tipo_distancia": "CORTA"})
-    assert repetido.status_code == 409
-    assert repetido.json()["code"] == ErrorCodes.DUPLICATE_ENTRY
+    # Sin reemplazar, lo ya armado se respeta: no hay nada nuevo que repartir.
+    repetido = (await _generar(client, administrativo_token))
+    assert repetido["data"]["resumen"]["recorridos_generados"] == 0
+    assert repetido["data"]["resumen"]["recorridos_reemplazados"] == 0
+    assert (await client.get(f"{BASE}/{primero['id']}", headers=headers)).status_code == 200
 
     reemplazo = (await _generar(client, administrativo_token, reemplazar_existentes=True))["data"]
     assert reemplazo["resumen"]["recorridos_reemplazados"] == 1
@@ -925,3 +927,75 @@ async def test_hu10_completar_ubicacion_requiere_logistica(
     assert (await client.patch(path, json=punto)).status_code == 401
     for token in (vendedor_token, repartidor_token):
         assert (await client.patch(path, headers={"Authorization": f"Bearer {token}"}, json=punto)).status_code == 403
+
+
+# --- Armado a mano (estilo hojas de ruta) ---
+
+
+@pytest.mark.asyncio
+async def test_recorrido_a_mano_con_paquetes_en_espera(
+    client: AsyncClient, db_session: AsyncSession, administrativo_token: str
+):
+    """Se ven los paquetes que esperan, se arma un recorrido eligiéndolos y el
+    armado automático después respeta lo hecho a mano."""
+    headers = {"Authorization": f"Bearer {administrativo_token}"}
+    primero = await _domicilio(db_session, 0.01, 0.01)
+    segundo = await _domicilio(db_session, 0.02, 0.02)
+    sin_ubicacion = (await _crear_paquete(db_session))[0]
+    ana = await _crear_repartidor(db_session, "Ana Manual")
+    await _crear_repartidor(db_session, "Beto Automático")
+
+    espera = (await client.get(f"{BASE}/pendientes", headers=headers, params={"sucursal_id": 1, "tipo_distancia": "CORTA"})).json()
+    por_codigo = {p["numero_paquete"]: p for p in espera["data"]}
+    assert espera["total"] == 3
+    assert por_codigo[primero.numero_paquete]["tiene_ubicacion"] is True
+    assert por_codigo[sin_ubicacion.numero_paquete]["tiene_ubicacion"] is False
+    assert por_codigo[sin_ubicacion.numero_paquete]["motivo"]
+
+    creado = await client.post(BASE, headers=headers, json={
+        "sucursal_id": 1, "tipo_distancia": "CORTA", "repartidor_id": str(ana.id), "paquetes": [primero.numero_paquete],
+    })
+    assert creado.status_code == 201, creado.text
+    recorrido = creado.json()["data"]
+    assert recorrido["estado"] == "EN_EDICION" and recorrido["cantidad_paquetes"] == 1
+
+    # El mismo repartidor no puede tener dos recorridos el mismo día.
+    repetido = await client.post(BASE, headers=headers, json={
+        "sucursal_id": 1, "tipo_distancia": "CORTA", "repartidor_id": str(ana.id), "paquetes": [segundo.numero_paquete],
+    })
+    assert repetido.status_code == 422 or repetido.status_code == 400, repetido.text
+
+    # Un paquete que ya está en un recorrido no se puede usar en otro.
+    ocupado = await client.post(BASE, headers=headers, json={
+        "sucursal_id": 1, "tipo_distancia": "CORTA", "repartidor_id": str(ana.id), "paquetes": [primero.numero_paquete],
+    })
+    assert ocupado.status_code in (400, 422)
+
+    quedan = (await client.get(f"{BASE}/pendientes", headers=headers, params={"sucursal_id": 1, "tipo_distancia": "CORTA"})).json()
+    assert {p["numero_paquete"] for p in quedan["data"]} == {segundo.numero_paquete, sin_ubicacion.numero_paquete}
+
+    # El armado automático reparte solo lo que falta, con el repartidor libre.
+    automatico = (await _generar(client, administrativo_token))["data"]
+    assert automatico["resumen"]["recorridos_reemplazados"] == 0
+    assert [r["repartidor"]["nombre"] for r in automatico["recorridos"]] == ["Beto Automático"]
+    assert (await client.get(f"{BASE}/{recorrido['id']}", headers=headers)).json()["data"]["cantidad_paquetes"] == 1
+
+    # La vista semanal trae los recorridos del rango, con su avance.
+    hoy = date.today()
+    semana = (await client.get(BASE, headers=headers, params={
+        "desde": (hoy - timedelta(days=3)).isoformat(), "hasta": (hoy + timedelta(days=3)).isoformat(),
+    })).json()
+    assert semana["total"] == 2
+    assert all(r["paquetes_entregados"] == 0 and r["paquetes_no_entregados"] == 0 for r in semana["data"])
+
+
+@pytest.mark.asyncio
+async def test_resumen_de_espera_por_sucursal(client: AsyncClient, db_session: AsyncSession, administrativo_token: str):
+    """Muestra cuántos registrados no llegaron a una sucursal y dónde esperan los que sí."""
+    headers = {"Authorization": f"Bearer {administrativo_token}"}
+    await _domicilio(db_session, 0.01, 0.01)
+    await _crear_paquete(db_session, estado="Pendiente", sucursal_actual_id=None, latitud=CORDOBA[0], longitud=CORDOBA[1])
+
+    resumen = (await client.get(f"{BASE}/pendientes/resumen", headers=headers)).json()["data"]
+    assert resumen["sin_llegar"] == 1
+    assert resumen["sucursales"] == [{"sucursal_id": 1, "nombre": resumen["sucursales"][0]["nombre"], "a_domicilio": 1, "entre_sucursales": 0}]
