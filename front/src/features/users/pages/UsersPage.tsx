@@ -24,7 +24,7 @@ import { UserFormModal } from '../components/UserFormModal'
 import { useEmployeeMutations, useEmployees } from '../hooks/useEmployees'
 import { useRoles } from '../hooks/useRoles'
 import type { CreateUserInput, Employee, EmployeeStatus } from '../types/user.types'
-import { initials, roleLabel } from '../utils/roles'
+import { initials, roleLabel } from '../../../shared/utils/roles'
 import './UsersPage.css'
 
 type StatusTab = 'all' | EmployeeStatus

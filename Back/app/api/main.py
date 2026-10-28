@@ -8,6 +8,7 @@ from app.api.middleware import registrar_manejadores_excepciones
 from app.api.v1.routers.admin import router as admin_router
 from app.api.v1.routers.auth import router as auth_router
 from app.api.v1.routers.correos import router as correos_router
+from app.api.v1.routers.descargas import router as descargas_router
 from app.api.v1.routers.envios import router as envios_router
 from app.api.v1.routers.health import router as health_router
 from app.api.v1.routers.monitor import router as monitor_router
@@ -93,6 +94,7 @@ def crear_aplicacion() -> FastAPI:
     app.include_router(reparto_router, prefix=settings.API_V1_STR)
     app.include_router(correos_router, prefix=settings.API_V1_STR)
     app.include_router(monitor_router, prefix=settings.API_V1_STR)
+    app.include_router(descargas_router, prefix=settings.API_V1_STR)
 
     # Health check también en la raíz
     app.include_router(health_router)

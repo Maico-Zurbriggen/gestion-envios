@@ -667,3 +667,61 @@ class ConfiguracionCorreoModel(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class ControlDescargaModel(Base):
+    """Control de la descarga de un recorrido de larga distancia en una sucursal
+    de destino: el personal escanea cada paquete que baja del vehículo y el
+    sistema lo compara con lo que tenía que llegar."""
+
+    __tablename__ = "controles_descarga"
+    __table_args__ = (
+        UniqueConstraint("recorrido_id", "sucursal_id", name="uq_control_descarga_recorrido_sucursal"),
+        CheckConstraint("estado IN ('EN_CURSO', 'CERRADO')", name="ck_controles_descarga_estado"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(types.Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    recorrido_id: Mapped[uuid.UUID] = mapped_column(types.Uuid(as_uuid=True), ForeignKey("recorridos.id"), nullable=False)
+    sucursal_id: Mapped[int] = mapped_column(Integer, ForeignKey("sucursales.id"), nullable=False)
+    estado: Mapped[str] = mapped_column(String(10), nullable=False, default="EN_CURSO")
+    iniciado_por_id: Mapped[uuid.UUID] = mapped_column(types.Uuid(as_uuid=True), ForeignKey("usuarios.id"), nullable=False)
+    cerrado_por_id: Mapped[uuid.UUID | None] = mapped_column(
+        types.Uuid(as_uuid=True), ForeignKey("usuarios.id"), nullable=True
+    )
+    observaciones: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
+    cerrado_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    recorrido: Mapped["RecorridoModel"] = relationship("RecorridoModel")
+    sucursal: Mapped["SucursalModel"] = relationship("SucursalModel")
+    iniciado_por: Mapped["UsuarioModel"] = relationship("UsuarioModel", foreign_keys=[iniciado_por_id])
+    cerrado_por: Mapped[Optional["UsuarioModel"]] = relationship("UsuarioModel", foreign_keys=[cerrado_por_id])
+    lecturas: Mapped[list["LecturaDescargaModel"]] = relationship(
+        "LecturaDescargaModel", back_populates="control", cascade="all, delete-orphan", order_by="LecturaDescargaModel.id"
+    )
+
+
+class LecturaDescargaModel(Base):
+    """Cada código leído durante un control de descarga. Un mismo código se
+    guarda una sola vez por control: releerlo no cambia el resultado."""
+
+    __tablename__ = "lecturas_descarga"
+    __table_args__ = (
+        UniqueConstraint("control_id", "codigo", name="uq_lectura_descarga_control_codigo"),
+        CheckConstraint("resultado IN ('CORRECTO', 'SOBRANTE', 'DESCONOCIDO')", name="ck_lecturas_descarga_resultado"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    control_id: Mapped[uuid.UUID] = mapped_column(
+        types.Uuid(as_uuid=True), ForeignKey("controles_descarga.id"), nullable=False, index=True
+    )
+    paquete_id: Mapped[uuid.UUID | None] = mapped_column(types.Uuid(as_uuid=True), ForeignKey("paquetes.id"), nullable=True)
+    codigo: Mapped[str] = mapped_column(String(30), nullable=False)
+    resultado: Mapped[str] = mapped_column(String(12), nullable=False)
+    detalle: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(types.Uuid(as_uuid=True), ForeignKey("usuarios.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+    control: Mapped["ControlDescargaModel"] = relationship("ControlDescargaModel", back_populates="lecturas")
+    paquete: Mapped[Optional["PaqueteModel"]] = relationship("PaqueteModel")
+    usuario: Mapped["UsuarioModel"] = relationship("UsuarioModel")

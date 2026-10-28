@@ -32,6 +32,7 @@ from app.application.interfaces.servicio_roles import IServicioRoles
 from app.application.interfaces.servicio_seguimiento import IServicioSeguimiento
 from app.application.interfaces.servicio_sucursales import IServicioSucursales
 from app.application.services.servicio_auth import ServicioAuth
+from app.application.services.servicio_descargas import ServicioDescargas
 from app.application.services.servicio_empleados import ServicioEmpleados
 from app.application.services.servicio_envios import ServicioEnvios
 from app.application.services.servicio_monitor import ServicioMonitor
@@ -58,6 +59,7 @@ from app.infrastructure.auth.jwt_handler import ManejadorJWT
 from app.infrastructure.db.models import UsuarioModel
 from app.infrastructure.db.session import AsyncSessionLocal, obtener_sesion_db
 from app.infrastructure.email.email_provider import obtener_proveedor_email
+from app.infrastructure.repositories.repositorio_descargas import RepositorioDescargas
 from app.infrastructure.repositories.repositorio_entregas import RepositorioEntregas
 from app.infrastructure.repositories.repositorio_envios import RepositorioEnvios
 from app.infrastructure.repositories.repositorio_monitor import RepositorioMonitor
@@ -278,6 +280,13 @@ def get_servicio_reparto(
     servicio_recorridos: IServicioRecorridos = Depends(get_servicio_recorridos),
 ) -> IServicioReparto:
     return ServicioReparto(repo_recorridos, repo_entregas, servicio_recorridos)
+
+
+def get_servicio_descargas(
+    db: AsyncSession = Depends(obtener_sesion_db),
+    servicio_recorridos: IServicioRecorridos = Depends(get_servicio_recorridos),
+) -> ServicioDescargas:
+    return ServicioDescargas(RepositorioDescargas(db), servicio_recorridos)
 
 
 # --- Inyección de Autenticación y Autorización ---

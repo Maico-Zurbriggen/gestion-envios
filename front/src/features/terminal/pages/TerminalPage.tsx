@@ -1,5 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { CheckCircle2, RefreshCw, ScanBarcode, Search } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { TraceLink } from '../../monitor/components/TraceLink'
 import { useBranches } from '../../shipments/hooks/useBranches'
 import { ShipmentNotifications } from '../../notifications/components/ShipmentNotifications'
 import { getStatusLabel } from '../../tracking/trackingStatus'
@@ -83,7 +85,7 @@ export function TerminalPage() {
 
   const item = scan.data
   return <div className="ops-page">
-    <header className="ops-page__header"><span className="eyebrow"><ScanBarcode size={15} aria-hidden="true" /> Operación de terminal</span><h1>Recepción en terminal</h1><p>Leé el código de barras con el lector o ingresá el número del paquete. Revisá los datos antes de confirmar.</p></header>
+    <header className="ops-page__header"><span className="eyebrow"><ScanBarcode size={15} aria-hidden="true" /> Operación de terminal</span><h1>Recepción en terminal</h1><p>Leé el código de barras con el lector o ingresá el número del paquete. Revisá los datos antes de confirmar.</p><p className="ops-hint">¿Llega un recorrido de otra sucursal? Controlá lo que baja en <Link to="/terminal/descarga">Control de descarga</Link>.</p></header>
     <form className="ops-panel ops-scan ops-scan--camera" onSubmit={search}>
       <label className="form-field" htmlFor="terminal-code">Código del paquete<input ref={codeInputRef} id="terminal-code" className="form-control" value={input} onChange={(e) => setInput(e.target.value)} onFocus={(e) => e.target.select()} required maxLength={80} autoComplete="off" autoFocus disabled={receive.isPending} placeholder="PAQ-XXXXXXXXXX" /></label>
       <button className="ops-button ops-button--primary" disabled={scan.isFetching || receive.isPending}><Search size={18} aria-hidden="true" />{scan.isFetching ? 'Consultando…' : 'Identificar paquete'}</button>
@@ -103,7 +105,7 @@ export function TerminalPage() {
         <div className="ops-details__wide"><dt>Destino</dt><dd>{item.destination}</dd></div>
         {item.notes && <div className="ops-details__wide"><dt>Observaciones declaradas</dt><dd>{item.notes}</dd></div>}
       </dl>
-      <div className="ops-actions"><PrintLabelsButton labels={[toPrintLabel(item)]} label="Reimprimir etiqueta" /></div>
+      <div className="ops-actions"><PrintLabelsButton labels={[toPrintLabel(item)]} label="Reimprimir etiqueta" /><TraceLink code={item.code} className="ops-button" /></div>
       {!item.available && <p role="status">{item.unavailableReason || 'Este paquete no está disponible para recepción.'}</p>}
       {item.available && !receive.isSuccess && <form className="ops-stack" onSubmit={(e) => {
         e.preventDefault()

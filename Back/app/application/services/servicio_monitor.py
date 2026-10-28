@@ -60,6 +60,7 @@ MOTIVOS_ALERTA = {
     "SIN_REPARTIDOR_DISPONIBLE": "No había repartidores disponibles.",
     "SIN_UBICACION_DESTINO": "El domicilio no tiene ubicación en el mapa.",
     "SIN_SUCURSAL_DESTINO": "Falta la sucursal de destino.",
+    "FALTANTE_EN_DESCARGA": "Tenía que bajar en la sucursal de destino y no apareció al controlar la descarga.",
 }
 
 
@@ -113,6 +114,7 @@ def _paquete(paquete: Any, operativo: dict[str, Any]) -> PaqueteMonitorData:
         intentos_fallidos=operativo.get("fallidos", 0),
         reclamos_en_curso=operativo.get("reclamos", 0),
         sin_recorrido=operativo.get("alerta", False),
+        faltante_en_descarga=operativo.get("faltante", False),
         created_at=paquete.created_at,
         updated_at=paquete.updated_at,
     )
@@ -137,6 +139,7 @@ class ServicioMonitor:
             por_grupo=por_grupo,
             por_estado=por_estado,
             sin_recorrido=especiales["SIN_RECORRIDO"],
+            faltantes=especiales["FALTANTES"],
             con_reclamo=especiales["CON_RECLAMO"],
             con_problemas=especiales["CON_PROBLEMAS"],
             reclamos_abiertos=await self.repo.contar_reclamos_en_curso(),
@@ -169,7 +172,7 @@ class ServicioMonitor:
             elif clave != "TODOS":
                 raise ValidationException(
                     message="El filtro de grupo no es válido.",
-                    errors=[{"field": "grupo", "message": "Usá un grupo de estados o CON_PROBLEMAS, SIN_RECORRIDO o CON_RECLAMO."}],
+                    errors=[{"field": "grupo", "message": "Usá un grupo de estados o CON_PROBLEMAS, SIN_RECORRIDO, CON_RECLAMO o FALTANTES."}],
                 )
         if tipo_entrega and tipo_entrega not in ("domicilio", "sucursal"):
             raise ValidationException(
@@ -253,6 +256,7 @@ class ServicioMonitor:
             r for r in await self.repo.reclamos_del_envio(envio.id) if r.paquete_id in (None, paquete.id)
         ]
         notificaciones = await self.repo.notificaciones_del_envio(envio.id)
+        lecturas = await self.repo.lecturas_descarga(paquete.id)
         hermanos = await self.repo.paquetes_del_envio(envio.id)
 
         entregas = [
@@ -322,12 +326,14 @@ class ServicioMonitor:
                 )
                 for n in notificaciones
             ],
-            linea_de_tiempo=self._linea_de_tiempo(envio, historial, entregas, asignaciones, alertas, reclamos, notificaciones),
+            linea_de_tiempo=self._linea_de_tiempo(envio, historial, entregas, asignaciones, alertas, reclamos, notificaciones, lecturas),
         )
         return TrazaPaqueteResponse(data=traza)
 
     @staticmethod
-    def _linea_de_tiempo(envio, historial, entregas, asignaciones, alertas, reclamos, notificaciones) -> list[EventoTrazaData]:
+    def _linea_de_tiempo(
+        envio, historial, entregas, asignaciones, alertas, reclamos, notificaciones, lecturas
+    ) -> list[EventoTrazaData]:
         eventos: list[EventoTrazaData] = [
             EventoTrazaData(
                 fecha=envio.created_at, tipo="registro", titulo="Envío registrado",
@@ -368,10 +374,20 @@ class ServicioMonitor:
                 tono="success" if exitoso else "danger", latitud=e.latitud, longitud=e.longitud,
                 evento_entrega_id=e.id, con_firma=e.con_firma,
             ))
-        for alerta in alertas:
+        for lectura in lecturas:
+            correcto = lectura.resultado == "CORRECTO"
             eventos.append(EventoTrazaData(
-                fecha=alerta.created_at, tipo="alerta", titulo="Alerta: sin recorrido",
-                detalle=MOTIVOS_ALERTA.get(alerta.motivo, alerta.motivo), tono="warning",
+                fecha=lectura.created_at, tipo="descarga",
+                titulo="Verificado en la descarga" if correcto else "Leído de más en una descarga",
+                detalle=lectura.detalle, actor=_nombre(lectura.usuario),
+                lugar=getattr(lectura.control.sucursal, "nombre", None), tono="success" if correcto else "warning",
+            ))
+        for alerta in alertas:
+            faltante = alerta.motivo == "FALTANTE_EN_DESCARGA"
+            eventos.append(EventoTrazaData(
+                fecha=alerta.created_at, tipo="alerta",
+                titulo="Alerta: faltante en la descarga" if faltante else "Alerta: sin recorrido",
+                detalle=MOTIVOS_ALERTA.get(alerta.motivo, alerta.motivo), tono="danger" if faltante else "warning",
             ))
             if alerta.resuelta and alerta.resuelta_at:
                 eventos.append(EventoTrazaData(

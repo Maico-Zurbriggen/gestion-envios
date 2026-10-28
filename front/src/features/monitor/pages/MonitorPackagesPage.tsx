@@ -1,6 +1,7 @@
 import { useDeferredValue, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
+  ArrowRight,
   ChevronLeft,
   ChevronRight,
   Copy,
@@ -16,6 +17,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useAppSelector } from '../../../app/store'
+import { CollapsibleFilterSection } from '../../../shared/components/CollapsibleFilterSection'
 import { FilterTabs, PageHeader } from '../../../shared/components/PageHeader'
 import { showToast } from '../../../shared/services/toast'
 import { selectAuthToken } from '../../auth/redux/authSlice'
@@ -32,6 +34,8 @@ export interface PackagesSectionConfig {
   group: GroupFilter
   tabs?: ReadonlyArray<{ id: GroupFilter; label: string }>
   empty: string
+  /** Subsecciones relacionadas que se ofrecen al pie. */
+  related?: ReadonlyArray<{ label: string; to: string }>
 }
 
 const PAGE_SIZES = [25, 50, 100]
@@ -47,6 +51,7 @@ function tabCount(id: GroupFilter, summary: MonitorSummary | undefined) {
   if (id === 'CON_PROBLEMAS') return summary.withProblems
   if (id === 'SIN_RECORRIDO') return summary.withoutRoute
   if (id === 'CON_RECLAMO') return summary.withClaim
+  if (id === 'FALTANTES') return summary.missing
   return summary.byGroup[id] ?? 0
 }
 
@@ -84,6 +89,16 @@ export function MonitorPackagesPage({ config }: { config: PackagesSectionConfig 
   const packagesQuery = useMonitorPackages(filters)
   const page = packagesQuery.data
   const filtersActive = Boolean(search.trim() || filters.branchId || filters.deliveryType || filters.from || filters.to)
+  const branchName = summary?.branches.find((branch) => branch.id === filters.branchId)?.name
+  const filterSummary = [
+    search.trim() ? `«${search.trim()}»` : null,
+    branchName ?? 'Todas las sucursales',
+    filters.deliveryType === 'domicilio' ? 'A domicilio' : filters.deliveryType === 'sucursal' ? 'Retiro en sucursal' : null,
+    filters.from || filters.to ? `${filters.from ?? '…'} → ${filters.to ?? 'hoy'}` : null,
+    ORDER_LABELS[filters.order ?? 'movimiento'],
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   /** Cambia un filtro en la URL y vuelve a la primera página. */
   function setParam(key: string, value: string | null) {
@@ -134,7 +149,6 @@ export function MonitorPackagesPage({ config }: { config: PackagesSectionConfig 
     <main className="monitor-page">
       <PageHeader
         icon={config.icon}
-        eyebrow="Monitor de envíos"
         title={config.title}
         description={config.description}
         actions={
@@ -160,17 +174,18 @@ export function MonitorPackagesPage({ config }: { config: PackagesSectionConfig 
         />
       ) : null}
 
-      <section className="list-card" aria-labelledby="monitor-list-title">
-        <div className="list-toolbar monitor-toolbar">
-          <h2 className="list-toolbar__title" id="monitor-list-title">
-            Paquetes
-            <small>{page ? `${page.total} ${page.total === 1 ? 'resultado' : 'resultados'}` : ''}</small>
-          </h2>
-          <div className="list-search monitor-toolbar__search">
+      <CollapsibleFilterSection
+        sticky
+        title="Filtros"
+        description="Buscá y acotá el listado por sucursal, entrega, fechas y orden"
+        status={filterSummary}
+        contentClassName="monitor-filters"
+      >
+        <label className="monitor-field monitor-filters__search">
+          <span>Buscar</span>
+          <span className="list-search">
             <Search size={16} aria-hidden="true" />
-            <label className="visually-hidden" htmlFor="monitor-search">Buscar paquetes</label>
             <input
-              id="monitor-search"
               type="search"
               placeholder="Paquete, código de seguimiento, persona, teléfono o destino"
               value={search}
@@ -179,48 +194,55 @@ export function MonitorPackagesPage({ config }: { config: PackagesSectionConfig 
                 setParam('q', event.target.value.trim() || null)
               }}
             />
-          </div>
-          <div className="monitor-toolbar__filters">
-            <label className="monitor-field">
-              <span>Sucursal</span>
-              <select className="list-select" value={filters.branchId ?? ''} onChange={(event) => setParam('sucursal', event.target.value || null)}>
-                <option value="">Todas</option>
-                {summary?.branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>{branch.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="monitor-field">
-              <span>Entrega</span>
-              <select className="list-select" value={filters.deliveryType ?? ''} onChange={(event) => setParam('entrega', event.target.value || null)}>
-                <option value="">Domicilio y sucursal</option>
-                <option value="domicilio">A domicilio</option>
-                <option value="sucursal">Retiro en sucursal</option>
-              </select>
-            </label>
-            <label className="monitor-field">
-              <span>Registrados desde</span>
-              <input className="list-select" type="date" value={filters.from ?? ''} max={filters.to ?? undefined} onChange={(event) => setParam('desde', event.target.value || null)} />
-            </label>
-            <label className="monitor-field">
-              <span>Hasta</span>
-              <input className="list-select" type="date" value={filters.to ?? ''} min={filters.from ?? undefined} onChange={(event) => setParam('hasta', event.target.value || null)} />
-            </label>
-            <label className="monitor-field">
-              <span>Ordenar por</span>
-              <select className="list-select" value={filters.order} onChange={(event) => setParam('orden', event.target.value === 'movimiento' ? null : event.target.value)}>
-                {Object.entries(ORDER_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </label>
-            {filtersActive ? (
-              <button className="btn btn--ghost monitor-toolbar__clear" type="button" onClick={clearFilters}>
-                <FilterX size={16} aria-hidden="true" />
-                Limpiar filtros
-              </button>
-            ) : null}
-          </div>
+          </span>
+        </label>
+        <label className="monitor-field">
+          <span>Sucursal</span>
+          <select className="list-select" value={filters.branchId ?? ''} onChange={(event) => setParam('sucursal', event.target.value || null)}>
+            <option value="">Todas</option>
+            {summary?.branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>{branch.name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="monitor-field">
+          <span>Entrega</span>
+          <select className="list-select" value={filters.deliveryType ?? ''} onChange={(event) => setParam('entrega', event.target.value || null)}>
+            <option value="">Domicilio y sucursal</option>
+            <option value="domicilio">A domicilio</option>
+            <option value="sucursal">Retiro en sucursal</option>
+          </select>
+        </label>
+        <label className="monitor-field">
+          <span>Registrados desde</span>
+          <input className="list-select" type="date" value={filters.from ?? ''} max={filters.to ?? undefined} onChange={(event) => setParam('desde', event.target.value || null)} />
+        </label>
+        <label className="monitor-field">
+          <span>Hasta</span>
+          <input className="list-select" type="date" value={filters.to ?? ''} min={filters.from ?? undefined} onChange={(event) => setParam('hasta', event.target.value || null)} />
+        </label>
+        <label className="monitor-field">
+          <span>Ordenar por</span>
+          <select className="list-select" value={filters.order} onChange={(event) => setParam('orden', event.target.value === 'movimiento' ? null : event.target.value)}>
+            {Object.entries(ORDER_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+        <div className="monitor-filters__actions">
+          <button className="btn btn--ghost" type="button" onClick={clearFilters} disabled={!filtersActive}>
+            <FilterX size={16} aria-hidden="true" />
+            Limpiar filtros
+          </button>
+        </div>
+      </CollapsibleFilterSection>
+
+      <section className="list-card" aria-labelledby="monitor-list-title">
+        <div className="list-toolbar">
+          <h2 className="list-toolbar__title" id="monitor-list-title">
+            Paquetes
+            <small>{page ? `${page.total} ${page.total === 1 ? 'resultado' : 'resultados'}` : ''}</small>
+          </h2>
         </div>
 
         {packagesQuery.isPending ? (
@@ -286,6 +308,18 @@ export function MonitorPackagesPage({ config }: { config: PackagesSectionConfig 
           </footer>
         ) : null}
       </section>
+
+      {config.related?.length ? (
+        <nav className="next-links" aria-label="Secciones relacionadas">
+          <span>Ver también</span>
+          {config.related.map((link) => (
+            <Link key={link.to} to={link.to}>
+              {link.label}
+              <ArrowRight size={15} aria-hidden="true" />
+            </Link>
+          ))}
+        </nav>
+      ) : null}
     </main>
   )
 }
@@ -305,6 +339,7 @@ function PackageRow({ item }: { item: MonitorPackage }) {
             {item.code}
           </Link>
           <span className={`badge monitor-badge tone-${meta.tone}`}>{item.statusLabel}</span>
+          {item.missingAtUnload ? <span className="badge badge--danger">Faltante en la descarga</span> : null}
           {item.withoutRoute ? <span className="badge badge--warning">Sin recorrido</span> : null}
           {item.failedAttempts ? (
             <span className="badge badge--danger">

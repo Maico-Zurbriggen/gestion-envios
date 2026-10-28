@@ -7,6 +7,7 @@ import { PickupPage } from '../features/pickup/pages/PickupPage'
 import { RoutesRoute } from '../features/routes/components/RoutesRoute'
 import { EmailTemplatesPage } from '../features/emails/pages/EmailTemplatesPage'
 import { monitorRoute } from '../features/monitor/monitorRoutes'
+import { UnloadRoute } from '../features/unload/components/UnloadRoute'
 import { UsersPage } from '../features/users/pages/UsersPage'
 import { UnauthorizedPage } from '../pages/UnauthorizedPage'
 import { ProtectedRoutes } from './ProtectedRoutes'
@@ -56,7 +57,10 @@ export const mainRoutes: RouteObject[] = [
       },
       {
         element: <ProtectedRoutes allowedRoles={['VENDEDOR', 'ADMINISTRATIVO', 'SUPERADMIN']} />,
-        children: [{ path: '/terminal/recepcion', element: <TerminalRoute /> }],
+        children: [
+          { path: '/terminal/recepcion', element: <TerminalRoute /> },
+          { path: '/terminal/descarga', element: <UnloadRoute /> },
+        ],
       },
       {
         path: '/unauthorized',

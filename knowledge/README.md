@@ -8,6 +8,7 @@ Este directorio registra criterios compartidos para evitar que las decisiones de
 - [Identidad visual](./visual-identity.md)
 - [Administración de usuarios](./user-management.md)
 - [Correos personalizables, escáner con el celular e impresión de etiquetas](./correos-escaner-etiquetas.md)
+- [Monitor de envíos y control de descarga](./monitor-y-control-de-descarga.md)
 - [Autenticación](./authentication.md)
 - [Registro de envíos y seguimiento público](./envios-seguimiento.md)
 - [Reclamos, preguntas frecuentes y recorridos](./reclamos-preguntas-recorridos.md)

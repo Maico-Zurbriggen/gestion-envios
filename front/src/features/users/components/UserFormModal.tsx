@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { IdCard, Info, LoaderCircle, Mail, Phone, Save, Shield, UserPen, UserPlus, UserRound } from 'lucide-react'
 import { Modal } from '../../../shared/components/Modal'
 import type { CreateUserInput, Employee, Role } from '../types/user.types'
-import { roleLabel } from '../utils/roles'
+import { roleLabel } from '../../../shared/utils/roles'
 
 interface UserFormModalProps {
   open: boolean

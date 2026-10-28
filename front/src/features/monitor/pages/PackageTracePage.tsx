@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   AlertTriangle,
   ArrowRightLeft,
+  ClipboardCheck,
   Bell,
   CircleCheckBig,
   Copy,
@@ -44,6 +45,7 @@ const EVENT_ICONS: Record<TraceEventType, LucideIcon> = {
   registro: PackagePlus,
   estado: ArrowRightLeft,
   recorrido: Route,
+  descarga: ClipboardCheck,
   entrega: CircleCheckBig,
   alerta: AlertTriangle,
   reclamo: MessageSquareWarning,
@@ -53,7 +55,7 @@ const EVENT_ICONS: Record<TraceEventType, LucideIcon> = {
 type TimelineFilter = 'todo' | 'movimientos' | 'entregas' | 'reclamos' | 'avisos'
 const TIMELINE_FILTERS: ReadonlyArray<{ id: TimelineFilter; label: string; types: TraceEventType[] }> = [
   { id: 'todo', label: 'Todo', types: [] },
-  { id: 'movimientos', label: 'Movimientos', types: ['registro', 'estado', 'recorrido', 'alerta'] },
+  { id: 'movimientos', label: 'Movimientos', types: ['registro', 'estado', 'recorrido', 'descarga', 'alerta'] },
   { id: 'entregas', label: 'Entregas', types: ['entrega'] },
   { id: 'reclamos', label: 'Reclamos', types: ['reclamo'] },
   { id: 'avisos', label: 'Avisos', types: ['notificacion'] },
@@ -121,7 +123,6 @@ export function PackageTracePage() {
       <main className="monitor-page">
         <PageHeader
           icon={PackageSearch}
-          eyebrow="Monitor de envíos"
           title="Trazabilidad"
           description="Escribí o escaneá el número de un paquete para ver todo lo que pasó con él: quién lo movió, dónde estuvo, entregas, firma, avisos y reclamos."
         />
@@ -148,7 +149,7 @@ function TraceView({ code, searchForm }: { code: string; searchForm: ReactNode }
   if (traceQuery.isPending) {
     return (
       <main className="monitor-page" aria-busy="true">
-        <PageHeader icon={PackageSearch} eyebrow="Trazabilidad" title={code.toUpperCase()} description="Cargando el historial completo…" />
+        <PageHeader icon={PackageSearch} title={code.toUpperCase()} description="Cargando el historial completo…" />
         <div className="trace-layout">
           <span className="skeleton trace-skeleton" />
           <span className="skeleton trace-skeleton" />
@@ -160,7 +161,7 @@ function TraceView({ code, searchForm }: { code: string; searchForm: ReactNode }
   if (traceQuery.isError || !trace) {
     return (
       <main className="monitor-page">
-        <PageHeader icon={PackageSearch} eyebrow="Trazabilidad" title={code.toUpperCase()} />
+        <PageHeader icon={PackageSearch} title={code.toUpperCase()} />
         <section className="surface-card trace-start">{searchForm}</section>
         <div className="list-card list-empty" role="alert">
           <PackageSearch size={30} aria-hidden="true" />
@@ -181,7 +182,6 @@ function TraceView({ code, searchForm }: { code: string; searchForm: ReactNode }
     <main className="monitor-page">
       <PageHeader
         icon={meta.icon}
-        eyebrow="Trazabilidad del paquete"
         title={item.code}
         description={
           <>
@@ -223,8 +223,14 @@ function TraceView({ code, searchForm }: { code: string; searchForm: ReactNode }
 
       <TraceProgress trace={trace} />
 
-      {item.withoutRoute || item.failedAttempts || item.activeClaims ? (
+      {item.missingAtUnload || item.withoutRoute || item.failedAttempts || item.activeClaims ? (
         <div className="trace-alerts" role="status">
+          {item.missingAtUnload ? (
+            <p className="trace-alert tone-danger">
+              <ClipboardCheck size={18} aria-hidden="true" />
+              No apareció al controlar la descarga en la sucursal de destino. Revisá la línea de tiempo.
+            </p>
+          ) : null}
           {item.withoutRoute ? (
             <p className="trace-alert tone-warning">
               <AlertTriangle size={18} aria-hidden="true" />

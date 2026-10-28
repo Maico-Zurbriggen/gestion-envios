@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { CheckCircle2, CircleAlert, MapPin, Pencil, Play, RefreshCw, Route, Trash2, UserRound, WandSparkles } from 'lucide-react'
+import { TraceLink } from '../../monitor/components/TraceLink'
 import { Link } from 'react-router-dom'
 import { useRoute, useRouteCommand } from '../hooks/useRoutes'
 import { useRoadRoute } from '../hooks/useRoadRoute'
@@ -93,7 +94,7 @@ export function DeliveryRouteDetail({ id, drivers, busy, editing, onEditingChang
       <ol className="route-stops__list">{route.stops.map((stop) => <li key={stop.order}>
         <div className="route-stop-heading"><span className="route-stop-number">{stop.order}</span><div><strong>{stop.destination}</strong><small>{stop.type === 'SUCURSAL' ? 'Sucursal de destino' : 'Domicilio'}{stop.latitude == null || stop.longitude == null ? ' · Sin ubicación en el mapa' : ''}</small></div></div>
         {editable && !editing && stop.type === 'DOMICILIO' && (stop.latitude == null || stop.longitude == null) && <button className="route-button route-stop-locate" type="button" aria-label={`Ubicar domicilio de la parada ${stop.order}`} disabled={busy} onClick={() => { mutation.reset(); setNotice(''); setLocationStop(stop); onEditingChange(true) }}><MapPin size={17} aria-hidden="true" /> Ubicar domicilio</button>}
-        <ul className="route-stop-packages">{stop.packages.map((item) => <li key={item.id}><strong>{item.code}</strong><p>{item.description} · {item.weightKg} kg</p><small>Destinatario: {item.recipientName}</small><Link to={`/seguimiento?token=${encodeURIComponent(item.trackingToken)}`} target="_blank" rel="noopener noreferrer">Ver seguimiento</Link></li>)}</ul>
+        <ul className="route-stop-packages">{stop.packages.map((item) => <li key={item.id}><strong>{item.code}</strong><p>{item.description} · {item.weightKg} kg</p><small>Destinatario: {item.recipientName}</small><span className="route-stop-packages__links"><Link to={`/seguimiento?token=${encodeURIComponent(item.trackingToken)}`} target="_blank" rel="noopener noreferrer">Ver seguimiento</Link><TraceLink code={item.code} className="route-alerts__trace" label="Trazabilidad" /></span></li>)}</ul>
       </li>)}</ol>
     </section>}
 

@@ -110,6 +110,8 @@ class MotivoAlertaRecorridoEnum(StrEnum):
     SIN_REPARTIDOR_DISPONIBLE = "SIN_REPARTIDOR_DISPONIBLE"
     SIN_UBICACION_DESTINO = "SIN_UBICACION_DESTINO"
     SIN_SUCURSAL_DESTINO = "SIN_SUCURSAL_DESTINO"
+    FALTANTE_EN_DESCARGA = "FALTANTE_EN_DESCARGA"
+    """Tenía que bajar en la sucursal de destino y no apareció en el control de descarga."""
 
 
 class EstadoRecorridoPaqueteEnum(StrEnum):

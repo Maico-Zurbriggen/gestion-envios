@@ -20,12 +20,14 @@ from app.domain.constants.estados_logistica import (
     EstadoRecorridoEnum,
     ResultadoEventoEntregaEnum,
 )
-from app.domain.rules.monitor_rules import ESTADOS_RECLAMO_EN_CURSO
+from app.domain.rules.monitor_rules import ESTADOS_RECLAMO_EN_CURSO, MOTIVO_FALTANTE
 from app.infrastructure.db.models import (
     AlertaRecorridoModel,
+    ControlDescargaModel,
     EnvioModel,
     EventoEntregaModel,
     HistorialEstadoPaqueteModel,
+    LecturaDescargaModel,
     NotificacionEnvioModel,
     PaqueteModel,
     ReclamoModel,
@@ -42,11 +44,14 @@ ORDENES = {
 }
 
 
-def _alerta_abierta():
-    return exists().where(
-        AlertaRecorridoModel.paquete_id == PaqueteModel.id,
-        AlertaRecorridoModel.resuelta.is_(False),
-    )
+def _alerta_abierta(faltante: bool | None = None):
+    """Alerta sin resolver; `faltante` separa las de la descarga de las de «sin recorrido»."""
+    condiciones = [AlertaRecorridoModel.paquete_id == PaqueteModel.id, AlertaRecorridoModel.resuelta.is_(False)]
+    if faltante is True:
+        condiciones.append(AlertaRecorridoModel.motivo == MOTIVO_FALTANTE)
+    elif faltante is False:
+        condiciones.append(AlertaRecorridoModel.motivo != MOTIVO_FALTANTE)
+    return exists().where(*condiciones)
 
 
 def _reclamo_en_curso():
@@ -70,8 +75,9 @@ def _con_problemas():
 
 ESPECIALES = {
     "CON_PROBLEMAS": _con_problemas,
-    "SIN_RECORRIDO": _alerta_abierta,
+    "SIN_RECORRIDO": lambda: _alerta_abierta(faltante=False),
     "CON_RECLAMO": _reclamo_en_curso,
+    "FALTANTES": lambda: _alerta_abierta(faltante=True),
 }
 
 
@@ -227,7 +233,7 @@ class RepositorioMonitor(IRepositorioMonitor):
         """Recorrido vigente, visitas fallidas, alertas y reclamos en curso de cada paquete."""
         ids = [p.id for p in paquetes]
         datos: dict[uuid.UUID, dict[str, Any]] = {
-            p.id: {"asignacion": None, "fallidos": 0, "alerta": False, "reclamos": 0} for p in paquetes
+            p.id: {"asignacion": None, "fallidos": 0, "alerta": False, "faltante": False, "reclamos": 0} for p in paquetes
         }
         if not ids:
             return datos
@@ -259,12 +265,12 @@ class RepositorioMonitor(IRepositorioMonitor):
             datos[paquete_id]["fallidos"] = int(cantidad)
 
         alertas = await self.db.execute(
-            select(AlertaRecorridoModel.paquete_id)
+            select(AlertaRecorridoModel.paquete_id, AlertaRecorridoModel.motivo)
             .where(AlertaRecorridoModel.paquete_id.in_(ids), AlertaRecorridoModel.resuelta.is_(False))
             .distinct()
         )
-        for (paquete_id,) in alertas.all():
-            datos[paquete_id]["alerta"] = True
+        for paquete_id, motivo in alertas.all():
+            datos[paquete_id]["faltante" if motivo == MOTIVO_FALTANTE else "alerta"] = True
 
         envios = {p.envio_id for p in paquetes}
         reclamos = await self.db.execute(
@@ -333,6 +339,18 @@ class RepositorioMonitor(IRepositorioMonitor):
             .order_by(AlertaRecorridoModel.created_at)
         )
         return list((await self.db.execute(stmt)).scalars().all())
+
+    async def lecturas_descarga(self, paquete_id: uuid.UUID) -> list[Any]:
+        stmt = (
+            select(LecturaDescargaModel)
+            .where(LecturaDescargaModel.paquete_id == paquete_id)
+            .options(
+                joinedload(LecturaDescargaModel.usuario),
+                joinedload(LecturaDescargaModel.control).joinedload(ControlDescargaModel.sucursal),
+            )
+            .order_by(LecturaDescargaModel.created_at)
+        )
+        return list((await self.db.execute(stmt)).unique().scalars().all())
 
     async def reclamos_del_envio(self, envio_id: uuid.UUID) -> list[Any]:
         stmt = (

@@ -93,6 +93,9 @@ DESCRIPCIONES_MOTIVO_ALERTA: dict[str, str] = {
     MotivoAlertaRecorridoEnum.SIN_SUCURSAL_DESTINO.value: (
         "No se encontró una sucursal de destino a la cual trasladar el paquete."
     ),
+    MotivoAlertaRecorridoEnum.FALTANTE_EN_DESCARGA.value: (
+        "Tenía que bajar en la sucursal de destino y no apareció al controlar la descarga. Revisá su trazabilidad."
+    ),
 }
 
 

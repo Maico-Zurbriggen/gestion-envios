@@ -59,7 +59,7 @@ function DriverRoute({ id, onBack }: { id: string; onBack: () => void }) {
           <p>Activá la ubicación y mantené esta pantalla abierta durante el reparto. El navegador puede suspender el GPS si bloqueás el teléfono o cambiás de aplicación.</p>
           <button className={`ops-button${gps.enabled ? '' : ' ops-button--primary'}`} type="button" onClick={gps.toggle}><LocateFixed size={18} aria-hidden="true" />{gps.enabled ? 'Dejar de compartir ubicación' : 'Activar ubicación GPS'}</button>
           <p role="status">{gps.sending ? 'Enviando ubicación…' : gps.enabled ? 'GPS activo. Se envía como máximo una posición cada 10 segundos.' : 'GPS desactivado.'}</p>
-          {route.distanceType === 'LARGA' && <p className="ops-hint">La llegada a la siguiente sucursal se registra automáticamente al informar una posición dentro de 10 km. Se respeta el orden de paradas.</p>}
+          {route.distanceType === 'LARGA' && <p className="ops-hint">La llegada a la siguiente sucursal se registra automáticamente al informar una posición dentro de 10 km. Se respeta el orden de paradas. Al descargar, el personal de la sucursal escanea cada paquete en Control de descarga: entregá solo los que bajan ahí.</p>}
         </div>}
         {gps.error && <p className="form-error" role="alert">{gps.error}</p>}
         {position.data && <p className="ops-hint">Última ubicación recibida: {new Date(position.data.updatedAt).toLocaleString('es-AR')} · {position.data.latitude.toFixed(5)}, {position.data.longitude.toFixed(5)}</p>}

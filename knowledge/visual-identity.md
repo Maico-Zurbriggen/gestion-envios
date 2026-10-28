@@ -45,6 +45,12 @@ Las escalas completas y los tokens están en `front/src/styles/theme.css`. Los c
   - **Contenido** de hasta 1400 px.
   - **Celular:** menú deslizable de 288 px y barra inferior con cuatro accesos más «Más».
 - Dentro del panel todas las pantallas usan el mismo tamaño de título (24 a 28 px); las páginas públicas conservan su título de portada.
+- **Secciones con subsecciones**, como en TamboApp (por ejemplo, Monitor):
+  - **Menú lateral:** la sección se despliega con una flecha y muestra sus subsecciones con ícono; la activa se resalta en naranja.
+  - **Portada:** la ruta de la sección muestra tarjetas por subsección, con estado, descripción, lo que permite hacer y el botón «Abrir…».
+  - **Encabezado de cada subsección:** ícono, título y descripción, sin antetítulo.
+  - **Filtros:** van en un panel plegable y fijo (`CollapsibleFilterSection`) que muestra un resumen de lo aplicado.
+  - **Pie:** enlaces «Ver también» hacia las subsecciones relacionadas.
 - Animaciones breves (160 a 420 ms) para entrada de pantallas, modales y respuesta de botones; se desactivan con `prefers-reduced-motion`.
 - Estados de foco visibles, contraste suficiente y diseño responsive desde 320 px.
 - Los iconos de interfaz provienen de `lucide-react`. Se priorizan en botones y acciones cuando ayuden a reconocer su función, siempre con nombre accesible cuando el icono no esté acompañado por texto.

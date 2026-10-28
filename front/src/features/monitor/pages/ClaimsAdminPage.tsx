@@ -81,7 +81,6 @@ export function ClaimsAdminPage() {
     <main className="monitor-page">
       <PageHeader
         icon={MessageSquareWarning}
-        eyebrow="Monitor de envíos"
         title="Reclamos"
         description="Los reclamos que inician los clientes desde el seguimiento. Revisalos, respondé y cerralos: la respuesta se muestra en el seguimiento público."
         actions={

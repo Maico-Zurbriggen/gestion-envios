@@ -8,7 +8,7 @@ from sqlalchemy.orm import joinedload, selectinload
 
 from app.application.interfaces.repositorio_recorridos import IRepositorioRecorridos
 from app.core.exceptions import DuplicateEntryException
-from app.domain.constants.estados_logistica import EstadoRecorridoPaqueteEnum
+from app.domain.constants.estados_logistica import EstadoRecorridoPaqueteEnum, MotivoAlertaRecorridoEnum
 from app.domain.rules.recorrido_rules import (
     ESTADOS_PAQUETE_LISTOS_PARA_DESPACHO,
     ESTADOS_RECORRIDO_ACTIVOS,
@@ -227,7 +227,12 @@ class RepositorioRecorridos(IRepositorioRecorridos):
         stmt = (
             self._select_alerta_completa()
             .join(PaqueteModel, AlertaRecorridoModel.paquete_id == PaqueteModel.id)
-            .where(AlertaRecorridoModel.resuelta.is_(False), PaqueteModel.sucursal_actual_id == sucursal_id)
+            .where(
+                AlertaRecorridoModel.resuelta.is_(False),
+                PaqueteModel.sucursal_actual_id == sucursal_id,
+                # Un faltante en la descarga no lo resuelve generar recorridos: lo revisa una persona.
+                AlertaRecorridoModel.motivo != MotivoAlertaRecorridoEnum.FALTANTE_EN_DESCARGA.value,
+            )
         )
         result = await self.db.execute(stmt)
         return list(result.unique().scalars().all())

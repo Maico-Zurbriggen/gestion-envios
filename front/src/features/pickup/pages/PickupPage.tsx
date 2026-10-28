@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { BadgeCheck, Building2, CircleAlert, ClipboardCheck, IdCard, LoaderCircle, PackageCheck, RefreshCw, Search, UserRound, UsersRound } from 'lucide-react'
+import { TraceLink } from '../../monitor/components/TraceLink'
 import { receiverIsOldEnough } from '../../delivery/deliveryValidation'
 import { useBranches } from '../../shipments/hooks/useBranches'
 import { getStatusLabel } from '../../tracking/trackingStatus'
@@ -147,7 +148,7 @@ export function PickupPage() {
       {packageInfo && !completed && (
         <>
           <section className="pickup-panel" aria-labelledby="pickup-package-title">
-            <div className="pickup-panel__heading"><PackageCheck size={21} aria-hidden="true" /><div><h2 id="pickup-package-title">Paquete {packageInfo.packageNumber}</h2><p>Confirmá que los datos coincidan con la etiqueta y el envío.</p></div></div>
+            <div className="pickup-panel__heading"><PackageCheck size={21} aria-hidden="true" /><div><h2 id="pickup-package-title">Paquete {packageInfo.packageNumber}</h2><p>Confirmá que los datos coincidan con la etiqueta y el envío.</p></div><TraceLink code={packageInfo.packageNumber} className="pickup-button pickup-button--secondary" /></div>
             <dl className="pickup-summary">
               <div><dt>Estado</dt><dd>{getStatusLabel(packageInfo.status)}</dd></div>
               <div><dt>Contenido</dt><dd>{packageInfo.description}</dd></div>

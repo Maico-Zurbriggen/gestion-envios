@@ -51,6 +51,7 @@ function mapPackage(item: ApiMonitorPackage): MonitorPackage {
     failedAttempts: item.intentos_fallidos,
     activeClaims: item.reclamos_en_curso,
     withoutRoute: item.sin_recorrido,
+    missingAtUnload: item.faltante_en_descarga,
     createdAt: item.created_at,
     updatedAt: item.updated_at,
   }
@@ -81,6 +82,7 @@ export async function getMonitorSummary(token: string): Promise<MonitorSummary> 
     totalShipments: data.total_envios,
     byGroup: data.por_grupo,
     withoutRoute: data.sin_recorrido,
+    missing: data.faltantes,
     withClaim: data.con_reclamo,
     withProblems: data.con_problemas,
     openClaims: data.reclamos_abiertos,

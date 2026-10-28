@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { BellRing, Check, Copy, RefreshCw } from 'lucide-react'
+import { TraceLink } from '../../monitor/components/TraceLink'
 import { Link } from 'react-router-dom'
 import { useResolveRouteAlert, useRouteAlerts } from '../hooks/useRoutes'
 import type { RouteAlert } from '../types/route.types'
@@ -25,7 +26,7 @@ export function RouteAlerts({ branchId, busy }: { branchId: number; busy: boolea
     {notice && <p className="route-hint" role="status">{notice}</p>}
     {query.data?.length === 0 && <p className="route-empty" role="status"><Check size={21} aria-hidden="true" /> No hay alertas pendientes en esta consulta.</p>}
     {query.data && query.data.length > 0 && <ul className="route-alerts__list">{query.data.map((alert) => <li key={alert.id}>
-      <div><strong>{alert.packageNumber}</strong><p>{alert.destination}</p><p className="route-alerts__reason">{alert.description}</p></div>
+      <div><strong>{alert.packageNumber}</strong><p>{alert.destination}</p><p className="route-alerts__reason">{alert.description}</p><TraceLink code={alert.packageNumber} className="route-alerts__trace" /></div>
       <div className="route-actions"><button className="route-button" type="button" onClick={() => void copy(alert.packageNumber)}><Copy size={16} aria-hidden="true" /> Copiar código</button><Link className="route-button" to={`/seguimiento?token=${encodeURIComponent(alert.trackingToken)}`} target="_blank" rel="noopener noreferrer">Ver seguimiento</Link><button className="route-button" type="button" disabled={busy} onClick={() => setConfirmation(alert)}><Check size={16} aria-hidden="true" /> Marcar atendida</button></div>
     </li>)}</ul>}
     {confirmation && <ConfirmRouteAction title="¿Marcar esta alerta como atendida?" description={`Paquete ${confirmation.packageNumber}. Usá esta opción si el problema se atendió por fuera del sistema. Si sigue sin recorrido, el próximo control volverá a alertarlo.`} confirmLabel="Marcar atendida" pending={busy} onCancel={() => setConfirmation(null)} onConfirm={() => mutation.mutate(confirmation.id, { onSuccess: () => { setNotice('Alerta marcada como atendida.'); setConfirmation(null) }, onError: () => setConfirmation(null) })} />}

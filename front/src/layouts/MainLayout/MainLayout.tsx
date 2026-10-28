@@ -21,25 +21,14 @@ import { SidebarGroup } from './SidebarGroup'
 import { clearCredentials, selectCurrentUser } from '../../features/auth/redux/authSlice'
 import { Toaster } from '../../shared/components/Toaster'
 import { useTheme } from '../../shared/hooks/useTheme'
+import { initials, roleLabel } from '../../shared/utils/roles'
 import { CommandPalette, type CommandItem } from './CommandPalette'
 import { PanelLayoutContext } from './panelContext'
 import { readSidebarCollapsed, storeSidebarCollapsed, useApiStatus, useNow } from './useLayoutStatus'
 import './MainLayout.css'
 
-const ROLE_LABELS: Record<string, string> = {
-  SUPERADMIN: 'Superadministrador',
-  ADMINISTRATIVO: 'Administrativo',
-  VENDEDOR: 'Vendedor',
-  REPARTIDOR: 'Repartidor',
-}
-
 const timeFormatter = new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit' })
 const dayFormatter = new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'short' })
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || 'U'
-}
 
 function isTypingTarget(target: EventTarget | null) {
   return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
@@ -61,7 +50,7 @@ export function MainLayout() {
   const now = useNow()
   const accessibleModules = getAccessibleModules(user?.role)
   const displayName = user?.name || `Usuario ${user?.dni ?? ''}`.trim()
-  const roleName = user?.role ? (ROLE_LABELS[user.role] ?? user.role) : 'Sin rol asignado'
+  const roleName = user?.role ? roleLabel(user.role) : 'Sin rol asignado'
   // En el celular: las primeras cuatro secciones abajo y el resto en «Más».
   const bottomModules = accessibleModules.slice(0, 4)
 
