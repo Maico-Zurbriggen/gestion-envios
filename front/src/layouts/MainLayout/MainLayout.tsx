@@ -14,9 +14,10 @@ import {
   X,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '../../app/store'
 import { getAccessibleModules, NAVIGATION_SECTIONS } from '../../app/navigation'
+import { SidebarGroup } from './SidebarGroup'
 import { clearCredentials, selectCurrentUser } from '../../features/auth/redux/authSlice'
 import { Toaster } from '../../shared/components/Toaster'
 import { useTheme } from '../../shared/hooks/useTheme'
@@ -48,6 +49,9 @@ export function MainLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  // Grupos que la persona abrió o cerró a mano; si no tocó nada, se abre el de la ruta actual.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+  const location = useLocation()
   const user = useAppSelector(selectCurrentUser)
   const dispatch = useAppDispatch()
   const queryClient = useQueryClient()
@@ -110,6 +114,19 @@ export function MainLayout() {
       keywords: module.keywords,
       run: () => navigate(module.path),
     })),
+    ...accessibleModules.flatMap((module) =>
+      (module.children ?? [])
+        .filter((child) => child.path !== module.path)
+        .map((child) => ({
+          id: child.id,
+          label: child.label,
+          description: child.description,
+          icon: child.icon,
+          group: module.label,
+          keywords: child.keywords,
+          run: () => navigate(child.path),
+        })),
+    ),
     {
       id: 'theme',
       label: theme === 'light' ? 'Usar tema oscuro' : 'Usar tema claro',
@@ -188,6 +205,19 @@ export function MainLayout() {
                 </span>
                 {sectionModules.map((module) => {
                   const Icon = module.icon
+                  if (module.children?.length) {
+                    return (
+                      <SidebarGroup
+                        key={module.id}
+                        module={module}
+                        collapsed={collapsed}
+                        pathname={location.pathname}
+                        expanded={openGroups[module.id] ?? location.pathname.startsWith(module.path)}
+                        onToggle={(open) => setOpenGroups((current) => ({ ...current, [module.id]: open }))}
+                        onNavigate={() => setDrawerOpen(false)}
+                      />
+                    )
+                  }
                   return (
                     <NavLink
                       className={({ isActive }) => `sidebar-nav__item ${isActive ? 'is-active' : ''}`}

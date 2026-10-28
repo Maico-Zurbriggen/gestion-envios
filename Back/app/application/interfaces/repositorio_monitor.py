@@ -1,0 +1,66 @@
+from datetime import date, datetime
+from typing import Any, Protocol
+from uuid import UUID
+
+
+class IRepositorioMonitor(Protocol):
+    """Consultas de solo lectura del monitor de envíos."""
+
+    async def contar_por_estado(self) -> dict[str, int]: ...
+
+    async def contar_envios(self) -> int: ...
+
+    async def contar_paquetes_especiales(self) -> dict[str, int]:
+        """Paquetes con problemas, sin recorrido (alerta abierta) y con reclamo en curso."""
+        ...
+
+    async def contar_reclamos_en_curso(self) -> int: ...
+
+    async def contar_notificaciones_fallidas(self) -> int: ...
+
+    async def actividad_desde(self, inicio: datetime) -> dict[str, int]:
+        """Registrados, ingresados a terminal, entregados y visitas fallidas desde `inicio`."""
+        ...
+
+    async def recorridos_por_estado(self, fecha: date) -> dict[str, int]: ...
+
+    async def contar_repartidores_en_ruta(self) -> int: ...
+
+    async def listar_sucursales(self) -> list[Any]: ...
+
+    async def listar_paquetes(
+        self,
+        *,
+        buscar: str | None = None,
+        estados: tuple[str, ...] | None = None,
+        especial: str | None = None,
+        sucursal_id: int | None = None,
+        tipo_entrega: str | None = None,
+        desde: datetime | None = None,
+        hasta: datetime | None = None,
+        orden: str = "movimiento",
+        offset: int = 0,
+        limite: int = 25,
+    ) -> tuple[list[Any], int]:
+        """Página de paquetes con su envío precargado, más el total que cumple el filtro."""
+        ...
+
+    async def datos_operativos(self, paquetes: list[Any]) -> dict[UUID, dict[str, Any]]: ...
+
+    async def obtener_paquete(self, numero_paquete: str) -> Any | None: ...
+
+    async def historial(self, paquete_id: UUID) -> list[Any]: ...
+
+    async def eventos_entrega(self, paquete_id: UUID) -> list[tuple[Any, bool]]: ...
+
+    async def asignaciones(self, paquete_id: UUID) -> list[Any]: ...
+
+    async def alertas(self, paquete_id: UUID) -> list[Any]: ...
+
+    async def reclamos_del_envio(self, envio_id: UUID) -> list[Any]: ...
+
+    async def notificaciones_del_envio(self, envio_id: UUID) -> list[Any]: ...
+
+    async def paquetes_del_envio(self, envio_id: UUID) -> list[Any]: ...
+
+    async def obtener_firma(self, evento_id: UUID) -> tuple[bytes, str] | None: ...

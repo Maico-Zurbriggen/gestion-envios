@@ -213,6 +213,127 @@
   background: var(--color-primary-600);
 }
 
+/* Sección con subsecciones (como TamboApp): título + flecha y lista desplegable. */
+.sidebar-group__head {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-group__trigger {
+  flex: 1;
+  min-width: 0;
+  padding-right: 2.5rem;
+}
+
+.sidebar-group__trigger.is-current {
+  color: var(--color-neutral-0);
+  font-weight: var(--font-weight-semibold);
+}
+
+.sidebar-group__toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  width: 1.85rem;
+  height: 1.85rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--sidebar-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  transform: translateY(-50%);
+}
+
+.sidebar-group__toggle:hover {
+  color: var(--color-neutral-0);
+  background: var(--sidebar-hover);
+}
+
+.sidebar-group__toggle svg {
+  transition: transform var(--transition-base);
+}
+
+.sidebar-group.is-expanded .sidebar-group__toggle svg {
+  transform: rotate(180deg);
+}
+
+.sidebar-subnav {
+  position: relative;
+  display: grid;
+  gap: 0.1rem;
+  margin: 0.15rem 0 0.35rem;
+  padding: 0 0 0 1.35rem;
+  list-style: none;
+  animation: subnav-in var(--transition-base) both;
+}
+
+/* Guía vertical que une las subsecciones con su sección. */
+.sidebar-subnav::before {
+  position: absolute;
+  top: 0.25rem;
+  bottom: 0.25rem;
+  left: 1.2rem;
+  width: 1px;
+  background: var(--sidebar-line);
+  content: '';
+}
+
+@keyframes subnav-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.sidebar-subnav__item {
+  position: relative;
+  min-height: 2.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-left: 0.6rem;
+  padding: 0 var(--space-3);
+  color: var(--sidebar-muted);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.sidebar-subnav__item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-subnav__item svg {
+  flex: 0 0 auto;
+  opacity: 0.85;
+}
+
+.sidebar-subnav__item:hover {
+  color: var(--color-neutral-0);
+  background: var(--sidebar-hover);
+}
+
+.sidebar-subnav__item.is-active {
+  color: var(--color-neutral-0);
+  background: var(--color-primary-600);
+  box-shadow: 0 6px 16px rgb(184 92 23 / 0.3);
+  font-weight: var(--font-weight-semibold);
+}
+
 .sidebar-footer {
   min-height: 3rem;
   display: flex;

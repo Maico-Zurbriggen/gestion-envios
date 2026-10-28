@@ -6,6 +6,7 @@ import { HomePage } from '../features/home/pages/HomePage'
 import { PickupPage } from '../features/pickup/pages/PickupPage'
 import { RoutesRoute } from '../features/routes/components/RoutesRoute'
 import { EmailTemplatesPage } from '../features/emails/pages/EmailTemplatesPage'
+import { monitorRoute } from '../features/monitor/monitorRoutes'
 import { UsersPage } from '../features/users/pages/UsersPage'
 import { UnauthorizedPage } from '../pages/UnauthorizedPage'
 import { ProtectedRoutes } from './ProtectedRoutes'
@@ -46,6 +47,7 @@ export const mainRoutes: RouteObject[] = [
             path: '/admin/correos',
             element: <EmailTemplatesPage />,
           },
+          monitorRoute,
         ],
       },
       {
