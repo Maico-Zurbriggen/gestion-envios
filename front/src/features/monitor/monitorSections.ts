@@ -16,6 +16,8 @@ export const MONITOR_SECTIONS: Record<string, PackagesSectionConfig> = {
       { id: 'PARA_RETIRAR', label: 'Para retirar' },
       { id: 'ENTREGADOS', label: 'Entregados' },
       { id: 'NO_ENTREGADOS', label: 'Visita fallida' },
+      { id: 'DEVOLUCIONES', label: 'Devoluciones' },
+      { id: 'VENCIDOS', label: 'Vencidos' },
     ],
     empty: 'No hay paquetes en esta etapa.',
     related: [
@@ -25,7 +27,7 @@ export const MONITOR_SECTIONS: Record<string, PackagesSectionConfig> = {
   },
   incidencias: {
     title: 'Incidencias',
-    description: 'Lo que no salió como estaba previsto: visitas fallidas, paquetes que no aparecieron al descargar, sin recorrido o con reclamos en curso.',
+    description: 'Lo que no salió como estaba previsto: visitas fallidas, paquetes que no aparecieron al cargar o descargar, sin recorrido, con reclamos en curso o que vuelven al remitente.',
     icon: AlertTriangle,
     group: 'CON_PROBLEMAS',
     tabs: [
@@ -34,12 +36,13 @@ export const MONITOR_SECTIONS: Record<string, PackagesSectionConfig> = {
       { id: 'FALTANTES', label: 'Faltantes en la descarga' },
       { id: 'SIN_RECORRIDO', label: 'Sin recorrido' },
       { id: 'CON_RECLAMO', label: 'Con reclamo' },
+      { id: 'DEVOLUCIONES', label: 'Devoluciones' },
     ],
     empty: 'No hay incidencias abiertas. Todo en orden.',
     related: [
       { label: 'Reclamos', to: '/monitor/reclamos' },
       { label: 'Gestionar recorridos', to: '/recorridos' },
-      { label: 'Control de descarga', to: '/terminal/descarga' },
+      { label: 'Carga y descarga', to: '/terminal/descarga' },
     ],
   },
 }

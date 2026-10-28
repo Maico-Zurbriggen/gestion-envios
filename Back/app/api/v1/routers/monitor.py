@@ -5,9 +5,15 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, Response
 
-from app.api.dependencies import get_servicio_monitor, requerir_roles
+from app.api.dependencies import get_servicio_monitor, get_servicio_plazos, requerir_roles
 from app.application.services.servicio_monitor import ServicioMonitor
-from app.contracts.monitor import ListadoMonitorResponse, ResumenMonitorResponse, TrazaPaqueteResponse
+from app.application.services.servicio_plazos import ServicioPlazos
+from app.contracts.monitor import (
+    ListadoMonitorResponse,
+    PlazosProcesadosResponse,
+    ResumenMonitorResponse,
+    TrazaPaqueteResponse,
+)
 from app.domain.constants.roles import RolEnum
 
 router = APIRouter(prefix="/admin/monitor", tags=["Monitor de envíos"])
@@ -99,3 +105,15 @@ async def firma(
         media_type=tipo if tipo.startswith("image/") else "image/png",
         headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
     )
+
+
+@router.post(
+    "/procesar-plazos",
+    response_model=PlazosProcesadosResponse,
+    summary="Revisar ahora los plazos vencidos (registros sin admitir y retiros no realizados)",
+)
+async def procesar_plazos(
+    _usuario=Depends(requerir_roles(PERSONAL)),
+    servicio: ServicioPlazos = Depends(get_servicio_plazos),
+):
+    return await servicio.procesar()

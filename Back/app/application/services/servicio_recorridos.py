@@ -12,6 +12,7 @@ from app.contracts.recorridos import (
     AlertaRecorridoData,
     AlertaRecorridoResponse,
     CompletarUbicacionPaqueteRequest,
+    ControlCargaResumenData,
     EliminarRecorridoResponse,
     GeneracionRecorridosData,
     GenerarRecorridosRequest,
@@ -30,6 +31,7 @@ from app.contracts.recorridos import (
     ResumenGeneracionData,
 )
 from app.contracts.sucursales import SucursalData
+from app.core.config import settings
 from app.core.exceptions import DuplicateEntryException, NotFoundException, ValidationException
 from app.domain.constants.estados_logistica import (
     EstadoRecorridoEnum,
@@ -701,7 +703,12 @@ class ServicioRecorridos(IServicioRecorridos):
                 clasificacion.pendientes[tipo].append(paquete)
         return clasificacion
 
-    def _sucursal_entrega_id(self, envio: Any, sucursal_actual_id: int, sucursales: list[SucursalModel]) -> int | None:
+    def _sucursal_entrega_id(
+        self, envio: Any, sucursal_actual_id: int, sucursales: list[SucursalModel], paquete: Any | None = None
+    ) -> int | None:
+        # Una devolución vuelve a la sucursal donde se admitió el paquete.
+        if paquete is not None and getattr(paquete, "en_devolucion", False):
+            return paquete.sucursal_origen_id
         if (envio.tipo_entrega or "").strip().lower() == TIPO_ENTREGA_SUCURSAL:
             return envio.sucursal_destino_id
         punto = None
@@ -717,6 +724,9 @@ class ServicioRecorridos(IServicioRecorridos):
 
     def _tipo_reparto(self, paquete: PaqueteModel, sucursal: SucursalModel, sucursales: list[SucursalModel]) -> str | None:
         envio = paquete.envio
+        if paquete.en_devolucion:
+            origen = paquete.sucursal_origen_id
+            return TipoDistanciaEnum.LARGA.value if origen and origen != sucursal.id else None
         return determinar_tipo_reparto(
             envio.tipo_entrega,
             self._sucursal_entrega_id(envio, sucursal.id, sucursales),
@@ -755,7 +765,7 @@ class ServicioRecorridos(IServicioRecorridos):
                 motivo_no_planificable=MotivoAlertaRecorridoEnum.SIN_UBICACION_DESTINO.value,
             )
 
-        entrega_id = self._sucursal_entrega_id(envio, sucursal.id, sucursales)
+        entrega_id = self._sucursal_entrega_id(envio, sucursal.id, sucursales, paquete)
         destino_sucursal = next((s for s in sucursales if s.id == entrega_id), None)
         if not destino_sucursal:
             return _DestinoReparto(
@@ -987,7 +997,19 @@ class ServicioRecorridos(IServicioRecorridos):
 
     async def _detalle(self, id: uuid.UUID, sucursales: list[SucursalModel]) -> RecorridoDetalleData:
         recorrido = await self._obtener_recorrido(id)
-        return self._mapear_detalle(recorrido, sucursales)
+        detalle = self._mapear_detalle(recorrido, sucursales)
+        visitas = await self.repo.visitas_fallidas_de([rp.paquete_id for rp in recorrido.paquetes])
+        for parada in detalle.paradas:
+            for paquete in parada.paquetes:
+                paquete.visitas_previas = visitas.get(paquete.paquete_id, 0)
+        carga = await self.repo.control_de_carga(recorrido.id)
+        if carga is not None:
+            estado, verificados = carga
+            detalle.control_carga = ControlCargaResumenData(
+                estado=estado, verificados=verificados, esperados=len(recorrido.paquetes)
+            )
+        detalle.max_visitas = settings.MAX_VISITAS_DOMICILIO
+        return detalle
 
     def _punto_sucursal(self, sucursal: SucursalModel) -> Punto | None:
         if sucursal.latitud is None or sucursal.longitud is None:
@@ -1094,6 +1116,7 @@ class ServicioRecorridos(IServicioRecorridos):
                             token_seguimiento=rp.paquete.envio.token_seguimiento,
                             destinatario_nombre=rp.paquete.envio.destinatario_nombre,
                             destinatario_telefono=rp.paquete.envio.destinatario_telefono,
+                            en_devolucion=rp.paquete.en_devolucion,
                         )
                         for rp in items
                     ],

@@ -99,6 +99,8 @@ class PaqueteRecorridoData(ApiModel):
     token_seguimiento: str
     destinatario_nombre: str
     destinatario_telefono: str
+    visitas_previas: int = Field(0, description="Visitas a domicilio sin éxito antes de este recorrido.")
+    en_devolucion: bool = Field(False, description="Viaja de vuelta a la sucursal de origen.")
 
 
 class ParadaRecorridoData(ApiModel):
@@ -135,6 +137,12 @@ class RecorridoResumenData(ApiModel):
     updated_at: datetime
 
 
+class ControlCargaResumenData(ApiModel):
+    estado: str
+    verificados: int
+    esperados: int
+
+
 class RecorridoDetalleData(RecorridoResumenData):
     """Recorrido listo para dibujar en un mapa.
 
@@ -150,6 +158,10 @@ class RecorridoDetalleData(RecorridoResumenData):
     paradas: list[ParadaRecorridoData]
     trazado: list[PuntoMapaData]
     paquetes_sin_ubicacion: int
+    max_visitas: int = 2
+    control_carga: ControlCargaResumenData | None = Field(
+        None, description="Escaneo de lo que subió al vehículo en la sucursal de origen, si se hizo."
+    )
 
 
 class AlertaRecorridoData(ApiModel):

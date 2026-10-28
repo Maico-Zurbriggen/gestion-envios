@@ -72,13 +72,18 @@ export function mapRoute(route: ApiRouteDetail): DeliveryRoute {
   return { ...mapSummary(route), streetOrientation: route.orientacion_calles_grados,
     returnsToBranch: route.vuelve_a_sucursal, branch: mapBranch(route.sucursal_origen),
     packagesWithoutLocation: route.paquetes_sin_ubicacion,
+    maxVisits: route.max_visitas ?? 2,
+    loadControl: route.control_carga
+      ? { status: route.control_carga.estado, verified: route.control_carga.verificados, expected: route.control_carga.esperados }
+      : null,
     path: route.trazado.map((point) => ({ latitude: point.latitud, longitude: point.longitud })),
     stops: route.paradas.map((stop) => ({ order: stop.orden, type: stop.tipo_parada,
       destination: stop.destino, latitude: stop.latitud, longitude: stop.longitud,
       packages: stop.paquetes.map((item) => ({ id: item.paquete_id, code: item.numero_paquete,
         order: item.orden, description: item.descripcion, weightKg: item.peso_kg, status: item.estado,
         routeStatus: item.estado_en_recorrido, trackingToken: item.token_seguimiento,
-        recipientName: item.destinatario_nombre, recipientPhone: item.destinatario_telefono })) })),
+        recipientName: item.destinatario_nombre, recipientPhone: item.destinatario_telefono,
+        previousVisits: item.visitas_previas ?? 0, isReturn: Boolean(item.en_devolucion) })) })),
   }
 }
 

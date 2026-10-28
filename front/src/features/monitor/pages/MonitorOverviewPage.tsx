@@ -13,12 +13,16 @@ import {
   RefreshCw,
   Route,
   ScanBarcode,
+  TimerReset,
+  TimerOff,
+  Undo2,
   XCircle,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { PageHeader, StatCard } from '../../../shared/components/PageHeader'
 import { PackageSearchBar } from '../components/PackageSearchBar'
-import { useMonitorSummary } from '../hooks/useMonitor'
+import { showToast } from '../../../shared/services/toast'
+import { useMonitorSummary, useProcessDeadlines } from '../hooks/useMonitor'
 import { formatRelative, GROUP_META, percent, PIPELINE } from '../utils/monitorFormat'
 
 /** Cada etapa del flujo abre el listado ya filtrado. */
@@ -29,14 +33,30 @@ function stagePath(group: string) {
 export function MonitorOverviewPage() {
   const summaryQuery = useMonitorSummary()
   const summary = summaryQuery.data
+  const deadlines = useProcessDeadlines()
+
+  function reviewDeadlines() {
+    deadlines.mutate(undefined, {
+      onSuccess: ({ result }) => {
+        const parts = [
+          result.expiredRegistrations ? `${result.expiredRegistrations} ${result.expiredRegistrations === 1 ? 'registro vencido' : 'registros vencidos'}` : null,
+          result.returnsStarted ? `${result.returnsStarted} ${result.returnsStarted === 1 ? 'devolución iniciada' : 'devoluciones iniciadas'}` : null,
+        ].filter(Boolean)
+        showToast(parts.length ? `Plazos revisados: ${parts.join(' y ')}. Se avisó a los clientes.` : 'Plazos revisados: no había nada vencido.')
+      },
+      onError: (error) => showToast(error.message, 'error'),
+    })
+  }
 
   const attention = summary
     ? [
         { label: 'Visitas fallidas', detail: 'El repartidor no pudo entregar.', count: summary.byGroup.NO_ENTREGADOS ?? 0, icon: XCircle, to: '/monitor/incidencias?grupo=NO_ENTREGADOS', tone: 'danger' },
         { label: 'Faltantes en la descarga', detail: 'No aparecieron al descargar en destino.', count: summary.missing, icon: ClipboardCheck, to: '/monitor/incidencias?grupo=FALTANTES', tone: 'danger' },
+        { label: 'Devoluciones', detail: 'No se retiraron a tiempo: vuelven al remitente.', count: summary.byGroup.DEVOLUCIONES ?? 0, icon: Undo2, to: '/monitor/paquetes?grupo=DEVOLUCIONES', tone: 'warning' },
         { label: 'Sin recorrido', detail: 'Quedaron fuera de los recorridos generados.', count: summary.withoutRoute, icon: AlertTriangle, to: '/monitor/incidencias?grupo=SIN_RECORRIDO', tone: 'warning' },
         { label: 'Reclamos en curso', detail: 'Abiertos o en revisión.', count: summary.openClaims, icon: MessageSquareWarning, to: '/monitor/reclamos', tone: 'warning' },
         { label: 'Avisos que no llegaron', detail: 'Se reenvían desde Recibir paquetes.', count: summary.failedNotifications, icon: BellOff, to: '/terminal/recepcion', tone: 'danger' },
+        { label: 'Registros vencidos', detail: 'No se llevaron a la sucursal en 10 días.', count: summary.byGroup.VENCIDOS ?? 0, icon: TimerOff, to: '/monitor/paquetes?grupo=VENCIDOS', tone: 'neutral' },
       ]
     : []
 
@@ -58,10 +78,22 @@ export function MonitorOverviewPage() {
         title="Monitor de envíos"
         description="El estado de todos los paquetes de un vistazo: en qué etapa están, qué necesita atención y qué pasó hoy."
         actions={
-          <button className="btn" type="button" onClick={() => void summaryQuery.refetch()} disabled={summaryQuery.isFetching}>
-            <RefreshCw size={17} className={summaryQuery.isFetching ? 'loading-icon' : undefined} aria-hidden="true" />
-            {summary ? `Actualizado ${formatRelative(summary.generatedAt)}` : 'Actualizar'}
-          </button>
+          <>
+            <button
+              className="btn btn--ghost"
+              type="button"
+              onClick={reviewDeadlines}
+              disabled={deadlines.isPending}
+              title="Vence los registros sin admitir y devuelve lo que no se retiró a tiempo. También se hace solo cada 30 minutos."
+            >
+              <TimerReset size={17} className={deadlines.isPending ? 'loading-icon' : undefined} aria-hidden="true" />
+              {deadlines.isPending ? 'Revisando…' : 'Revisar plazos ahora'}
+            </button>
+            <button className="btn" type="button" onClick={() => void summaryQuery.refetch()} disabled={summaryQuery.isFetching}>
+              <RefreshCw size={17} className={summaryQuery.isFetching ? 'loading-icon' : undefined} aria-hidden="true" />
+              {summary ? `Actualizado ${formatRelative(summary.generatedAt)}` : 'Actualizar'}
+            </button>
+          </>
         }
       />
 

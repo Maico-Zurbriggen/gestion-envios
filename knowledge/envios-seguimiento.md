@@ -43,7 +43,7 @@ En el frontend, el domicilio se solicita como provincia, ciudad, calle y altura;
 
 `terminos_aceptados` debe ser `true` o el backend rechaza la solicitud.
 
-Respuesta exitosa (`201 Created`): devuelve el envío completo, con `token_seguimiento` (uno solo por envío, no por paquete) y cada paquete con su `numero_paquete` propio y estado inicial `"Pendiente"`. Este `numero_paquete` es el valor a codificar en el código de barras de la planilla imprimible (Escenario 4 de HU03); la generación del PDF/planilla es responsabilidad del frontend, el backend solo provee los datos.
+Respuesta exitosa (`201 Created`): devuelve el envío completo, con `token_seguimiento` (uno solo por envío, no por paquete) y cada paquete con su `numero_paquete` propio y estado inicial `"Pendiente"`. Este `numero_paquete` es el valor a codificar en el código de barras del comprobante (Escenario 4 de HU03); la generación del comprobante es responsabilidad del frontend, el backend solo provee los datos. La respuesta incluye `admitir_hasta`, el plazo para llevar el paquete a una sucursal (ver [circuito-logistico.md](./circuito-logistico.md)). El cliente no imprime etiquetas: las imprime la sucursal al admitir el paquete.
 
 El frontend genera una etiqueta por paquete en formato imprimible A4. Cada etiqueta incorpora un código de barras Code 128 construido con `numero_paquete`, además de los datos de remitente, destinatario, destino, peso y medidas. Se puede imprimir desde el navegador o descargar directamente un PDF generado localmente con una página por bulto. El `token_seguimiento` se muestra y puede copiarse, pero no reemplaza al número de paquete utilizado para el escaneo en sucursal.
 

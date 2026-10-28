@@ -344,3 +344,44 @@ section[aria-labelledby='delivery-action-title'] {
     width: 100%;
   }
 }
+
+/* Admisión: aviso de peso y campo con ícono */
+.ops-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-accent-800);
+  background: var(--color-warning-subtle);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+:root[data-theme='dark'] .ops-warning {
+  color: var(--color-accent-200);
+}
+
+.ops-warning svg {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+.ops-input-icon {
+  position: relative;
+  display: block;
+}
+
+.ops-input-icon svg {
+  position: absolute;
+  top: 50%;
+  left: var(--space-4);
+  color: var(--color-text-subtle);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.ops-input-icon .form-control {
+  padding-left: 2.75rem;
+}

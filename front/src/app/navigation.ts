@@ -120,9 +120,9 @@ export const NAVIGATION_MODULES: NavigationModule[] = [
   },
   {
     id: 'unload-control',
-    label: 'Control de descarga',
-    shortLabel: 'Descarga',
-    description: 'Escaneá lo que baja de un recorrido en tu sucursal y compará con lo que tenía que llegar.',
+    label: 'Carga y descarga',
+    shortLabel: 'Carga',
+    description: 'Escaneá lo que sube al vehículo antes de salir y lo que baja al llegar, y compará con lo previsto.',
     path: '/terminal/descarga',
     section: 'operation',
     icon: ClipboardCheck,

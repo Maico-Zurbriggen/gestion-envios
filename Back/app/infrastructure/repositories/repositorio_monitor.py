@@ -20,7 +20,7 @@ from app.domain.constants.estados_logistica import (
     EstadoRecorridoEnum,
     ResultadoEventoEntregaEnum,
 )
-from app.domain.rules.monitor_rules import ESTADOS_RECLAMO_EN_CURSO, MOTIVO_FALTANTE
+from app.domain.rules.monitor_rules import ESTADOS_RECLAMO_EN_CURSO, GRUPOS_ESTADO, MOTIVO_FALTANTE
 from app.infrastructure.db.models import (
     AlertaRecorridoModel,
     ControlDescargaModel,
@@ -94,6 +94,14 @@ class RepositorioMonitor(IRepositorioMonitor):
         filas = await self.db.execute(select(PaqueteModel.estado, func.count()).group_by(PaqueteModel.estado))
         return {estado: int(cantidad) for estado, cantidad in filas.all()}
 
+    async def contar_devoluciones_en_espera(self) -> int:
+        return await self._escalar(
+            select(func.count()).select_from(PaqueteModel).where(
+                PaqueteModel.en_devolucion.is_(True),
+                PaqueteModel.estado.not_in(GRUPOS_ESTADO["DEVOLUCIONES"]),
+            )
+        )
+
     async def contar_envios(self) -> int:
         return await self._escalar(select(func.count()).select_from(EnvioModel))
 
@@ -162,6 +170,7 @@ class RepositorioMonitor(IRepositorioMonitor):
         estados: tuple[str, ...] | None,
         especial: str | None,
         sucursal_id: int | None,
+        devolucion: bool | None = None,
         tipo_entrega: str | None,
         desde: datetime | None,
         hasta: datetime | None,
@@ -183,7 +192,12 @@ class RepositorioMonitor(IRepositorioMonitor):
                 )
             )
         if estados:
-            stmt = stmt.where(PaqueteModel.estado.in_(estados))
+            condicion = PaqueteModel.estado.in_(estados)
+            if devolucion is True:
+                condicion = or_(condicion, PaqueteModel.en_devolucion.is_(True))
+            stmt = stmt.where(condicion)
+            if devolucion is False:
+                stmt = stmt.where(PaqueteModel.en_devolucion.is_(False))
         if especial in ESPECIALES:
             stmt = stmt.where(ESPECIALES[especial]())
         if sucursal_id:
@@ -203,6 +217,7 @@ class RepositorioMonitor(IRepositorioMonitor):
         *,
         buscar: str | None = None,
         estados: tuple[str, ...] | None = None,
+        devolucion: bool | None = None,
         especial: str | None = None,
         sucursal_id: int | None = None,
         tipo_entrega: str | None = None,
@@ -213,7 +228,7 @@ class RepositorioMonitor(IRepositorioMonitor):
         limite: int = 25,
     ) -> tuple[list[Any], int]:
         base = self._filtrado(
-            buscar=buscar, estados=estados, especial=especial, sucursal_id=sucursal_id,
+            buscar=buscar, estados=estados, devolucion=devolucion, especial=especial, sucursal_id=sucursal_id,
             tipo_entrega=tipo_entrega, desde=desde, hasta=hasta,
         )
         total = await self._escalar(select(func.count()).select_from(base.with_only_columns(PaqueteModel.id).subquery()))
@@ -293,6 +308,7 @@ class RepositorioMonitor(IRepositorioMonitor):
             .options(
                 joinedload(PaqueteModel.envio).joinedload(EnvioModel.sucursal_destino),
                 joinedload(PaqueteModel.sucursal_actual),
+                joinedload(PaqueteModel.sucursal_origen),
             )
         )
         return (await self.db.execute(stmt)).unique().scalar_one_or_none()

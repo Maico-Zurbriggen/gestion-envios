@@ -1,12 +1,14 @@
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Path, status
 
-from app.api.dependencies import get_servicio_recepcion_terminal, requerir_roles
+from app.api.dependencies import get_servicio_notificaciones, get_servicio_recepcion_terminal, requerir_roles
+from app.application.interfaces.servicio_notificaciones import IServicioNotificaciones
 from app.application.interfaces.servicio_recepcion_terminal import IServicioRecepcionTerminal
 from app.contracts.recepcion_terminal import (
     EscanearPaqueteResponse,
     RecepcionarPaqueteRequest,
     RecepcionarPaqueteResponse,
 )
+from app.domain.constants.estados_logistica import EstadoPaqueteEnum, TipoAvisoEnum
 from app.domain.constants.roles import RolEnum
 from app.infrastructure.db.models import UsuarioModel
 
@@ -51,16 +53,24 @@ async def escanear_paquete(
 )
 async def recepcionar_paquete(
     datos: RecepcionarPaqueteRequest,
+    tareas: BackgroundTasks,
     codigo: str = Path(
         ...,
         description="Valor leído del código de barras de la planilla (`PAQ-XXXXXXXXXX`) o UUID del paquete.",
     ),
     usuario_vendedor: UsuarioModel = Depends(requerir_roles(ROLES_TERMINAL)),
     servicio_recepcion: IServicioRecepcionTerminal = Depends(get_servicio_recepcion_terminal),
+    notificaciones: IServicioNotificaciones = Depends(get_servicio_notificaciones),
 ):
     """Endpoint de recepción del paquete en terminal. Requiere rol VENDEDOR, ADMINISTRATIVO o SUPERADMIN."""
-    return await servicio_recepcion.recepcionar_paquete(
+    resultado = await servicio_recepcion.recepcionar_paquete(
         codigo=codigo,
         datos=datos,
         usuario_vendedor=usuario_vendedor,
     )
+    # El remitente sabe que su paquete entró a la red; si ya está en la sucursal de
+    # retiro, el destinatario sabe que puede pasar a buscarlo.
+    tareas.add_task(notificaciones.notificar_hito, resultado.data.paquete_id, TipoAvisoEnum.ADMITIDO.value)
+    if resultado.data.estado == EstadoPaqueteEnum.LISTO_PARA_RETIRO.value:
+        tareas.add_task(notificaciones.notificar_hito, resultado.data.paquete_id, TipoAvisoEnum.LISTO_PARA_RETIRO.value)
+    return resultado

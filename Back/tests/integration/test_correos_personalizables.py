@@ -30,12 +30,15 @@ def _payload_envio() -> dict:
 
 
 @pytest.mark.asyncio
-async def test_listado_trae_las_tres_plantillas_de_fabrica(client: AsyncClient, administrativo_token: str):
+async def test_listado_trae_las_plantillas_de_fabrica(client: AsyncClient, administrativo_token: str):
     resp = await client.get(f"{API}/plantillas", headers=_auth(administrativo_token))
     assert resp.status_code == 200
     data = resp.json()["data"]
     claves = [p["clave"] for p in data["plantillas"]]
-    assert claves == ["NUEVO_ENVIO_REMITENTE", "NUEVO_ENVIO_DESTINATARIO", "VISITA_FALLIDA"]
+    assert claves == [
+        "NUEVO_ENVIO_REMITENTE", "NUEVO_ENVIO_DESTINATARIO", "ADMITIDO", "EN_REPARTO", "VISITA_FALLIDA",
+        "LISTO_PARA_RETIRO", "ENTREGADO", "DEVOLUCION", "DEVOLUCION_LISTA", "VENCIDO",
+    ], "una plantilla por cada aviso del circuito, en orden de ocurrencia"
     assert not any(p["personalizada"] for p in data["plantillas"])
     assert data["configuracion"]["nombre_marca"] == "Gestión de Envíos"
     assert {"nombre", "token", "enlace"} <= {v["nombre"] for v in data["plantillas"][0]["variables"]}

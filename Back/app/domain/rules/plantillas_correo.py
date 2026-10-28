@@ -14,7 +14,18 @@ from html import escape
 NUEVO_ENVIO_REMITENTE = "NUEVO_ENVIO_REMITENTE"
 NUEVO_ENVIO_DESTINATARIO = "NUEVO_ENVIO_DESTINATARIO"
 VISITA_FALLIDA = "VISITA_FALLIDA"
-CLAVES = (NUEVO_ENVIO_REMITENTE, NUEVO_ENVIO_DESTINATARIO, VISITA_FALLIDA)
+ADMITIDO = "ADMITIDO"
+EN_REPARTO = "EN_REPARTO"
+LISTO_PARA_RETIRO = "LISTO_PARA_RETIRO"
+ENTREGADO = "ENTREGADO"
+DEVOLUCION = "DEVOLUCION"
+DEVOLUCION_LISTA = "DEVOLUCION_LISTA"
+VENCIDO = "VENCIDO"
+CLAVES = (
+    NUEVO_ENVIO_REMITENTE, NUEVO_ENVIO_DESTINATARIO, ADMITIDO, EN_REPARTO, VISITA_FALLIDA,
+    LISTO_PARA_RETIRO, ENTREGADO, DEVOLUCION, DEVOLUCION_LISTA, VENCIDO,
+)
+CLAVES_CON_LISTA_DE_PAQUETES = (NUEVO_ENVIO_REMITENTE, NUEVO_ENVIO_DESTINATARIO)
 
 CAMPOS_PLANTILLA = ("asunto", "titulo", "mensaje", "texto_boton", "pie")
 CAMPOS_CONFIGURACION = ("nombre_marca", "firma", "telefono_contacto", "email_contacto", "sitio_web", "mensaje_legal")
@@ -28,6 +39,12 @@ VARIABLES_COMUNES = {
     "token": "Código de seguimiento del envío",
     "enlace": "Enlace al seguimiento público",
     "marca": "Nombre de la empresa",
+}
+VARIABLES_SUCURSAL = {
+    "paquete": "Código del paquete",
+    "sucursal": "Sucursal donde se retira",
+    "direccion_sucursal": "Dirección de esa sucursal",
+    "retiro_hasta": "Último día para retirarlo",
 }
 
 
@@ -50,11 +67,12 @@ DEFINICIONES: dict[str, DefinicionPlantilla] = {
         nombre="Envío registrado · a quien envía",
         descripcion="Se manda al remitente apenas registra el envío.",
         variables={**VARIABLES_COMUNES, "destinatario": "Nombre de quien recibe el paquete", "paquetes": "Códigos de los paquetes",
-                   "cantidad_paquetes": "Cantidad de paquetes"},
+                   "cantidad_paquetes": "Cantidad de paquetes", "plazo": "Plazo para llevarlo a una sucursal"},
         asunto="Confirmación de envío - Código de seguimiento: {token}",
         titulo="¡Tu envío ya está registrado!",
         mensaje=("Hola {nombre}, registramos tu envío para {destinatario}.\n\n"
-                 "Llevá el paquete con la planilla impresa a cualquiera de nuestras sucursales. "
+                 "Llevá el paquete a cualquiera de nuestras sucursales dentro de los próximos {plazo} con el "
+                 "comprobante (impreso o en el celular). Ahí lo pesamos y le pegamos la etiqueta de envío.\n\n"
                  "Con el código de seguimiento podés consultar su estado en todo momento."),
         texto_boton="Ver seguimiento",
         pie="Guardá este correo: el código de seguimiento es la llave para consultar tu envío.",
@@ -76,16 +94,106 @@ DEFINICIONES: dict[str, DefinicionPlantilla] = {
         clave=VISITA_FALLIDA,
         nombre="Visita fallida · a quien recibe",
         descripcion="Se manda al destinatario cuando el repartidor no pudo concretar la entrega.",
-        variables={**VARIABLES_COMUNES, "paquete": "Código del paquete", "fecha": "Fecha y hora de la visita"},
+        variables={**VARIABLES_COMUNES, "paquete": "Código del paquete", "fecha": "Fecha y hora de la visita",
+                   "proximo_paso": "Qué pasa ahora (otra visita o retiro en sucursal)"},
         asunto="Aviso de visita - Entrega no concretada",
         titulo="Pasamos a entregar tu paquete",
         mensaje=("Hola {nombre}, el {fecha} visitamos tu domicilio para entregar el paquete {paquete}, "
                  "pero no pudimos concretar la entrega.\n\n"
-                 "Consultá el seguimiento para ver los próximos pasos."),
+                 "{proximo_paso}"),
         texto_boton="Consultar el envío",
         pie="Si necesitás coordinar la entrega, respondé este correo o comunicate con nosotros.",
     ),
 }
+
+DEFINICIONES.update({
+    ADMITIDO: DefinicionPlantilla(
+        clave=ADMITIDO,
+        nombre="Paquete recibido · a quien envía",
+        descripcion="Se manda al remitente cuando la sucursal recibe el paquete y lo despacha.",
+        variables={**VARIABLES_COMUNES, "paquete": "Código del paquete", "sucursal": "Sucursal que lo recibió"},
+        asunto="Recibimos tu paquete {paquete}",
+        titulo="Tu paquete ya está en camino",
+        mensaje=("Hola {nombre}, recibimos el paquete {paquete} en {sucursal}.\n\n"
+                 "Ya está en nuestra red: te vamos a avisar cuando llegue a destino."),
+        texto_boton="Ver seguimiento",
+        pie="Conservá el comprobante hasta que el paquete se entregue.",
+    ),
+    EN_REPARTO: DefinicionPlantilla(
+        clave=EN_REPARTO,
+        nombre="Sale a reparto · a quien recibe",
+        descripcion="Se manda al destinatario el día que el paquete sale a reparto hacia su domicilio.",
+        variables={**VARIABLES_COMUNES, "paquete": "Código del paquete", "visita": "Número de visita (1.ª de 2…)"},
+        asunto="Hoy entregamos tu paquete {paquete}",
+        titulo="Tu paquete sale a reparto hoy",
+        mensaje=("Hola {nombre}, el paquete {paquete} salió a reparto y llega hoy a tu domicilio ({visita}).\n\n"
+                 "Si no vas a estar, puede recibirlo otra persona mayor de 16 años con su DNI."),
+        texto_boton="Seguir el reparto",
+        pie="El repartidor te va a pedir el DNI y una firma al entregarlo.",
+    ),
+    LISTO_PARA_RETIRO: DefinicionPlantilla(
+        clave=LISTO_PARA_RETIRO,
+        nombre="Listo para retirar · a quien recibe",
+        descripcion="Se manda al destinatario cuando el paquete lo espera en una sucursal.",
+        variables={**VARIABLES_COMUNES, **VARIABLES_SUCURSAL, "motivo": "Por qué está en la sucursal"},
+        asunto="Tu paquete {paquete} ya está para retirar",
+        titulo="Tu paquete te espera en {sucursal}",
+        mensaje=("Hola {nombre}, {motivo}\n\n"
+                 "Retiralo en {sucursal} ({direccion_sucursal}) hasta el {retiro_hasta} con tu DNI. "
+                 "También lo puede retirar otra persona con tu autorización firmada y una copia de tu DNI."),
+        texto_boton="Ver el envío",
+        pie="Si no se retira a tiempo, el paquete vuelve a quien lo envió.",
+    ),
+    ENTREGADO: DefinicionPlantilla(
+        clave=ENTREGADO,
+        nombre="Entregado · a ambos",
+        descripcion="Se manda al remitente y al destinatario cuando el paquete se entrega o se retira.",
+        variables={**VARIABLES_COMUNES, "paquete": "Código del paquete", "fecha": "Fecha y hora de la entrega",
+                   "recibio": "Quién lo recibió"},
+        asunto="Entregamos el paquete {paquete}",
+        titulo="¡Paquete entregado!",
+        mensaje="Hola {nombre}, el paquete {paquete} se entregó el {fecha}. Lo recibió {recibio}.",
+        texto_boton="Ver el detalle",
+        pie="Si algo no está bien, podés iniciar un reclamo desde el seguimiento.",
+    ),
+    DEVOLUCION: DefinicionPlantilla(
+        clave=DEVOLUCION,
+        nombre="Vuelve al remitente · a quien envía",
+        descripcion="Se manda al remitente cuando el paquete no se retiró a tiempo y vuelve a origen.",
+        variables={**VARIABLES_COMUNES, "paquete": "Código del paquete", "sucursal": "Sucursal de origen"},
+        asunto="El paquete {paquete} vuelve a vos",
+        titulo="Tu paquete vuelve a origen",
+        mensaje=("Hola {nombre}, el paquete {paquete} no se pudo entregar ni se retiró dentro del plazo.\n\n"
+                 "Lo estamos devolviendo a {sucursal}: te avisamos cuando puedas retirarlo."),
+        texto_boton="Ver seguimiento",
+        pie="Para volver a enviarlo, registrá un envío nuevo con los datos correctos.",
+    ),
+    DEVOLUCION_LISTA: DefinicionPlantilla(
+        clave=DEVOLUCION_LISTA,
+        nombre="Devolución para retirar · a quien envía",
+        descripcion="Se manda al remitente cuando el paquete devuelto ya está en la sucursal de origen.",
+        variables={**VARIABLES_COMUNES, **VARIABLES_SUCURSAL},
+        asunto="Ya podés retirar el paquete devuelto {paquete}",
+        titulo="Tu paquete devuelto te espera",
+        mensaje=("Hola {nombre}, el paquete {paquete} no se retiró dentro del plazo y vuelve a vos.\n\n"
+                 "Ya está en {sucursal} ({direccion_sucursal}): retiralo con tu DNI."),
+        texto_boton="Ver el envío",
+        pie="Llevá el DNI que usaste al registrar el envío.",
+    ),
+    VENCIDO: DefinicionPlantilla(
+        clave=VENCIDO,
+        nombre="Registro vencido · a quien envía",
+        descripcion="Se manda al remitente cuando no llevó el paquete a una sucursal dentro del plazo.",
+        variables={**VARIABLES_COMUNES, "plazo": "Plazo que tenía para llevarlo"},
+        asunto="Venció el registro de tu envío {token}",
+        titulo="El registro de tu envío venció",
+        mensaje=("Hola {nombre}, pasaron más de {plazo} desde que registraste el envío {token} y el paquete no "
+                 "llegó a ninguna de nuestras sucursales, así que lo dimos de baja.\n\n"
+                 "Si todavía querés enviarlo, registrá un envío nuevo."),
+        texto_boton="Registrar un envío",
+        pie="No se te cobró nada por este registro.",
+    ),
+})
 
 CONFIGURACION_DEFECTO = {
     "nombre_marca": "Gestión de Envíos",
@@ -106,6 +214,14 @@ DATOS_EJEMPLO = {
     "cantidad_paquetes": "2",
     "paquete": "PAQ-4D8R2M7KQ1",
     "fecha": "28/10/2026 15:40",
+    "plazo": "10 días",
+    "proximo_paso": "Mañana volvemos a pasar. Es la 1.ª de 2 visitas: si tampoco podemos entregarlo, te esperamos en la sucursal.",
+    "visita": "1.ª de 2 visitas",
+    "sucursal": "Sucursal Córdoba Centro",
+    "direccion_sucursal": "Av. Colón 1050, Córdoba",
+    "retiro_hasta": "06/11/2026",
+    "motivo": "tu paquete ya llegó a la sucursal que elegiste.",
+    "recibio": "Jorge Pereyra",
 }
 
 _VARIABLE = re.compile(r"\{([a-z_]+)\}")

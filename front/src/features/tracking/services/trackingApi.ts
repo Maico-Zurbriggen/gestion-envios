@@ -109,6 +109,13 @@ export async function getShipmentTracking(
       driverLocation: shipmentPackage.ubicacion_repartidor ? {
         latitude: shipmentPackage.ubicacion_repartidor.latitud, longitude: shipmentPackage.ubicacion_repartidor.longitud, updatedAt: shipmentPackage.ubicacion_repartidor.actualizado_at,
       } : null,
+      pickup: shipmentPackage.retiro ? {
+        branch: shipmentPackage.retiro.sucursal, address: shipmentPackage.retiro.direccion,
+        until: shipmentPackage.retiro.hasta, pickedUpBy: shipmentPackage.retiro.lo_retira,
+      } : null,
+      failedVisits: shipmentPackage.visitas_fallidas ?? 0,
+      maxVisits: shipmentPackage.max_visitas ?? 2,
+      isReturn: Boolean(shipmentPackage.en_devolucion),
     })),
   }
 }

@@ -15,6 +15,7 @@ from app.contracts.reparto import (
     UbicacionRequest,
     UbicacionResponse,
 )
+from app.domain.constants.estados_logistica import TipoAvisoEnum, TipoDistanciaEnum
 from app.domain.constants.roles import RolEnum
 from app.infrastructure.db.models import UsuarioModel
 
@@ -51,10 +52,18 @@ async def obtener_recorrido(
 @router.post("/{id}/iniciar", response_model=RecorridoResponse, summary="Iniciar mi recorrido asignado")
 async def iniciar_recorrido(
     id: uuid.UUID,
+    tareas: BackgroundTasks,
     usuario: UsuarioModel = Depends(repartidor_autorizado),
     servicio: IServicioReparto = Depends(get_servicio_reparto),
+    notificaciones: IServicioNotificaciones = Depends(get_servicio_notificaciones),
 ):
-    return await servicio.iniciar(id, usuario)
+    resultado = await servicio.iniciar(id, usuario)
+    # Corta distancia: cada destinatario recibe el aviso de que su paquete llega hoy.
+    if resultado.data.tipo_distancia == TipoDistanciaEnum.CORTA.value:
+        for parada in resultado.data.paradas:
+            for paquete in parada.paquetes:
+                tareas.add_task(notificaciones.notificar_hito, paquete.paquete_id, TipoAvisoEnum.EN_REPARTO.value)
+    return resultado
 
 
 @router.put(
@@ -100,11 +109,15 @@ async def obtener_contacto(
 async def registrar_entrega(
     id: uuid.UUID,
     datos: RegistrarEntregaRequest,
+    tareas: BackgroundTasks,
     codigo: str = Path(..., max_length=40),
     usuario: UsuarioModel = Depends(repartidor_autorizado),
     servicio: IServicioReparto = Depends(get_servicio_reparto),
+    notificaciones: IServicioNotificaciones = Depends(get_servicio_notificaciones),
 ):
-    return await servicio.registrar_entrega(id, codigo, datos, usuario)
+    resultado = await servicio.registrar_entrega(id, codigo, datos, usuario)
+    tareas.add_task(notificaciones.notificar_hito, resultado.data.paquete_id, TipoAvisoEnum.ENTREGADO.value)
+    return resultado
 
 
 @router.post(

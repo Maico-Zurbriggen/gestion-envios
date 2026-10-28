@@ -38,3 +38,6 @@
 .pickup-success button { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 2.75rem; margin-top: var(--space-5); padding: 0 var(--space-4); color: var(--color-primary); background: var(--color-surface); border: 1px solid var(--color-primary); border-radius: var(--radius-md); font: inherit; cursor: pointer; }
 @media (max-width: 620px) { .pickup-search { align-items: stretch; flex-direction: column; } .pickup-summary, .pickup-success dl, .pickup-form__grid { grid-template-columns: 1fr; } .pickup-success { grid-template-columns: 1fr; } }
 @media (max-width: 380px) { .pickup-form__choices label { width: 100%; } .pickup-button { width: 100%; } }
+
+.pickup-return { display: flex; align-items: flex-start; gap: var(--space-2); margin: var(--space-3) 0 0; padding: var(--space-3) var(--space-4); color: var(--color-info); background: var(--color-info-subtle); border-radius: var(--radius-md); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); }
+.pickup-return svg { flex: 0 0 auto; margin-top: 0.1rem; }

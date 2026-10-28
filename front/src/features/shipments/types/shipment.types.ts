@@ -84,6 +84,7 @@ export interface ApiCreatedShipment {
   sucursal_destino: ApiBranch | null
   paquetes: ApiCreatedPackage[]
   created_at: string
+  admitir_hasta?: string | null
 }
 
 export interface CreateShipmentSuccessResponse {
@@ -123,4 +124,6 @@ export interface CreatedShipment {
   destinationBranch: Branch | null
   packages: CreatedPackage[]
   createdAt: string
+  /** Último día para llevarlo a una sucursal; después el registro vence. */
+  admitBy: string | null
 }

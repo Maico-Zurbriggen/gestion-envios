@@ -99,3 +99,11 @@ class IRepositorioRecorridos(Protocol):
     async def confirmar(self) -> None:
         """Confirma la transacción."""
         ...
+
+    async def visitas_fallidas_de(self, paquete_ids: list[UUID]) -> dict[UUID, int]:
+        """Visitas a domicilio sin éxito de cada paquete."""
+        ...
+
+    async def control_de_carga(self, recorrido_id: UUID) -> tuple[str, int] | None:
+        """(estado, verificados) del control de carga del recorrido, si existe."""
+        ...

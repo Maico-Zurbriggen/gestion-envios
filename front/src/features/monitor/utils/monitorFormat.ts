@@ -4,12 +4,17 @@ import {
   Clock3,
   Package,
   Store,
+  TimerOff,
   Truck,
+  Undo2,
   Warehouse,
   XCircle,
   type LucideIcon,
 } from 'lucide-react'
+import { parseApiDate } from '../../../shared/utils/dates'
 import type { PackageGroup, Tone } from '../types/monitor.types'
+
+export { parseApiDate }
 
 export const GROUP_META: Record<PackageGroup, { label: string; icon: LucideIcon; tone: Tone }> = {
   PENDIENTES: { label: 'Pendientes de ingreso', icon: Clock3, tone: 'neutral' },
@@ -18,11 +23,14 @@ export const GROUP_META: Record<PackageGroup, { label: string; icon: LucideIcon;
   PARA_RETIRAR: { label: 'Para retirar', icon: Store, tone: 'warning' },
   NO_ENTREGADOS: { label: 'Visita fallida', icon: XCircle, tone: 'danger' },
   ENTREGADOS: { label: 'Entregados', icon: CircleCheckBig, tone: 'success' },
+  DEVOLUCIONES: { label: 'Devoluciones', icon: Undo2, tone: 'warning' },
+  VENCIDOS: { label: 'Registro vencido', icon: TimerOff, tone: 'neutral' },
   OTROS: { label: 'Otros', icon: Package, tone: 'neutral' },
 }
 
-/** Orden en que avanza un paquete, para la barra de flujo del panel general. */
-export const PIPELINE: ReadonlyArray<Exclude<PackageGroup, 'OTROS'>> = [
+/** Orden en que avanza un paquete, para la barra de flujo del panel general.
+ * Las devoluciones y los registros vencidos se muestran aparte, en «Requieren atención». */
+export const PIPELINE: ReadonlyArray<Exclude<PackageGroup, 'OTROS' | 'DEVOLUCIONES' | 'VENCIDOS'>> = [
   'PENDIENTES',
   'EN_DEPOSITO',
   'EN_CAMINO',
@@ -59,11 +67,6 @@ export const TONE_BADGE: Record<Tone, string> = {
 const dateTime = new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 const dateOnly = new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 const relative = new Intl.RelativeTimeFormat('es-AR', { numeric: 'auto' })
-
-/** La API en SQLite devuelve fechas sin zona horaria: siempre son UTC. */
-export function parseApiDate(value: string) {
-  return new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(value) ? value : `${value}Z`)
-}
 
 export function formatDateTime(value: string) {
   return dateTime.format(parseApiDate(value))

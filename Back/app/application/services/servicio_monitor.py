@@ -45,7 +45,9 @@ from app.domain.rules.monitor_rules import (
     es_estado_duplicado_de_entrega,
     estados_de_grupo,
     etiqueta_estado,
+    filtro_devolucion,
     grupo_de_estado,
+    grupo_de_paquete,
     inicio_del_dia_local,
     ocultar_documento,
 )
@@ -55,12 +57,24 @@ EXPORTACION_MAX = 5000
 
 TIPOS_RECLAMO = {"DEMORA": "Demora", "DANIO": "Daño", "EXTRAVIO": "Extravío", "OTRO": "Otro"}
 ESTADOS_RECLAMO = {"ABIERTO": "abierto", "EN_REVISION": "en revisión", "RESUELTO": "resuelto", "RECHAZADO": "rechazado"}
+MOTIVOS_AVISO = {
+    "NUEVO_ENVIO": "Código de seguimiento",
+    "ADMITIDO": "Paquete recibido",
+    "EN_REPARTO": "Sale a reparto",
+    "VISITA_FALLIDA": "Aviso de visita fallida",
+    "LISTO_PARA_RETIRO": "Listo para retirar",
+    "ENTREGADO": "Paquete entregado",
+    "DEVOLUCION": "Vuelve al remitente",
+    "VENCIDO": "Registro vencido",
+}
+
 MOTIVOS_ALERTA = {
     "SIN_RECORRIDO_ASIGNADO": "Quedó fuera de los recorridos generados.",
     "SIN_REPARTIDOR_DISPONIBLE": "No había repartidores disponibles.",
     "SIN_UBICACION_DESTINO": "El domicilio no tiene ubicación en el mapa.",
     "SIN_SUCURSAL_DESTINO": "Falta la sucursal de destino.",
     "FALTANTE_EN_DESCARGA": "Tenía que bajar en la sucursal de destino y no apareció al controlar la descarga.",
+    "FALTANTE_EN_CARGA": "Estaba en un recorrido pero no se cargó en el vehículo: se quitó del recorrido.",
 }
 
 
@@ -100,7 +114,7 @@ def _paquete(paquete: Any, operativo: dict[str, Any]) -> PaqueteMonitorData:
         numero_paquete=paquete.numero_paquete,
         estado=paquete.estado,
         estado_etiqueta=etiqueta_estado(paquete.estado),
-        grupo=grupo_de_estado(paquete.estado),
+        grupo=grupo_de_paquete(paquete.estado, bool(paquete.en_devolucion)),
         descripcion=paquete.descripcion,
         peso_kg=paquete.peso_kg,
         envio_id=envio.id,
@@ -115,6 +129,8 @@ def _paquete(paquete: Any, operativo: dict[str, Any]) -> PaqueteMonitorData:
         reclamos_en_curso=operativo.get("reclamos", 0),
         sin_recorrido=operativo.get("alerta", False),
         faltante_en_descarga=operativo.get("faltante", False),
+        en_devolucion=bool(getattr(paquete, "en_devolucion", False)),
+        retiro_hasta=getattr(paquete, "retiro_hasta", None),
         created_at=paquete.created_at,
         updated_at=paquete.updated_at,
     )
@@ -130,6 +146,10 @@ class ServicioMonitor:
         ahora = ahora or datetime.now(UTC)
         por_estado = await self.repo.contar_por_estado()
         por_grupo = {grupo: sum(por_estado.get(e, 0) for e in estados) for grupo, estados in GRUPOS_ESTADO.items()}
+        # Una devolución que espera en origen figura como devolución, no como «para retirar».
+        en_espera = await self.repo.contar_devoluciones_en_espera()
+        por_grupo["DEVOLUCIONES"] += en_espera
+        por_grupo["PARA_RETIRAR"] -= en_espera
         especiales = await self.repo.contar_paquetes_especiales()
         actividad = await self.repo.actividad_desde(inicio_del_dia_local(ahora))
         recorridos = await self.repo.recorridos_por_estado(ahora.astimezone(ZONA_HORARIA_LOCAL).date())
@@ -163,12 +183,14 @@ class ServicioMonitor:
     def _filtros(grupo: str | None, tipo_entrega: str | None, desde: datetime | None, hasta: datetime | None) -> dict:
         estados = None
         especial = None
+        devolucion = None
         if grupo:
             clave = grupo.strip().upper()
             if clave in FILTROS_ESPECIALES:
                 especial = clave
             elif estados_de_grupo(clave):
                 estados = estados_de_grupo(clave)
+                devolucion = filtro_devolucion(clave)
             elif clave != "TODOS":
                 raise ValidationException(
                     message="El filtro de grupo no es válido.",
@@ -184,7 +206,7 @@ class ServicioMonitor:
                 message="El rango de fechas no es válido.",
                 errors=[{"field": "hasta", "message": "La fecha final debe ser posterior a la inicial."}],
             )
-        return {"estados": estados, "especial": especial}
+        return {"estados": estados, "devolucion": devolucion, "especial": especial}
 
     async def listar(
         self,
@@ -280,6 +302,8 @@ class ServicioMonitor:
         traza = TrazaPaqueteData(
             paquete=_paquete(paquete, operativo),
             observaciones=paquete.observaciones,
+            peso_admision_kg=paquete.peso_admision_kg,
+            sucursal_origen=getattr(paquete.sucursal_origen, "nombre", None),
             largo_cm=paquete.largo_cm,
             ancho_cm=paquete.ancho_cm,
             alto_cm=paquete.alto_cm,
@@ -321,7 +345,7 @@ class ServicioMonitor:
             notificaciones=[
                 NotificacionTrazaData(
                     canal=n.canal, destinatario_tipo=n.destinatario_tipo, destino=n.destino, estado=n.estado,
-                    motivo="Aviso de visita fallida" if n.evento_entrega_id else "Código de seguimiento",
+                    motivo=MOTIVOS_AVISO.get(n.tipo_aviso or "", "Aviso de visita fallida" if n.evento_entrega_id else "Código de seguimiento"),
                     created_at=n.created_at, updated_at=n.updated_at,
                 )
                 for n in notificaciones
@@ -407,7 +431,9 @@ class ServicioMonitor:
         for n in notificaciones:
             canal = "Email" if n.canal == "EMAIL" else "WhatsApp"
             quien = "remitente" if n.destinatario_tipo == "REMITENTE" else "destinatario"
-            motivo = "aviso de visita fallida" if n.evento_entrega_id else "código de seguimiento"
+            motivo = MOTIVOS_AVISO.get(
+                n.tipo_aviso or "", "Aviso de visita fallida" if n.evento_entrega_id else "Código de seguimiento"
+            ).lower()
             estado = {"ENVIADO": "enviado", "FALLIDO": "falló", "PENDIENTE": "pendiente"}.get(n.estado, n.estado.lower())
             eventos.append(EventoTrazaData(
                 fecha=n.updated_at or n.created_at, tipo="notificacion",

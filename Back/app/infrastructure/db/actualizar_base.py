@@ -58,6 +58,7 @@ ahora el esquema solo cambia por migraciones, así que la lista no crece."""
 
 REVISION_CORREOS = "539e81c168e2"
 REVISION_DESCARGAS = "7f3c2a91d4b8"
+REVISION_CIRCUITO = "c41a7e9d2b55"
 TABLAS_SOLO_POR_MIGRACION = {
     "plantillas_correo": REVISION_CORREOS,
     "configuracion_correo": REVISION_CORREOS,
@@ -133,6 +134,8 @@ def revision_de_base_heredada(conexion: Connection) -> str | None:
         return {columna["name"] for columna in inspector.get_columns(tabla)}
 
     if set(TABLAS_SOLO_POR_MIGRACION) <= tablas:
+        if "tipo_aviso" in columnas("notificaciones_envio"):
+            return REVISION_CIRCUITO
         return REVISION_DESCARGAS
     if {"plantillas_correo", "configuracion_correo"} <= tablas:
         return REVISION_CORREOS

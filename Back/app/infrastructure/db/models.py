@@ -230,6 +230,15 @@ class PaqueteModel(Base):
 
     estado: Mapped[str] = mapped_column(String(30), nullable=False, default="Pendiente")
 
+    sucursal_origen_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("sucursales.id"), nullable=True)
+    """Sucursal donde se admitió el paquete: a ella vuelve si se devuelve al remitente."""
+    peso_admision_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    """Peso medido en la balanza al admitirlo (el del registro lo declara el cliente)."""
+    retiro_hasta: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    """Fecha límite para retirarlo en sucursal; vencida, vuelve al remitente."""
+    en_devolucion: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    """Vuelve (o ya volvió) al remitente: lo retira él en la sucursal de origen."""
+
     sucursal_actual_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("sucursales.id"), nullable=True
     )
@@ -255,6 +264,9 @@ class PaqueteModel(Base):
         "SucursalModel",
         back_populates="paquetes_ubicados_aqui",
         foreign_keys=[sucursal_actual_id],
+    )
+    sucursal_origen: Mapped[Optional["SucursalModel"]] = relationship(
+        "SucursalModel", foreign_keys=[sucursal_origen_id]
     )
     historial_estados: Mapped[list["HistorialEstadoPaqueteModel"]] = relationship(
         "HistorialEstadoPaqueteModel", back_populates="paquete", cascade="all, delete-orphan"
@@ -363,6 +375,12 @@ class NotificacionEnvioModel(Base):
     evento_entrega_id: Mapped[uuid.UUID | None] = mapped_column(
         types.Uuid(as_uuid=True), ForeignKey("eventos_entrega.id"), nullable=True
     )
+    tipo_aviso: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    """Hito avisado (TipoAvisoEnum). Vacío en filas anteriores: se deduce del evento."""
+    paquete_id: Mapped[uuid.UUID | None] = mapped_column(
+        types.Uuid(as_uuid=True), ForeignKey("paquetes.id"), nullable=True
+    )
+    """Paquete al que se refiere el aviso, cuando el hito es de un paquete puntual."""
     procesando_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     canal: Mapped[str] = mapped_column(String(10), nullable=False)
     destinatario_tipo: Mapped[str] = mapped_column(String(15), nullable=False)
@@ -670,19 +688,22 @@ class ConfiguracionCorreoModel(Base):
 
 
 class ControlDescargaModel(Base):
-    """Control de la descarga de un recorrido de larga distancia en una sucursal
-    de destino: el personal escanea cada paquete que baja del vehículo y el
-    sistema lo compara con lo que tenía que llegar."""
+    """Control de carga o descarga de un recorrido: el personal escanea cada
+    paquete que sube al vehículo en la sucursal de origen (CARGA) o que baja en
+    una sucursal de destino (DESCARGA), y el sistema lo compara con lo esperado."""
 
     __tablename__ = "controles_descarga"
     __table_args__ = (
-        UniqueConstraint("recorrido_id", "sucursal_id", name="uq_control_descarga_recorrido_sucursal"),
+        UniqueConstraint("recorrido_id", "sucursal_id", "tipo", name="uq_control_descarga_recorrido_sucursal"),
         CheckConstraint("estado IN ('EN_CURSO', 'CERRADO')", name="ck_controles_descarga_estado"),
+        CheckConstraint("tipo IN ('CARGA', 'DESCARGA')", name="ck_controles_descarga_tipo"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(types.Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     recorrido_id: Mapped[uuid.UUID] = mapped_column(types.Uuid(as_uuid=True), ForeignKey("recorridos.id"), nullable=False)
     sucursal_id: Mapped[int] = mapped_column(Integer, ForeignKey("sucursales.id"), nullable=False)
+    tipo: Mapped[str] = mapped_column(String(10), nullable=False, default="DESCARGA", server_default="DESCARGA")
+    """CARGA en la sucursal de origen antes de salir; DESCARGA en la de destino al llegar."""
     estado: Mapped[str] = mapped_column(String(10), nullable=False, default="EN_CURSO")
     iniciado_por_id: Mapped[uuid.UUID] = mapped_column(types.Uuid(as_uuid=True), ForeignKey("usuarios.id"), nullable=False)
     cerrado_por_id: Mapped[uuid.UUID | None] = mapped_column(

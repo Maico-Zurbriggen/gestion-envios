@@ -15,6 +15,8 @@ GRUPOS_ESTADO: dict[str, tuple[str, ...]] = {
     "PARA_RETIRAR": (E.LISTO_PARA_RETIRO.value,),
     "NO_ENTREGADOS": (E.ENTREGA_FALLIDA.value,),
     "ENTREGADOS": (E.ENTREGADO.value, E.RETIRADO.value, E.ENTREGADO_EN_SUCURSAL.value),
+    "DEVOLUCIONES": (E.EN_DEVOLUCION.value, E.DEVUELTO.value),
+    "VENCIDOS": (E.VENCIDO.value,),
 }
 """Grupos del monitor, en el orden en que avanza un paquete."""
 
@@ -36,6 +38,9 @@ ETIQUETAS_ESTADO: dict[str, str] = {
     E.ENTREGA_FALLIDA.value: "Visita fallida",
     E.RETIRADO.value: "Retirado",
     E.ENTREGADO_EN_SUCURSAL.value: "Retirado en sucursal",
+    E.EN_DEVOLUCION.value: "En devolución",
+    E.DEVUELTO.value: "Devuelto al remitente",
+    E.VENCIDO.value: "Registro vencido",
 }
 
 ESTADOS_DE_ENTREGA = frozenset(
@@ -54,6 +59,17 @@ def grupo_de_estado(estado: str) -> str:
         if estado in estados:
             return grupo
     return "OTROS"
+
+
+def grupo_de_paquete(estado: str, en_devolucion: bool) -> str:
+    """Como `grupo_de_estado`, pero un paquete que vuelve al remitente es siempre una devolución,
+    aunque esté esperando en la sucursal de origen («Listo para retirar»)."""
+    return "DEVOLUCIONES" if en_devolucion else grupo_de_estado(estado)
+
+
+def filtro_devolucion(grupo: str) -> bool | None:
+    """Cómo filtrar `en_devolucion` en un grupo: incluirlas, excluirlas o no filtrar."""
+    return {"DEVOLUCIONES": True, "PARA_RETIRAR": False}.get(grupo)
 
 
 def etiqueta_estado(estado: str) -> str:

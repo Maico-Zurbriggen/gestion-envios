@@ -1,4 +1,4 @@
-"""control de descarga en sucursal de destino
+"""control de carga y descarga de recorridos
 
 Revision ID: 7f3c2a91d4b8
 Revises: 539e81c168e2
@@ -23,6 +23,7 @@ def upgrade() -> None:
         sa.Column('id', sa.Uuid(), nullable=False),
         sa.Column('recorrido_id', sa.Uuid(), nullable=False),
         sa.Column('sucursal_id', sa.Integer(), nullable=False),
+        sa.Column('tipo', sa.String(length=10), server_default='DESCARGA', nullable=False),
         sa.Column('estado', sa.String(length=10), nullable=False),
         sa.Column('iniciado_por_id', sa.Uuid(), nullable=False),
         sa.Column('cerrado_por_id', sa.Uuid(), nullable=True),
@@ -30,12 +31,13 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.Column('cerrado_at', sa.DateTime(timezone=True), nullable=True),
         sa.CheckConstraint("estado IN ('EN_CURSO', 'CERRADO')", name='ck_controles_descarga_estado'),
+        sa.CheckConstraint("tipo IN ('CARGA', 'DESCARGA')", name='ck_controles_descarga_tipo'),
         sa.ForeignKeyConstraint(['cerrado_por_id'], ['usuarios.id']),
         sa.ForeignKeyConstraint(['iniciado_por_id'], ['usuarios.id']),
         sa.ForeignKeyConstraint(['recorrido_id'], ['recorridos.id']),
         sa.ForeignKeyConstraint(['sucursal_id'], ['sucursales.id']),
         sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('recorrido_id', 'sucursal_id', name='uq_control_descarga_recorrido_sucursal'),
+        sa.UniqueConstraint('recorrido_id', 'sucursal_id', 'tipo', name='uq_control_descarga_recorrido_sucursal'),
     )
     op.create_table(
         'lecturas_descarga',

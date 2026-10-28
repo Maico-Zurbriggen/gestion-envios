@@ -2,7 +2,7 @@
 
 import hashlib
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from app.application.interfaces.repositorio_entregas import IRepositorioEntregas
@@ -35,9 +35,11 @@ from app.domain.constants.estados_logistica import (
     EstadoRecorridoEnum,
     EstadoRecorridoPaqueteEnum,
     ResultadoEventoEntregaEnum,
+    TipoAvisoEnum,
     TipoDistanciaEnum,
     TipoEventoEntregaEnum,
 )
+from app.domain.rules.circuito_rules import agoto_visitas, sumar_dias_habiles
 from app.domain.rules.recepcion_rules import normalizar_codigo_escaneado
 from app.domain.rules.recorrido_rules import distancia_haversine_km
 from app.domain.rules.reparto_rules import decodificar_firma_png, receptor_mayor_de_16
@@ -243,6 +245,10 @@ class ServicioReparto(IServicioReparto):
             )
         paquete = rp.paquete
         nuevo_estado = EstadoPaqueteEnum.ENTREGADO.value if exitoso else EstadoPaqueteEnum.ENTREGA_FALLIDA.value
+        # Tras la última visita sin éxito el paquete deja de salir a reparto: al volver
+        # el vehículo queda en la sucursal para que el destinatario lo retire.
+        visitas = 0 if exitoso else await self.entregas.contar_visitas_fallidas(paquete.id) + 1
+        queda_para_retiro = not exitoso and agoto_visitas(visitas, settings.MAX_VISITAS_DOMICILIO)
         evento = EventoEntregaModel(
             id=uuid.uuid4(),
             operacion_id=datos.operacion_id,
@@ -267,7 +273,19 @@ class ServicioReparto(IServicioReparto):
         posicion = await self.repo.obtener_posicion(usuario.id)
         if posicion and posicion.recorrido_id == id:
             evento.latitud, evento.longitud = posicion.latitud, posicion.longitud
-        await self.repo.actualizar_estado_paquete(paquete.id, EstadoPaqueteEnum.EN_REPARTO.value, nuevo_estado)
+        # Una visita fallida vuelve con el vehículo a la sucursal de donde salió: desde ahí
+        # se reintenta en otro recorrido o, tras la última visita, se retira.
+        await self.repo.actualizar_estado_paquete(
+            paquete.id,
+            EstadoPaqueteEnum.EN_REPARTO.value,
+            nuevo_estado,
+            None if exitoso else recorrido.sucursal_origen_id,
+        )
+        if queda_para_retiro:
+            await self.repo.actualizar_estado_paquete(
+                paquete.id, nuevo_estado, EstadoPaqueteEnum.LISTO_PARA_RETIRO.value, recorrido.sucursal_origen_id
+            )
+            paquete.retiro_hasta = sumar_dias_habiles(ahora, settings.PLAZO_RETIRO_DIAS_HABILES)
         rp.estado_en_recorrido = (
             EstadoRecorridoPaqueteEnum.ENTREGADO.value if exitoso else EstadoRecorridoPaqueteEnum.FALLIDO.value
         )
@@ -285,6 +303,21 @@ class ServicioReparto(IServicioReparto):
                 observacion="Entrega a domicilio completada." if exitoso else "Aviso de visita: entrega no concretada.",
             )
         )
+        if queda_para_retiro:
+            await self.repo.agregar(
+                HistorialEstadoPaqueteModel(
+                    paquete_id=paquete.id,
+                    estado_anterior=nuevo_estado,
+                    estado_nuevo=EstadoPaqueteEnum.LISTO_PARA_RETIRO.value,
+                    usuario_id=None,
+                    sucursal_id=recorrido.sucursal_origen_id,
+                    created_at=ahora + timedelta(seconds=1),
+                    observacion=(
+                        f"Se hicieron las {settings.MAX_VISITAS_DOMICILIO} visitas previstas: queda para retirar "
+                        "en la sucursal al volver el vehículo."
+                    ),
+                )
+            )
         if not exitoso:
             # El aviso pendiente se guarda en la MISMA transacción que la visita.
             # Un aviso por canal (email y WhatsApp), como pide HU12 Escenario 3.
@@ -298,6 +331,8 @@ class ServicioReparto(IServicioReparto):
                         id=uuid.uuid4(),
                         envio_id=paquete.envio_id,
                         evento_entrega_id=evento.id,
+                        paquete_id=paquete.id,
+                        tipo_aviso=TipoAvisoEnum.VISITA_FALLIDA.value,
                         canal=canal,
                         destinatario_tipo=DestinatarioNotificacionEnum.DESTINATARIO.value,
                         destino=(destino or "").strip()[:150],

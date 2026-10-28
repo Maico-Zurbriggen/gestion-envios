@@ -3,10 +3,11 @@ import { useAppSelector } from '../../../app/store'
 import { selectAuthToken } from '../../auth/redux/authSlice'
 import {
   closeUnloadControl,
-  getIncomingRoutes,
+  getRoutesToControl,
   getUnloadControl,
   registerRead,
   startUnloadControl,
+  type ControlType,
 } from '../services/unloadApi'
 
 const UNLOAD_KEY = ['terminal', 'unload'] as const
@@ -19,11 +20,11 @@ function useToken() {
   }
 }
 
-export function useIncomingRoutes(branchId: number | null) {
+export function useRoutesToControl(branchId: number | null, type: ControlType) {
   const token = useAppSelector(selectAuthToken)
   return useQuery({
-    queryKey: [...UNLOAD_KEY, 'incoming', branchId],
-    queryFn: () => getIncomingRoutes(branchId ?? 0, token ?? ''),
+    queryKey: [...UNLOAD_KEY, 'incoming', type, branchId],
+    queryFn: () => getRoutesToControl(branchId ?? 0, type, token ?? ''),
     enabled: Boolean(token && branchId),
     refetchInterval: 30_000,
   })
@@ -47,7 +48,8 @@ export function useUnloadMutations() {
 
   return {
     start: useMutation({
-      mutationFn: ({ routeId, branchId }: { routeId: string; branchId: number }) => startUnloadControl(routeId, branchId, requireToken()),
+      mutationFn: ({ routeId, branchId, type }: { routeId: string; branchId: number; type: ControlType }) =>
+        startUnloadControl(routeId, branchId, type, requireToken()),
       onSuccess: (control) => {
         store(control)
         void queryClient.invalidateQueries({ queryKey: [...UNLOAD_KEY, 'incoming'] })

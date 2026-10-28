@@ -771,3 +771,58 @@
   min-height: auto;
   background: none;
 }
+
+/* Avisos de cada paquete: visitas, devolución, vencimiento y retiro */
+.tracking-notice {
+  --tone: var(--color-info);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3) var(--space-4);
+  background: color-mix(in srgb, var(--tone) 9%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--tone) 30%, transparent);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+.tracking-notice > svg {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+  color: var(--tone);
+}
+
+.tracking-notice--warning {
+  --tone: var(--color-warning);
+}
+
+.tracking-notice--danger {
+  --tone: var(--color-danger);
+}
+
+.tracking-pickup {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-success-subtle);
+  border: 1px solid color-mix(in srgb, var(--color-success) 35%, transparent);
+  border-radius: var(--radius-md);
+}
+
+.tracking-pickup > svg {
+  flex: 0 0 auto;
+  color: var(--color-success);
+}
+
+.tracking-pickup > div {
+  min-width: 0;
+  display: grid;
+  gap: 0.2rem;
+  font-size: var(--font-size-sm);
+}
+
+.tracking-pickup small {
+  color: var(--color-text-muted);
+}

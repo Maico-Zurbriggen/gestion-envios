@@ -1,10 +1,11 @@
-"""Control de descarga en la sucursal de destino (escaneo de lo que baja del vehículo)."""
+"""Control de carga (sucursal de origen) y de descarga (sucursal de destino) de los recorridos."""
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 
-from app.api.dependencies import get_servicio_descargas, requerir_roles
+from app.api.dependencies import get_servicio_descargas, get_servicio_notificaciones, requerir_roles
+from app.application.interfaces.servicio_notificaciones import IServicioNotificaciones
 from app.application.services.servicio_descargas import ServicioDescargas
 from app.contracts.descargas import (
     CerrarControlRequest,
@@ -14,10 +15,11 @@ from app.contracts.descargas import (
     RegistrarLecturaRequest,
     ResultadoLecturaResponse,
 )
+from app.domain.constants.estados_logistica import TipoAvisoEnum
 from app.domain.constants.roles import RolEnum
 from app.infrastructure.db.models import UsuarioModel
 
-router = APIRouter(prefix="/terminal/descargas", tags=["Control de descarga"])
+router = APIRouter(prefix="/terminal/descargas", tags=["Control de carga y descarga"])
 PERSONAL = [RolEnum.VENDEDOR, RolEnum.ADMINISTRATIVO, RolEnum.SUPERADMIN]
 """El mismo personal que recibe paquetes en la terminal."""
 
@@ -33,6 +35,19 @@ async def recorridos_entrantes(
     servicio: ServicioDescargas = Depends(get_servicio_descargas),
 ):
     return await servicio.recorridos_entrantes(sucursal_id)
+
+
+@router.get(
+    "/recorridos-salientes",
+    response_model=RecorridosEntrantesResponse,
+    summary="Recorridos que salen de la sucursal y todavía no iniciaron (control de carga)",
+)
+async def recorridos_salientes(
+    sucursal_id: int = Query(..., ge=1),
+    _usuario: UsuarioModel = Depends(requerir_roles(PERSONAL)),
+    servicio: ServicioDescargas = Depends(get_servicio_descargas),
+):
+    return await servicio.recorridos_salientes(sucursal_id)
 
 
 @router.post(
@@ -62,10 +77,15 @@ async def detalle_control(
 async def registrar_lectura(
     id: uuid.UUID,
     datos: RegistrarLecturaRequest,
+    tareas: BackgroundTasks,
     usuario: UsuarioModel = Depends(requerir_roles(PERSONAL)),
     servicio: ServicioDescargas = Depends(get_servicio_descargas),
+    notificaciones: IServicioNotificaciones = Depends(get_servicio_notificaciones),
 ):
-    return await servicio.registrar_lectura(id, datos, usuario)
+    resultado = await servicio.registrar_lectura(id, datos, usuario)
+    if resultado.data.listo_para_retiro and resultado.data.paquete_id and not resultado.data.repetida:
+        tareas.add_task(notificaciones.notificar_hito, resultado.data.paquete_id, TipoAvisoEnum.LISTO_PARA_RETIRO.value)
+    return resultado
 
 
 @router.post("/{id}/cerrar", response_model=ControlDescargaResponse, summary="Cerrar el control y registrar los faltantes")

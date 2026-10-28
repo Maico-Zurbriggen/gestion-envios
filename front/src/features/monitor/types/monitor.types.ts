@@ -1,4 +1,6 @@
-export type PackageGroup = 'PENDIENTES' | 'EN_DEPOSITO' | 'EN_CAMINO' | 'PARA_RETIRAR' | 'NO_ENTREGADOS' | 'ENTREGADOS' | 'OTROS'
+export type PackageGroup =
+  | 'PENDIENTES' | 'EN_DEPOSITO' | 'EN_CAMINO' | 'PARA_RETIRAR' | 'NO_ENTREGADOS' | 'ENTREGADOS'
+  | 'DEVOLUCIONES' | 'VENCIDOS' | 'OTROS'
 export type SpecialFilter = 'CON_PROBLEMAS' | 'SIN_RECORRIDO' | 'CON_RECLAMO' | 'FALTANTES'
 export type GroupFilter = 'TODOS' | Exclude<PackageGroup, 'OTROS'> | SpecialFilter
 export type MonitorOrder = 'movimiento' | 'recientes' | 'antiguos'
@@ -52,8 +54,21 @@ export interface ApiMonitorPackage {
   reclamos_en_curso: number
   sin_recorrido: boolean
   faltante_en_descarga: boolean
+  en_devolucion?: boolean
+  retiro_hasta?: string | null
   created_at: string
   updated_at: string
+}
+
+export interface ApiDeadlinesResult {
+  registros_vencidos: number
+  devoluciones_iniciadas: number
+  procesado_at: string
+}
+
+export interface DeadlinesResult {
+  expiredRegistrations: number
+  returnsStarted: number
 }
 
 export interface ApiMonitorPage {
@@ -81,6 +96,8 @@ export interface ApiTraceEvent {
 export interface ApiTrace {
   paquete: ApiMonitorPackage
   observaciones: string | null
+  peso_admision_kg?: number | null
+  sucursal_origen?: string | null
   largo_cm: number
   ancho_cm: number
   alto_cm: number
@@ -181,6 +198,10 @@ export interface MonitorPackage {
   activeClaims: number
   withoutRoute: boolean
   missingAtUnload: boolean
+  /** No se retiró a tiempo y vuelve a quien lo envió. */
+  isReturn: boolean
+  /** Fecha límite para retirarlo en la sucursal, si está esperando. */
+  pickupUntil: string | null
   createdAt: string
   updatedAt: string
 }
@@ -229,6 +250,10 @@ export interface Person {
 export interface PackageTrace {
   package: MonitorPackage
   notes: string | null
+  /** Peso medido en la balanza al admitirlo. */
+  scaleWeightKg: number | null
+  /** Sucursal donde se admitió. */
+  originBranch: string | null
   dimensions: { length: number; width: number; height: number }
   sender: Person
   recipient: Person

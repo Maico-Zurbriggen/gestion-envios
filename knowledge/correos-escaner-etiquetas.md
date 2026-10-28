@@ -3,7 +3,7 @@
 ## Correos a clientes
 
 - Ruta: `/admin/correos`. Acceso: `ADMINISTRATIVO` y `SUPERADMIN`.
-- Plantillas: `NUEVO_ENVIO_REMITENTE`, `NUEVO_ENVIO_DESTINATARIO` y `VISITA_FALLIDA`.
+- Plantillas, en el orden en que ocurren: `NUEVO_ENVIO_REMITENTE`, `NUEVO_ENVIO_DESTINATARIO`, `ADMITIDO`, `EN_REPARTO`, `VISITA_FALLIDA`, `LISTO_PARA_RETIRO`, `ENTREGADO`, `DEVOLUCION`, `DEVOLUCION_LISTA` y `VENCIDO`. Cuándo se manda cada una está en [circuito-logistico.md](./circuito-logistico.md).
 - Campos editables de cada plantilla: asunto, título, mensaje, texto del botón y nota final.
 - Datos de la empresa, comunes a todos los correos: nombre, firma, teléfono, email, sitio web y aviso legal.
 - **Variables:** se escriben entre llaves, por ejemplo `{nombre}` o `{token}`. Una variable que la plantilla no admite devuelve un error 400 que indica el campo.
@@ -47,4 +47,8 @@ Perfiles tomados de Soderia ERP, en `front/src/shared/printing/printerProfiles.t
 - **Diseños:** las etiquetas chicas llevan código de barras Code 128 y número; desde 50×100 llevan todos los datos del envío.
 - **Cómo se imprime:** desde un `iframe` oculto con `@page { size; margin: 0 }`. La impresora se elige en el diálogo del navegador, y su driver debe tener el mismo tamaño de papel.
 - **Configuración:** impresora, tamaño y copias (1 a 10). Se guarda por puesto con la clave `gestion-envios.impresion`.
-- **Dónde está:** en el resultado del registro de envío («Imprimir etiquetas») y en la recepción en terminal («Reimprimir etiqueta»).
+- **Quién imprime:** la sucursal, al admitir el paquete. El cliente no imprime etiquetas térmicas: recibe un comprobante que puede mostrar en el celular.
+- **Dónde está:**
+  - en la recepción en terminal, con impresión automática al admitir (casilla recordada por puesto) e «Imprimir etiqueta» o «Reimprimir etiqueta» en cada paquete;
+  - en el resultado del registro, solo para el personal («Imprimir etiquetas (mostrador)»);
+  - en la trazabilidad del monitor («Imprimir etiqueta»).

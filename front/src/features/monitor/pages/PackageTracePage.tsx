@@ -21,7 +21,9 @@ import {
   Phone,
   RefreshCw,
   Route,
+  TimerOff,
   Truck,
+  Undo2,
   UserRound,
   XCircle,
   type LucideIcon,
@@ -37,7 +39,7 @@ import { selectAuthToken } from '../../auth/redux/authSlice'
 import { PackageSearchBar } from '../components/PackageSearchBar'
 import { usePackageTrace } from '../hooks/useMonitor'
 import { getSignature } from '../services/monitorApi'
-import type { PackageTrace, TraceEvent, TraceEventType } from '../types/monitor.types'
+import type { PackageGroup, PackageTrace, TraceEvent, TraceEventType } from '../types/monitor.types'
 import { CLAIM_STATUS_META, CLAIM_TYPE_LABELS, formatDateTime, formatDay, GROUP_META } from '../utils/monitorFormat'
 
 const EVENT_ICONS: Record<TraceEventType, LucideIcon> = {
@@ -192,12 +194,26 @@ function TraceView({ code }: { code: string }) {
 
       <TraceProgress trace={trace} />
 
-      {item.missingAtUnload || item.withoutRoute || item.failedAttempts || item.activeClaims ? (
+      {item.missingAtUnload || item.withoutRoute || item.failedAttempts || item.activeClaims || item.isReturn || item.group === 'VENCIDOS' ? (
         <div className="trace-alerts" role="status">
           {item.missingAtUnload ? (
             <p className="trace-alert tone-danger">
               <ClipboardCheck size={18} aria-hidden="true" />
               No apareció al controlar la descarga en la sucursal de destino. Revisá la línea de tiempo.
+            </p>
+          ) : null}
+          {item.isReturn ? (
+            <p className="trace-alert tone-warning">
+              <Undo2 size={18} aria-hidden="true" />
+              {item.status === 'DEVUELTO'
+                ? 'No se retiró a tiempo y ya se devolvió al remitente.'
+                : 'No se retiró dentro del plazo: vuelve a la sucursal de origen para que lo retire el remitente.'}
+            </p>
+          ) : null}
+          {item.group === 'VENCIDOS' ? (
+            <p className="trace-alert tone-warning">
+              <TimerOff size={18} aria-hidden="true" />
+              No se llevó a ninguna sucursal dentro de los 10 días del registro. Si el cliente lo trae, tiene que registrar un envío nuevo.
             </p>
           ) : null}
           {item.withoutRoute ? (
@@ -259,7 +275,8 @@ function TraceView({ code }: { code: string }) {
             </h2>
             <dl className="trace-dl">
               <div><dt>Contenido</dt><dd>{item.description}</dd></div>
-              <div><dt>Peso</dt><dd>{item.weightKg} kg</dd></div>
+              <div><dt>Peso declarado</dt><dd>{item.weightKg} kg</dd></div>
+              {trace.scaleWeightKg !== null ? <div><dt>Peso en balanza</dt><dd>{trace.scaleWeightKg} kg</dd></div> : null}
               <div><dt>Medidas</dt><dd>{formatDimensions(trace.dimensions.length, trace.dimensions.width, trace.dimensions.height)}</dd></div>
               <div>
                 <dt>Seguimiento</dt>
@@ -274,7 +291,9 @@ function TraceView({ code }: { code: string }) {
                 </dd>
               </div>
               <div><dt>Registrado</dt><dd>{formatDateTime(item.createdAt)}</dd></div>
+              {trace.originBranch ? <div><dt>Admitido en</dt><dd>{trace.originBranch}</dd></div> : null}
               {item.currentBranch ? <div><dt>Ubicado en</dt><dd>{item.currentBranch}</dd></div> : null}
+              {item.pickupUntil ? <div><dt>Retirar hasta</dt><dd>{formatDateTime(item.pickupUntil)}</dd></div> : null}
               {trace.notes ? <div><dt>Observaciones</dt><dd>{trace.notes}</dd></div> : null}
             </dl>
           </section>
@@ -452,16 +471,18 @@ function TraceView({ code }: { code: string }) {
 function TraceProgress({ trace }: { trace: PackageTrace }) {
   const item = trace.package
   const home = item.deliveryType === 'domicilio'
-  const failed = item.group === 'NO_ENTREGADOS'
+  const failed = item.group === 'NO_ENTREGADOS' || item.group === 'VENCIDOS'
   // A domicilio: el reparto es una etapa propia; a sucursal, la espera para retirar.
-  const reachedByGroup = { PENDIENTES: 0, EN_DEPOSITO: 1, EN_CAMINO: 2, PARA_RETIRAR: 3, NO_ENTREGADOS: 3, ENTREGADOS: 4, OTROS: 0 }
+  const reachedByGroup: Record<PackageGroup, number> = {
+    PENDIENTES: 0, VENCIDOS: 0, EN_DEPOSITO: 1, EN_CAMINO: 2, PARA_RETIRAR: 3, NO_ENTREGADOS: 3, DEVOLUCIONES: 3, ENTREGADOS: 4, OTROS: 0,
+  }
   const reached = home && item.status === 'EN_REPARTO' ? 3 : reachedByGroup[item.group]
   const steps = [
     'Registrado',
     'En terminal',
     'En tránsito',
-    home ? (failed ? 'Visita fallida' : 'En reparto') : 'Para retirar',
-    home ? 'Entregado' : 'Retirado',
+    item.group === 'VENCIDOS' ? 'Vencido' : home ? (item.group === 'NO_ENTREGADOS' ? 'Visita fallida' : 'En reparto') : 'Para retirar',
+    item.isReturn ? 'Devuelto' : home ? 'Entregado' : 'Retirado',
   ]
   return (
     <ol className="trace-progress" aria-label={`Etapa actual: ${item.statusLabel}`}>

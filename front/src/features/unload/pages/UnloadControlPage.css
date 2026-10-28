@@ -306,3 +306,19 @@
     width: 100%;
   }
 }
+
+.unload-mode {
+  margin-bottom: var(--space-4);
+}
+
+.unload-mode button {
+  min-height: 2.5rem;
+  padding: 0 var(--space-4);
+  font-size: var(--font-size-sm);
+}
+
+.unload-result__hint {
+  margin-top: var(--space-1) !important;
+  color: var(--color-success-text);
+  font-weight: var(--font-weight-semibold);
+}

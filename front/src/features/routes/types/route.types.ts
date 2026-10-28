@@ -55,10 +55,14 @@ export interface ApiRouteDetail extends ApiRouteSummary {
       token_seguimiento: string
       destinatario_nombre: string
       destinatario_telefono: string
+      visitas_previas?: number
+      en_devolucion?: boolean
     }>
   }>
   trazado: Array<{ latitud: number; longitud: number }>
   paquetes_sin_ubicacion: number
+  max_visitas?: number
+  control_carga?: { estado: 'EN_CURSO' | 'CERRADO'; verificados: number; esperados: number } | null
 }
 
 export interface ApiRouteAlert {
@@ -144,6 +148,10 @@ export interface RoutePackage {
   trackingToken: string
   recipientName: string
   recipientPhone: string
+  /** Visitas a domicilio sin éxito antes de este recorrido. */
+  previousVisits: number
+  /** Viaja de vuelta a la sucursal de origen. */
+  isReturn: boolean
 }
 
 export interface RouteStop {
@@ -162,6 +170,9 @@ export interface DeliveryRoute extends DeliveryRouteSummary {
   stops: RouteStop[]
   path: Array<{ latitude: number; longitude: number }>
   packagesWithoutLocation: number
+  maxVisits: number
+  /** Escaneo de lo que subió al vehículo en la sucursal de origen, si se hizo. */
+  loadControl: { status: 'EN_CURSO' | 'CERRADO'; verified: number; expected: number } | null
 }
 
 export interface RouteAlert {

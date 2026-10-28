@@ -488,13 +488,22 @@ async def test_hu13_paquete_que_no_llego_a_la_sucursal_no_se_retira(
 async def test_hu13_envio_a_domicilio_no_se_retira_en_sucursal(
     client: AsyncClient, administrativo_token: str, db_session: AsyncSession
 ):
-    paquete = await _crear_paquete_test(db_session, numero_paquete="PAQ-DOMICILIO1")
+    """Un envío a domicilio que espera el reparto no se retira en sucursal; solo
+    cuando agota las visitas queda «listo para retirar» en la sucursal donde está."""
+    paquete = await _crear_paquete_test(
+        db_session, numero_paquete="PAQ-DOMICILIO1", estado=EstadoPaqueteEnum.EN_SUCURSAL_DESTINO.value
+    )
     envio = await db_session.get(EnvioModel, paquete.envio_id)
     envio.tipo_entrega = "domicilio"
     await db_session.commit()
     resp = await _retirar(client, administrativo_token, paquete, _payload_titular())
     assert resp.status_code == 400
     assert "tipo_entrega" in [e["field"] for e in resp.json()["errors"]]
+
+    paquete.estado = EstadoPaqueteEnum.LISTO_PARA_RETIRO.value
+    await db_session.commit()
+    resp = await _retirar(client, administrativo_token, paquete, _payload_titular())
+    assert resp.status_code == 200, "tras las visitas sin éxito se retira en la sucursal donde quedó"
 
 
 @pytest.mark.asyncio

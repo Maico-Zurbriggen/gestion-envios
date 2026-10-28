@@ -53,7 +53,7 @@ def test_base_vacia_se_crea_completa_con_alembic(base_sqlite):
     ruta, url = base_sqlite
     resultado = actualizar_esquema(url)
     assert resultado.revision_anterior is None
-    assert len(resultado.pendientes) >= 4
+    assert len(resultado.pendientes) >= 5
     assert _version(ruta) == resultado.revision_head
     # Repetirlo no hace nada.
     assert actualizar_esquema(url).pendientes == []
@@ -103,7 +103,7 @@ def test_estado_informa_pendientes_sin_modificar(base_sqlite):
     config = configuracion_alembic(url)
     command.upgrade(config, actualizar_base.REVISION_INICIAL)
     estado = estado_esquema(url, comparar_modelos=False)
-    assert not estado.al_dia and len(estado.pendientes) == 4
+    assert not estado.al_dia and len(estado.pendientes) == 5
     assert _version(ruta) == actualizar_base.REVISION_INICIAL
 
 

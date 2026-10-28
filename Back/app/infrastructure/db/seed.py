@@ -27,6 +27,10 @@ SUCURSALES_BASE = [
     {"nombre": "Sucursal Mar del Plata", "provincia": "Buenos Aires", "ciudad": "Mar del Plata", "direccion": "Av. Colón 3020", "latitud": -38.0055, "longitud": -57.5426},
 ]
 
+VENCIMIENTO = settings.VENCIMIENTO_PRE_REGISTRO_DIAS
+PLAZO_RETIRO = settings.PLAZO_RETIRO_DIAS_HABILES
+MAX_VISITAS = settings.MAX_VISITAS_DOMICILIO
+
 PREGUNTAS_FRECUENTES_BASE = [
     # --- Envíos (HU03 / HU06) ---
     {
@@ -37,7 +41,8 @@ PREGUNTAS_FRECUENTES_BASE = [
             "Desde la opción \"Registrar envío\", sin necesidad de crear una cuenta. Completás los datos de "
             "quien envía y de quien recibe, cargás uno o más paquetes, elegís si se entrega a domicilio o se "
             "retira en una sucursal y aceptás los términos y condiciones. Al confirmar obtenés el código de "
-            "seguimiento y una planilla imprimible con un código de barras por paquete."
+            "seguimiento y un comprobante con un código de barras por paquete. No necesitás imprimir etiquetas: "
+            "las imprime la sucursal cuando recibe el paquete."
         ),
     },
     {
@@ -66,9 +71,10 @@ PREGUNTAS_FRECUENTES_BASE = [
         "orden": 40,
         "pregunta": "Ya registré el envío, ¿qué hago con el paquete?",
         "respuesta": (
-            "Imprimí la planilla, pegala en el paquete y llevalo a una sucursal. El personal escanea el código "
-            "de barras de la planilla, identifica tu envío sin volver a cargar los datos y lo deja listo para "
-            "despacharlo."
+            f"Llevalo a cualquier sucursal dentro de los {VENCIMIENTO} días con el código de seguimiento o el "
+            "comprobante (impreso o en el celular). Ahí lo pesan, le pegan la etiqueta y te avisamos por correo y "
+            f"WhatsApp que ya está en camino. Si pasan los {VENCIMIENTO} días sin llevarlo, el registro vence y "
+            "tenés que registrar el envío de nuevo."
         ),
     },
     # --- Seguimiento (HU04 / HU05) ---
@@ -105,9 +111,9 @@ PREGUNTAS_FRECUENTES_BASE = [
         "orden": 80,
         "pregunta": "¿Cómo sé si ya puedo retirar mi paquete?",
         "respuesta": (
-            "Con el código de seguimiento podés consultar las opciones de retiro: ahí se indica la sucursal "
-            "asignada y si cada paquete ya está disponible para retirar. Esperá a que figure como disponible "
-            "antes de acercarte."
+            "Te avisamos por correo y WhatsApp cuando llega a la sucursal y queda listo. También podés verlo "
+            "con el código de seguimiento: ahí figura la sucursal, la dirección y hasta qué día podés retirarlo. "
+            f"Tenés {PLAZO_RETIRO} días hábiles; si no se retira en ese plazo, el paquete vuelve a quien lo envió."
         ),
     },
     {
@@ -137,7 +143,8 @@ PREGUNTAS_FRECUENTES_BASE = [
         "respuesta": (
             "El repartidor intenta comunicarse con el teléfono del destinatario. Si no logra concretar la "
             "entrega, la visita queda registrada en el seguimiento, se avisa por correo y WhatsApp y el paquete "
-            "se incluye en un nuevo recorrido."
+            f"sale en el próximo recorrido. Se hacen hasta {MAX_VISITAS} visitas: después queda para retirar en "
+            "la sucursal, con el mismo plazo que cualquier retiro."
         ),
     },
     # --- Reclamos (HU07) ---
@@ -164,6 +171,32 @@ PREGUNTAS_FRECUENTES_BASE = [
 """Contenido inicial de la sección de preguntas frecuentes (HU08). Los límites
 de peso y medidas se toman de `paquete_rules` para que la respuesta no quede
 desactualizada si cambian las reglas de HU03."""
+
+RESPUESTAS_ANTERIORES: dict[str, str] = {
+    "¿Cómo registro un envío?": (
+        "Desde la opción \"Registrar envío\", sin necesidad de crear una cuenta. Completás los datos de "
+        "quien envía y de quien recibe, cargás uno o más paquetes, elegís si se entrega a domicilio o se "
+        "retira en una sucursal y aceptás los términos y condiciones. Al confirmar obtenés el código de "
+        "seguimiento y una planilla imprimible con un código de barras por paquete."
+    ),
+    "Ya registré el envío, ¿qué hago con el paquete?": (
+        "Imprimí la planilla, pegala en el paquete y llevalo a una sucursal. El personal escanea el código "
+        "de barras de la planilla, identifica tu envío sin volver a cargar los datos y lo deja listo para "
+        "despacharlo."
+    ),
+    "¿Cómo sé si ya puedo retirar mi paquete?": (
+        "Con el código de seguimiento podés consultar las opciones de retiro: ahí se indica la sucursal "
+        "asignada y si cada paquete ya está disponible para retirar. Esperá a que figure como disponible "
+        "antes de acercarte."
+    ),
+    "¿Qué pasa si no hay nadie cuando llega el repartidor?": (
+        "El repartidor intenta comunicarse con el teléfono del destinatario. Si no logra concretar la "
+        "entrega, la visita queda registrada en el seguimiento, se avisa por correo y WhatsApp y el paquete "
+        "se incluye en un nuevo recorrido."
+    ),
+}
+"""Textos sembrados antes del circuito con admisión en sucursal y plazos. Si una
+base todavía tiene alguno sin editar, se reemplaza por la versión actual."""
 
 
 async def sembrar_roles(db: AsyncSession) -> None:
@@ -237,12 +270,33 @@ async def sembrar_preguntas_frecuentes(db: AsyncSession) -> None:
     """
     existente = await db.execute(select(PreguntaFrecuenteModel.id).limit(1))
     if existente.scalar_one_or_none() is not None:
+        await _actualizar_respuestas_sin_editar(db)
         return
 
     for datos in PREGUNTAS_FRECUENTES_BASE:
         db.add(PreguntaFrecuenteModel(publicada=True, **datos))
     await db.commit()
     logger.info(f"Sembradas {len(PREGUNTAS_FRECUENTES_BASE)} preguntas frecuentes iniciales.")
+
+
+async def _actualizar_respuestas_sin_editar(db: AsyncSession) -> None:
+    """Pone al día las respuestas que siguen exactamente como se sembraron.
+
+    Solo toca una pregunta si su respuesta es idéntica al texto anterior: lo
+    que un administrador reescribió o borró queda como está.
+    """
+    actuales = {datos["pregunta"]: datos["respuesta"] for datos in PREGUNTAS_FRECUENTES_BASE}
+    filas = await db.execute(
+        select(PreguntaFrecuenteModel).where(PreguntaFrecuenteModel.pregunta.in_(RESPUESTAS_ANTERIORES))
+    )
+    cambiadas = 0
+    for pregunta in filas.scalars():
+        if pregunta.respuesta == RESPUESTAS_ANTERIORES[pregunta.pregunta]:
+            pregunta.respuesta = actuales[pregunta.pregunta]
+            cambiadas += 1
+    if cambiadas:
+        await db.commit()
+        logger.info(f"Se actualizaron {cambiadas} respuestas frecuentes al circuito actual.")
 
 
 async def ejecutar_semillas(db: AsyncSession) -> None:

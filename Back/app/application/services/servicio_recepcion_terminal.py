@@ -13,14 +13,17 @@ from app.contracts.recepcion_terminal import (
     RecepcionarPaqueteResponse,
 )
 from app.contracts.sucursales import SucursalData
+from app.core.config import settings
 from app.core.exceptions import DuplicateEntryException, NotFoundException, ValidationException
 from app.domain.constants.estados_logistica import EstadoPaqueteEnum
+from app.domain.rules.circuito_rules import pre_registro_vencido, sumar_dias_habiles
 from app.domain.rules.destino_rules import (
     formatear_destino_domicilio,
     formatear_destino_sucursal,
 )
 from app.domain.rules.recepcion_rules import (
     ESTADOS_VALIDOS_PARA_RECEPCION,
+    aviso_diferencia_peso,
     estado_tras_recepcion,
     evaluar_disponibilidad_recepcion,
     normalizar_codigo_escaneado,
@@ -97,13 +100,32 @@ class ServicioRecepcionTerminal(IServicioRecepcionTerminal):
 
         estado_anterior = paquete.estado
         envio = paquete.envio
-        nuevo_estado = estado_tras_recepcion(envio.tipo_entrega, envio.sucursal_destino_id, sucursal.id)
         ahora = datetime.now(UTC)
+        if pre_registro_vencido(paquete.estado, paquete.created_at, ahora, settings.VENCIMIENTO_PRE_REGISTRO_DIAS):
+            raise ValidationException(
+                message="El registro de este envío venció.",
+                errors=[{
+                    "field": "estado",
+                    "message": (
+                        f"Pasaron más de {settings.VENCIMIENTO_PRE_REGISTRO_DIAS} días desde que se registró. "
+                        "El cliente tiene que registrar el envío de nuevo."
+                    ),
+                }],
+            )
+        nuevo_estado = estado_tras_recepcion(envio.tipo_entrega, envio.sucursal_destino_id, sucursal.id)
+        aviso_peso = aviso_diferencia_peso(paquete.peso_kg, datos.peso_balanza_kg)
+        retiro_hasta = (
+            sumar_dias_habiles(ahora, settings.PLAZO_RETIRO_DIAS_HABILES)
+            if nuevo_estado == EstadoPaqueteEnum.LISTO_PARA_RETIRO.value
+            else None
+        )
 
         # 3. Auditoría: una fila por cada cambio de estado, con quién y dónde.
         observacion = f"Paquete recibido en terminal {sucursal.nombre} mediante escaneo del código de barras."
         if nuevo_estado == EstadoPaqueteEnum.LISTO_PARA_RETIRO.value:
             observacion += " Es la sucursal elegida para el retiro: queda disponible para el destinatario."
+        if datos.peso_balanza_kg:
+            observacion += f" Peso en balanza: {datos.peso_balanza_kg:g} kg."
         if datos.observaciones and datos.observaciones.strip():
             observacion += f" Obs: {datos.observaciones.strip()}"
 
@@ -126,6 +148,11 @@ class ServicioRecepcionTerminal(IServicioRecepcionTerminal):
             sucursal_id=sucursal.id,
             historial_estado=historial_estado,
             estados_previos=ESTADOS_VALIDOS_PARA_RECEPCION,
+            valores_extra={
+                "sucursal_origen_id": sucursal.id,
+                "peso_admision_kg": datos.peso_balanza_kg,
+                "retiro_hasta": retiro_hasta,
+            },
         )
         if paquete_actualizado is None:
             raise DuplicateEntryException(
@@ -146,6 +173,9 @@ class ServicioRecepcionTerminal(IServicioRecepcionTerminal):
                 fecha_hora_recepcion=ahora,
                 observaciones=datos.observaciones,
                 token_seguimiento=paquete_actualizado.envio.token_seguimiento,
+                peso_balanza_kg=datos.peso_balanza_kg,
+                aviso_peso=aviso_peso,
+                retiro_hasta=retiro_hasta,
             )
         )
 
@@ -182,6 +212,8 @@ class ServicioRecepcionTerminal(IServicioRecepcionTerminal):
     ) -> PaqueteEscaneadoData:
         """Arma la respuesta del escaneo a partir del paquete y su envío."""
         envio = paquete.envio
+        hermanos = sorted(envio.paquetes, key=lambda p: (p.created_at, p.numero_paquete))
+        bulto = next((i for i, p in enumerate(hermanos, start=1) if p.id == paquete.id), 1)
 
         return PaqueteEscaneadoData(
             paquete_id=paquete.id,
@@ -209,6 +241,8 @@ class ServicioRecepcionTerminal(IServicioRecepcionTerminal):
                 destino=self._armar_destino(envio),
                 sucursal_destino=self._mapear_sucursal(envio.sucursal_destino),
             ),
+            bulto=bulto,
+            total_bultos=max(len(hermanos), 1),
         )
 
     def _armar_destino(self, envio: Any) -> str:

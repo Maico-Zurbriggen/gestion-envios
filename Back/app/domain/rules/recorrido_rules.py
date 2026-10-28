@@ -67,10 +67,12 @@ ESTADOS_PAQUETE_LISTOS_PARA_DESPACHO: set[str] = {
     EstadoPaqueteEnum.EN_SUCURSAL_ORIGEN.value,
     EstadoPaqueteEnum.EN_SUCURSAL_DESTINO.value,
     EstadoPaqueteEnum.ENTREGA_FALLIDA.value,
+    EstadoPaqueteEnum.EN_DEVOLUCION.value,
 }
 """Paquetes que están físicamente en una sucursal esperando salir: recién
 recibidos en la terminal (HU06), llegados a la sucursal de la ciudad destino
-(HU11) o devueltos tras una visita fallida (HU12, para reintentar)."""
+(HU11), devueltos tras una visita fallida (HU12, para reintentar) o que vuelven
+al remitente porque no se retiraron a tiempo (viajan a la sucursal de origen)."""
 
 ESTADOS_RECORRIDO_EDITABLES: set[str] = {
     EstadoRecorridoEnum.GENERADO.value,
@@ -95,6 +97,9 @@ DESCRIPCIONES_MOTIVO_ALERTA: dict[str, str] = {
     ),
     MotivoAlertaRecorridoEnum.FALTANTE_EN_DESCARGA.value: (
         "Tenía que bajar en la sucursal de destino y no apareció al controlar la descarga. Revisá su trazabilidad."
+    ),
+    MotivoAlertaRecorridoEnum.FALTANTE_EN_CARGA.value: (
+        "No se cargó en el vehículo al controlar la carga: se quitó del recorrido y espera el próximo."
     ),
 }
 

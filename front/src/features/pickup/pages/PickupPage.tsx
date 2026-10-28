@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { BadgeCheck, Building2, CircleAlert, ClipboardCheck, IdCard, LoaderCircle, PackageCheck, RefreshCw, Search, UserRound, UsersRound } from 'lucide-react'
+import { BadgeCheck, Building2, CircleAlert, ClipboardCheck, IdCard, LoaderCircle, PackageCheck, RefreshCw, Search, Undo2, UserRound, UsersRound } from 'lucide-react'
 import { TraceLink } from '../../monitor/components/TraceLink'
 import { receiverIsOldEnough } from '../../delivery/deliveryValidation'
 import { useBranches } from '../../shipments/hooks/useBranches'
@@ -9,8 +9,8 @@ import type { PickupType, RegisteredPickup } from '../types/pickup.types'
 import { ScanWithCameraButton } from '../../../shared/components/ScanWithCameraButton'
 import { PACKAGE_CODE_PATTERN } from '../../../shared/services/scannedCode'
 import './PickupPage.css'
+import { formatLongDay } from '../../../shared/utils/dates'
 
-const READY_FOR_PICKUP = new Set(['LISTO_PARA_RETIRO', 'EN_SUCURSAL', 'EN_SUCURSAL_DESTINO'])
 const BRANCH_STORAGE_KEY = 'pickup-branch'
 
 // El mostrador atiende siempre en la misma sucursal: se recuerda solo como comodidad local.
@@ -45,10 +45,11 @@ export function PickupPage() {
   const validation = usePickupValidation(searchedCode)
   const registration = useRegisterPickup()
   const packageInfo = validation.isSuccess && !validation.isFetching ? validation.data : null
-  const branch = packageInfo?.destinationBranch
-  const readyStatus = READY_FOR_PICKUP.has(packageInfo?.status ?? '')
-  const branchMatches = Boolean(packageInfo?.currentBranch && branch && packageInfo.currentBranch.id === branch.id)
-  const eligible = Boolean(packageInfo?.available && readyStatus && packageInfo.deliveryType === 'sucursal' && branchMatches)
+  // El backend decide si se puede retirar y dónde (sucursal elegida, la que quedó tras
+  // las visitas o, en una devolución, la de origen): la pantalla no repite esas reglas.
+  const branch = packageInfo?.pickupBranch
+  const eligible = Boolean(packageInfo?.available && branch)
+  const holder = packageInfo?.isReturn ? 'Remitente' : 'Destinatario'
   const operatorBranchSelected = Boolean(branches.data?.some((item) => String(item.id) === operatorBranchId))
   const operatorBranchMatches = Boolean(branch && operatorBranchSelected && String(branch.id) === operatorBranchId)
   const receiverAgeValid = receiverIsOldEnough(receiverBirthDate, todayIso())
@@ -152,11 +153,13 @@ export function PickupPage() {
             <dl className="pickup-summary">
               <div><dt>Estado</dt><dd>{getStatusLabel(packageInfo.status)}</dd></div>
               <div><dt>Contenido</dt><dd>{packageInfo.description}</dd></div>
-              <div><dt>Destinatario</dt><dd>{packageInfo.recipient.name}</dd></div>
-              <div><dt>Sucursal de retiro</dt><dd>{packageInfo.destinationBranch ? `${packageInfo.destinationBranch.name} · ${packageInfo.destinationBranch.address}, ${packageInfo.destinationBranch.city}` : 'Sin sucursal asignada'}</dd></div>
+              <div><dt>{packageInfo.isReturn ? 'Lo retira (remitente)' : 'Destinatario'}</dt><dd>{packageInfo.recipient.name}</dd></div>
+              <div><dt>Sucursal de retiro</dt><dd>{branch ? `${branch.name} · ${branch.address}, ${branch.city}` : 'No se retira en sucursal'}</dd></div>
+              {packageInfo.pickupUntil && <div><dt>Retirar hasta</dt><dd>{formatLongDay(packageInfo.pickupUntil)}</dd></div>}
               {packageInfo.currentBranch && <div><dt>Sucursal actual</dt><dd>{packageInfo.currentBranch.name} · {packageInfo.currentBranch.address}, {packageInfo.currentBranch.city}</dd></div>}
             </dl>
-            {!eligible && <p className="form-error" role="alert"><CircleAlert size={18} aria-hidden="true" />{packageInfo.deliveryType !== 'sucursal' ? 'Este envío tiene entrega a domicilio y no puede retirarse en sucursal.' : !readyStatus ? 'El paquete aún no fue recibido y habilitado para retiro en sucursal.' : !branchMatches ? 'El paquete debe estar en la sucursal asignada para retiro.' : packageInfo.unavailableReason ?? 'El paquete aún no está disponible para retiro en sucursal.'}</p>}
+            {packageInfo.isReturn && <p className="pickup-return" role="status"><Undo2 size={18} aria-hidden="true" /> Devolución: no se retiró a tiempo y vuelve a quien lo envió. Lo retira el remitente con su DNI.</p>}
+            {!eligible && <p className="form-error" role="alert"><CircleAlert size={18} aria-hidden="true" />{packageInfo.unavailableReason ?? 'El paquete aún no está disponible para retiro en sucursal.'}</p>}
           </section>
 
           {eligible && (
@@ -166,7 +169,7 @@ export function PickupPage() {
               {branches.isPending && <p role="status">Cargando sucursales…</p>}
               {branches.isError && <p className="form-error" role="alert"><CircleAlert size={18} aria-hidden="true" />{branches.error.message}<button className="pickup-button" type="button" onClick={() => void branches.refetch()}><RefreshCw size={17} aria-hidden="true" /> Reintentar</button></p>}
               {operatorBranchSelected && !operatorBranchMatches && <p className="form-error" id="pickup-branch-error" role="alert"><CircleAlert size={18} aria-hidden="true" />Este paquete se retira en otra sucursal y no puede entregarse acá.</p>}
-              <fieldset className="pickup-form__choices"><legend>¿Quién retira?</legend><label><input type="radio" name="pickup-type" checked={type === 'TITULAR'} onChange={() => setType('TITULAR')} /><UserRound size={20} aria-hidden="true" /> Destinatario</label><label><input type="radio" name="pickup-type" checked={type === 'TERCERO_AUTORIZADO'} onChange={() => setType('TERCERO_AUTORIZADO')} /><UsersRound size={20} aria-hidden="true" /> Tercero autorizado</label></fieldset>
+              <fieldset className="pickup-form__choices"><legend>¿Quién retira?</legend><label><input type="radio" name="pickup-type" checked={type === 'TITULAR'} onChange={() => setType('TITULAR')} /><UserRound size={20} aria-hidden="true" /> {holder}</label><label><input type="radio" name="pickup-type" checked={type === 'TERCERO_AUTORIZADO'} onChange={() => setType('TERCERO_AUTORIZADO')} /><UsersRound size={20} aria-hidden="true" /> Tercero autorizado</label></fieldset>
               <p className="pickup-form__requirement">{type === 'TITULAR' ? packageInfo.requirements.recipient : packageInfo.requirements.authorizedPerson}</p>
               {type === 'TERCERO_AUTORIZADO' && <div className="form-field"><label htmlFor="pickup-authorized-name">Nombre completo de quien retira</label><input className="form-control" id="pickup-authorized-name" value={authorizedName} onChange={(event) => setAuthorizedName(event.target.value)} minLength={2} maxLength={150} required /></div>}
               <div className="pickup-form__grid">
@@ -176,7 +179,7 @@ export function PickupPage() {
               </div>
               {receiverBirthDate && !receiverAgeValid && <p className="form-error" id="pickup-birth-error" role="alert"><CircleAlert size={18} aria-hidden="true" />Quien retira debe ser mayor de 16 años según su documento.</p>}
               <div className="pickup-form__checks">
-                <label><input type="checkbox" checked={recipientOver16} onChange={(event) => setRecipientOver16(event.target.checked)} /> <span>Verifiqué que el destinatario titular es mayor de 16 años.</span></label>
+                <label><input type="checkbox" checked={recipientOver16} onChange={(event) => setRecipientOver16(event.target.checked)} /> <span>Verifiqué que el {holder.toLowerCase()} titular es mayor de 16 años.</span></label>
                 <label><input type="checkbox" checked={documentReviewed} onChange={(event) => setDocumentReviewed(event.target.checked)} /> <span><IdCard size={17} aria-hidden="true" /> Revisé el documento original de quien retira.</span></label>
                 {type === 'TERCERO_AUTORIZADO' && <><label><input type="checkbox" checked={hasRecipientDocumentCopy} onChange={(event) => setHasRecipientDocumentCopy(event.target.checked)} /> <span>Revisé la copia del documento del destinatario.</span></label><label><input type="checkbox" checked={hasSignedAuthorization} onChange={(event) => setHasSignedAuthorization(event.target.checked)} /> <span>Revisé la autorización de retiro firmada por el destinatario.</span></label></>}
               </div>

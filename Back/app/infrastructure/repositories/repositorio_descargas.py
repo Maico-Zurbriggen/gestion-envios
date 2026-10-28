@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.application.interfaces.repositorio_descargas import IRepositorioDescargas
-from app.domain.constants.estados_logistica import TipoDistanciaEnum
 from app.infrastructure.db.models import (
     AlertaRecorridoModel,
     ControlDescargaModel,
@@ -37,11 +36,10 @@ class RepositorioDescargas(IRepositorioDescargas):
             selectinload(ControlDescargaModel.lecturas).joinedload(LecturaDescargaModel.usuario),
         )
 
-    async def recorridos_larga_desde(self, desde: date, estados: tuple[str, ...]) -> list[Any]:
+    async def recorridos_desde(self, desde: date, estados: tuple[str, ...]) -> list[Any]:
         stmt = (
             select(RecorridoModel)
             .where(
-                RecorridoModel.tipo_distancia == TipoDistanciaEnum.LARGA.value,
                 RecorridoModel.fecha >= desde,
                 RecorridoModel.estado.in_(estados),
             )
@@ -53,11 +51,15 @@ class RepositorioDescargas(IRepositorioDescargas):
         )
         return list((await self.db.execute(stmt)).unique().scalars().all())
 
-    async def controles_de_sucursal(self, sucursal_id: int, recorrido_ids: list[uuid.UUID]) -> dict[uuid.UUID, Any]:
+    async def controles_de_sucursal(
+        self, sucursal_id: int, recorrido_ids: list[uuid.UUID], tipo: str
+    ) -> dict[uuid.UUID, Any]:
         if not recorrido_ids:
             return {}
         stmt = self._select_control().where(
-            ControlDescargaModel.sucursal_id == sucursal_id, ControlDescargaModel.recorrido_id.in_(recorrido_ids)
+            ControlDescargaModel.sucursal_id == sucursal_id,
+            ControlDescargaModel.recorrido_id.in_(recorrido_ids),
+            ControlDescargaModel.tipo == tipo,
         )
         return {c.recorrido_id: c for c in (await self.db.execute(stmt)).unique().scalars().all()}
 
@@ -65,9 +67,11 @@ class RepositorioDescargas(IRepositorioDescargas):
         stmt = self._select_control().where(ControlDescargaModel.id == id).execution_options(populate_existing=True)
         return (await self.db.execute(stmt)).unique().scalar_one_or_none()
 
-    async def obtener_control_por(self, recorrido_id: uuid.UUID, sucursal_id: int) -> Any | None:
+    async def obtener_control_por(self, recorrido_id: uuid.UUID, sucursal_id: int, tipo: str) -> Any | None:
         stmt = self._select_control().where(
-            ControlDescargaModel.recorrido_id == recorrido_id, ControlDescargaModel.sucursal_id == sucursal_id
+            ControlDescargaModel.recorrido_id == recorrido_id,
+            ControlDescargaModel.sucursal_id == sucursal_id,
+            ControlDescargaModel.tipo == tipo,
         )
         return (await self.db.execute(stmt)).unique().scalar_one_or_none()
 

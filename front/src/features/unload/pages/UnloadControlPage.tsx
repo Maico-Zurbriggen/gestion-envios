@@ -21,8 +21,8 @@ import { ScanWithCameraButton } from '../../../shared/components/ScanWithCameraB
 import { PACKAGE_CODE_PATTERN } from '../../../shared/services/scannedCode'
 import { showToast } from '../../../shared/services/toast'
 import { useBranches } from '../../shipments/hooks/useBranches'
-import { useIncomingRoutes, useUnloadControl, useUnloadMutations } from '../hooks/useUnload'
-import type { IncomingRoute, ReadOutcome, UnloadControl } from '../services/unloadApi'
+import { useRoutesToControl, useUnloadControl, useUnloadMutations } from '../hooks/useUnload'
+import type { ControlType, IncomingRoute, ReadOutcome, UnloadControl } from '../services/unloadApi'
 import './UnloadControlPage.css'
 
 /** La misma sucursal que eligió el puesto en Recibir paquetes. */
@@ -67,19 +67,27 @@ function vibrate(pattern: number | number[]) {
 export function UnloadControlPage() {
   const [params, setParams] = useSearchParams()
   const controlId = params.get('control')
+  const type: ControlType = params.get('modo') === 'carga' ? 'CARGA' : 'DESCARGA'
   const [branchId, setBranchId] = useState(readStoredBranch)
   const branches = useBranches()
 
   function openControl(id: string | null) {
-    setParams(id ? { control: id } : {}, { replace: false })
+    const next = new URLSearchParams()
+    if (type === 'CARGA') next.set('modo', 'carga')
+    if (id) next.set('control', id)
+    setParams(next, { replace: false })
+  }
+
+  function setType(value: ControlType) {
+    setParams(value === 'CARGA' ? { modo: 'carga' } : {}, { replace: true })
   }
 
   return (
     <main className="unload-page">
       <PageHeader
         icon={ClipboardCheck}
-        title="Control de descarga"
-        description="Cuando llega un recorrido a tu sucursal, escaneá cada paquete a medida que lo bajan. El sistema lo compara con lo que tenía que llegar y avisa lo que falta o sobra."
+        title="Carga y descarga"
+        description="Escaneá cada paquete en cada traspaso: al cargar el vehículo antes de salir y al descargarlo cuando llega. El sistema lo compara con lo que tenía que viajar y avisa lo que falta o sobra."
         actions={
           controlId ? (
             <button className="btn" type="button" onClick={() => openControl(null)}>
@@ -94,9 +102,19 @@ export function UnloadControlPage() {
         <ControlView key={controlId} controlId={controlId} />
       ) : (
         <>
+          <div className="segmented unload-mode" role="group" aria-label="Qué vas a controlar">
+            <button type="button" aria-pressed={type === 'DESCARGA'} onClick={() => setType('DESCARGA')}>
+              <PackageCheck size={15} aria-hidden="true" />
+              Descarga · lo que llega
+            </button>
+            <button type="button" aria-pressed={type === 'CARGA'} onClick={() => setType('CARGA')}>
+              <Truck size={15} aria-hidden="true" />
+              Carga · lo que sale
+            </button>
+          </div>
           <section className="surface-card unload-branch">
             <label className="form-field" htmlFor="unload-branch">
-              <span>Sucursal donde estás descargando</span>
+              <span>{type === 'CARGA' ? 'Sucursal de donde sale el recorrido' : 'Sucursal donde estás descargando'}</span>
               <select
                 id="unload-branch"
                 className="form-control"
@@ -115,7 +133,7 @@ export function UnloadControlPage() {
             <p>Se recuerda en este equipo, igual que en Recibir paquetes.</p>
           </section>
           {branchId ? (
-            <IncomingRoutes branchId={Number(branchId)} branchName={branches.data?.find((b) => String(b.id) === branchId)?.name} onOpen={openControl} />
+            <IncomingRoutes key={type} type={type} branchId={Number(branchId)} branchName={branches.data?.find((b) => String(b.id) === branchId)?.name} onOpen={openControl} />
           ) : null}
         </>
       )}
@@ -123,8 +141,9 @@ export function UnloadControlPage() {
   )
 }
 
-function IncomingRoutes({ branchId, branchName, onOpen }: { branchId: number; branchName?: string; onOpen: (id: string) => void }) {
-  const routes = useIncomingRoutes(branchId)
+function IncomingRoutes({ type, branchId, branchName, onOpen }: { type: ControlType; branchId: number; branchName?: string; onOpen: (id: string) => void }) {
+  const routes = useRoutesToControl(branchId, type)
+  const loading = type === 'CARGA'
   const { start } = useUnloadMutations()
 
   function begin(route: IncomingRoute) {
@@ -133,7 +152,7 @@ function IncomingRoutes({ branchId, branchName, onOpen }: { branchId: number; br
       return
     }
     start.mutate(
-      { routeId: route.routeId, branchId },
+      { routeId: route.routeId, branchId, type },
       {
         onSuccess: (control) => onOpen(control.id),
         onError: (error) => showToast(error.message, 'error'),
@@ -145,8 +164,8 @@ function IncomingRoutes({ branchId, branchName, onOpen }: { branchId: number; br
     <section className="list-card" aria-labelledby="unload-routes-title">
       <div className="list-toolbar">
         <h2 className="list-toolbar__title" id="unload-routes-title">
-          Recorridos que llegan{branchName ? ` a ${branchName}` : ''}
-          <small>Últimos 7 días</small>
+          {loading ? `Recorridos que salen${branchName ? ` de ${branchName}` : ''}` : `Recorridos que llegan${branchName ? ` a ${branchName}` : ''}`}
+          <small>{loading ? 'Generados, todavía sin salir' : 'Últimos 7 días'}</small>
         </h2>
         <button className="btn btn--ghost" type="button" onClick={() => void routes.refetch()} disabled={routes.isFetching}>
           <RefreshCw size={16} className={routes.isFetching ? 'loading-icon' : undefined} aria-hidden="true" />
@@ -168,8 +187,10 @@ function IncomingRoutes({ branchId, branchName, onOpen }: { branchId: number; br
       ) : !routes.data.length ? (
         <div className="list-empty">
           <Truck size={30} aria-hidden="true" />
-          <strong>No hay recorridos para descargar</strong>
-          <p>Acá aparecen los recorridos de larga distancia que ya salieron y dejan paquetes en esta sucursal.</p>
+          <strong>{loading ? 'No hay recorridos para cargar' : 'No hay recorridos para descargar'}</strong>
+          <p>{loading
+            ? 'Acá aparecen los recorridos generados en esta sucursal que todavía no salieron.'
+            : 'Acá aparecen los recorridos de larga distancia que ya salieron y dejan paquetes en esta sucursal.'}</p>
         </div>
       ) : (
         <ul className="list-rows">
@@ -183,9 +204,9 @@ function IncomingRoutes({ branchId, branchName, onOpen }: { branchId: number; br
                 </span>
                 <div className="list-row__main">
                   <p className="list-row__title">
-                    Desde {route.originBranch}
+                    {loading ? `${route.distanceType === 'CORTA' ? 'Reparto a domicilio' : 'Viaje entre sucursales'}` : `Desde ${route.originBranch}`}
                     <span className={`badge ${route.status === 'EN_CURSO' ? '' : 'badge--muted'}`}>
-                      {route.status === 'EN_CURSO' ? 'En viaje' : 'Recorrido finalizado'}
+                      {route.status === 'EN_CURSO' ? 'En viaje' : route.status === 'FINALIZADO' ? 'Recorrido finalizado' : 'Sin salir'}
                     </span>
                     <span className={`badge ${closed ? 'badge--success' : route.controlStatus ? 'badge--info' : 'badge--warning'}`}>
                       {closed ? 'Control cerrado' : route.controlStatus ? 'Control en curso' : 'Sin controlar'}
@@ -194,7 +215,7 @@ function IncomingRoutes({ branchId, branchName, onOpen }: { branchId: number; br
                   <p className="list-row__meta">
                     <span>{route.driverName}</span>
                     <span>{formatDay(route.date)}</span>
-                    <span>{route.expected} {route.expected === 1 ? 'paquete' : 'paquetes'} para esta sucursal</span>
+                    <span>{route.expected} {route.expected === 1 ? 'paquete' : 'paquetes'} {loading ? 'para cargar' : 'para esta sucursal'}</span>
                   </p>
                   <div className="unload-progress" aria-label={`${route.verified} de ${route.expected} verificados`}>
                     <span style={{ width: `${route.expected ? (route.verified / route.expected) * 100 : 0}%` }} className={complete ? 'is-complete' : ''} />
@@ -214,7 +235,7 @@ function IncomingRoutes({ branchId, branchName, onOpen }: { branchId: number; br
                     ) : (
                       <ScanBarcode size={16} aria-hidden="true" />
                     )}
-                    {closed ? 'Ver resumen' : route.controlStatus ? 'Continuar' : 'Empezar descarga'}
+                    {closed ? 'Ver resumen' : route.controlStatus ? 'Continuar' : loading ? 'Empezar carga' : 'Empezar descarga'}
                   </button>
                 </div>
               </li>
@@ -285,6 +306,7 @@ function ControlView({ controlId }: { controlId: string }) {
   }
 
   const open = control.status === 'EN_CURSO'
+  const loading = control.type === 'CARGA'
   const pending = control.expected.filter((item) => !item.verified)
   const verified = control.expected.filter((item) => item.verified)
   const percent = control.totalExpected ? Math.round((control.verified / control.totalExpected) * 100) : 0
@@ -293,9 +315,9 @@ function ControlView({ controlId }: { controlId: string }) {
     <>
       <section className="surface-card unload-hero" aria-labelledby="unload-hero-title">
         <div className="unload-hero__route">
-          <p className="eyebrow">Recorrido de larga distancia</p>
+          <p className="eyebrow">{loading ? 'Control de carga' : 'Control de descarga'}</p>
           <h2 id="unload-hero-title">
-            {control.route.originBranch} → {control.branch.name}
+            {loading ? `Sale de ${control.branch.name}` : `${control.route.originBranch} → ${control.branch.name}`}
           </h2>
           <p>
             {control.route.driverName} · {formatDay(control.route.date)} · iniciado por {control.startedBy ?? '—'} a las {formatTime(control.createdAt)}
@@ -318,7 +340,7 @@ function ControlView({ controlId }: { controlId: string }) {
         <section className="surface-card unload-scan" aria-labelledby="unload-scan-title">
           <h2 id="unload-scan-title">
             <ScanBarcode size={18} aria-hidden="true" />
-            Escaneá cada paquete que baja
+            {loading ? 'Escaneá cada paquete que sube al vehículo' : 'Escaneá cada paquete que baja'}
           </h2>
           <form className="unload-scan__form" onSubmit={handleSubmit}>
             <label className="visually-hidden" htmlFor="unload-code">Código del paquete</label>
@@ -346,7 +368,7 @@ function ControlView({ controlId }: { controlId: string }) {
                 if (read.isPending) return 'Esperá a que termine la lectura anterior.'
                 submit(value)
               }}
-              description="Apuntá la cámara a la etiqueta de cada paquete que bajan. Cada lectura se registra sola."
+              description={loading ? 'Apuntá la cámara a la etiqueta de cada paquete que suben al vehículo.' : 'Apuntá la cámara a la etiqueta de cada paquete que bajan. Cada lectura se registra sola.'}
               continuousHint="El resultado de cada paquete aparece en la pantalla del control."
             />
           </form>
@@ -362,6 +384,7 @@ function ControlView({ controlId }: { controlId: string }) {
               <div>
                 <strong>{last.code}</strong>
                 <p>{last.message}</p>
+                {last.readyForPickup && <p className="unload-result__hint">Se avisó al destinatario que ya puede retirarlo.</p>}
               </div>
             </div>
           ) : null}
@@ -390,7 +413,7 @@ function ControlView({ controlId }: { controlId: string }) {
         value={tab}
         onChange={setTab}
         tabs={[
-          { id: 'faltan', label: open ? 'Por llegar' : 'Faltantes', count: pending.length, icon: Clock3 },
+          { id: 'faltan', label: open ? (loading ? 'Por cargar' : 'Por llegar') : 'Faltantes', count: pending.length, icon: Clock3 },
           { id: 'verificados', label: 'Verificados', count: verified.length, icon: PackageCheck },
           { id: 'sobrantes', label: 'Sobrantes', count: control.extras.length, icon: PackageX },
         ]}
@@ -437,7 +460,7 @@ function ControlView({ controlId }: { controlId: string }) {
                   <div className="list-row__main">
                     <p className="list-row__title">
                       <span className="unload-code">{item.code}</span>
-                      <span className="badge badge--muted">{item.deliveryType === 'domicilio' ? 'Sigue a domicilio' : 'Queda para retiro'}</span>
+                      {!loading && <span className="badge badge--muted">{item.deliveryType === 'domicilio' ? 'Sigue a domicilio' : 'Queda para retiro'}</span>}
                     </p>
                     <p className="list-row__meta">
                       <span>{item.description}</span>
@@ -456,7 +479,7 @@ function ControlView({ controlId }: { controlId: string }) {
           ) : (
             <div className="list-empty">
               <CheckCircle2 size={28} aria-hidden="true" />
-              <strong>{tab === 'faltan' ? 'Llegó todo lo esperado' : 'Todavía no se verificó ningún paquete'}</strong>
+              <strong>{tab === 'faltan' ? (loading ? 'Se cargó todo lo previsto' : 'Llegó todo lo esperado') : 'Todavía no se verificó ningún paquete'}</strong>
               <p>{tab === 'faltan' ? 'Podés cerrar el control.' : 'Escaneá el primer paquete que baja.'}</p>
             </div>
           )
@@ -467,7 +490,7 @@ function ControlView({ controlId }: { controlId: string }) {
         <div className="unload-footer">
           <button className="btn btn--primary" type="button" onClick={() => setClosing(true)}>
             <Lock size={17} aria-hidden="true" />
-            Terminar descarga y cerrar control
+            {loading ? 'Terminar carga y cerrar control' : 'Terminar descarga y cerrar control'}
           </button>
         </div>
       ) : null}
@@ -518,7 +541,9 @@ function CloseModal({ open, control, notes, pending, error, onNotes, onCancel, o
       title={missing.length ? `${missing.length === 1 ? 'Falta 1 paquete' : `Faltan ${missing.length} paquetes`}` : 'Llegó todo lo esperado'}
       description={
         missing.length
-          ? 'Al cerrar, cada faltante queda como incidencia en el monitor para que se investigue. Después no se pueden registrar más lecturas.'
+          ? control.type === 'CARGA'
+            ? 'Al cerrar, lo que no se cargó sale del recorrido y queda en la sucursal para el próximo. Después no se pueden registrar más lecturas.'
+            : 'Al cerrar, cada faltante queda como incidencia en el monitor para que se investigue. Después no se pueden registrar más lecturas.'
           : 'Se verificaron todos los paquetes. Después de cerrar no se pueden registrar más lecturas.'
       }
       footer={

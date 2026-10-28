@@ -38,6 +38,7 @@ from app.application.services.servicio_envios import ServicioEnvios
 from app.application.services.servicio_monitor import ServicioMonitor
 from app.application.services.servicio_notificaciones import ServicioNotificaciones
 from app.application.services.servicio_plantillas_correo import ServicioPlantillasCorreo
+from app.application.services.servicio_plazos import ServicioPlazos
 from app.application.services.servicio_preguntas_frecuentes import ServicioPreguntasFrecuentes
 from app.application.services.servicio_recepcion_terminal import ServicioRecepcionTerminal
 from app.application.services.servicio_reclamos import ServicioReclamos
@@ -65,6 +66,7 @@ from app.infrastructure.repositories.repositorio_envios import RepositorioEnvios
 from app.infrastructure.repositories.repositorio_monitor import RepositorioMonitor
 from app.infrastructure.repositories.repositorio_notificaciones import RepositorioNotificaciones
 from app.infrastructure.repositories.repositorio_plantillas_correo import RepositorioPlantillasCorreo
+from app.infrastructure.repositories.repositorio_plazos import RepositorioPlazos
 from app.infrastructure.repositories.repositorio_preguntas_frecuentes import RepositorioPreguntasFrecuentes
 from app.infrastructure.repositories.repositorio_recepciones import RepositorioRecepciones
 from app.infrastructure.repositories.repositorio_reclamos import RepositorioReclamos
@@ -280,6 +282,13 @@ def get_servicio_reparto(
     servicio_recorridos: IServicioRecorridos = Depends(get_servicio_recorridos),
 ) -> IServicioReparto:
     return ServicioReparto(repo_recorridos, repo_entregas, servicio_recorridos)
+
+
+def get_servicio_plazos(
+    db: AsyncSession = Depends(obtener_sesion_db),
+    notificaciones: IServicioNotificaciones = Depends(get_servicio_notificaciones),
+) -> ServicioPlazos:
+    return ServicioPlazos(RepositorioPlazos(db), notificaciones)
 
 
 def get_servicio_descargas(

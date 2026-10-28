@@ -38,7 +38,9 @@ async def test_descarga_completa_con_sobrante_y_faltante(client, db_session, adm
     dato = lectura.json()["data"]
     assert dato["resultado"] == "CORRECTO" and dato["control"]["verificados"] == 1
     await db_session.refresh(paquetes[0])
-    assert paquetes[0].estado == "EN_SUCURSAL_DESTINO" and paquetes[0].sucursal_actual_id == 2
+    assert paquetes[0].estado == "LISTO_PARA_RETIRO" and paquetes[0].sucursal_actual_id == 2
+    assert paquetes[0].retiro_hasta is not None, "queda con fecha límite para retirarlo"
+    assert dato["listo_para_retiro"] is True
 
     repetida = (await client.post(f"{API}/{control['id']}/lecturas", headers=vendedor, json={"codigo": paquetes[0].numero_paquete})).json()["data"]
     assert repetida["repetida"] is True and repetida["control"]["verificados"] == 1
@@ -93,3 +95,32 @@ async def test_validaciones_al_iniciar(client, db_session, administrativo_token,
     assert sin_salir.status_code == 400 and "todavía no salió" in sin_salir.json()["message"]
 
     assert (await client.get(f"{API}/recorridos", params={"sucursal_id": 2})).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_control_de_carga_quita_lo_que_no_subio(client, db_session, administrativo_token, vendedor_token):
+    db_session.autoflush = False
+    recorrido_id, paquetes, *_ = await _armar(client, db_session, administrativo_token, tipo="LARGA", cantidad=3, iniciar=False)
+    vendedor = _auth(vendedor_token)
+
+    salientes = (await client.get(f"{API}/recorridos-salientes", headers=vendedor, params={"sucursal_id": 1})).json()["data"]
+    assert [r["recorrido_id"] for r in salientes] == [recorrido_id] and salientes[0]["esperados"] == 3
+
+    otra = await client.post(API, headers=vendedor, json={"recorrido_id": recorrido_id, "sucursal_id": 2, "tipo": "CARGA"})
+    assert otra.status_code == 400, "la carga se controla en la sucursal de origen"
+    control = (await client.post(API, headers=vendedor, json={"recorrido_id": recorrido_id, "sucursal_id": 1, "tipo": "CARGA"})).json()["data"]
+    assert control["tipo"] == "CARGA" and control["total_esperados"] == 3
+
+    for paquete in paquetes[:2]:
+        lectura = (await client.post(f"{API}/{control['id']}/lecturas", headers=vendedor, json={"codigo": paquete.numero_paquete})).json()["data"]
+        assert lectura["resultado"] == "CORRECTO" and lectura["listo_para_retiro"] is False
+
+    cierre = await client.post(f"{API}/{control['id']}/cerrar", headers=vendedor, json={})
+    assert cierre.status_code == 200, cierre.text
+    assert "salieron del recorrido" in cierre.json()["message"]
+
+    detalle = (await client.get(f"/api/v1/recorridos/{recorrido_id}", headers=_auth(administrativo_token))).json()["data"]
+    en_recorrido = {p["numero_paquete"] for parada in detalle["paradas"] for p in parada["paquetes"]}
+    assert en_recorrido == {paquetes[0].numero_paquete, paquetes[1].numero_paquete}
+    alertas = (await db_session.scalars(select(AlertaRecorridoModel).where(AlertaRecorridoModel.motivo == "FALTANTE_EN_CARGA"))).all()
+    assert [a.paquete_id for a in alertas] == [paquetes[2].id]

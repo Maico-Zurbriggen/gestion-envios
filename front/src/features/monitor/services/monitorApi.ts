@@ -1,11 +1,13 @@
 import { OperationalApiError, operationalRequest } from '../../../shared/services/operationalApi'
 import type {
   ApiAssignedRoute,
+  ApiDeadlinesResult,
   ApiMonitorPackage,
   ApiMonitorPage,
   ApiMonitorSummary,
   ApiTrace,
   AssignedRoute,
+  DeadlinesResult,
   MonitorFilters,
   MonitorPackage,
   MonitorPage,
@@ -52,6 +54,8 @@ function mapPackage(item: ApiMonitorPackage): MonitorPackage {
     activeClaims: item.reclamos_en_curso,
     withoutRoute: item.sin_recorrido,
     missingAtUnload: item.faltante_en_descarga,
+    isReturn: Boolean(item.en_devolucion),
+    pickupUntil: item.retiro_hasta ?? null,
     createdAt: item.created_at,
     updatedAt: item.updated_at,
   }
@@ -130,6 +134,8 @@ export async function getPackageTrace(code: string, token: string): Promise<Pack
   return {
     package: mapPackage(data.paquete),
     notes: data.observaciones,
+    scaleWeightKg: data.peso_admision_kg ?? null,
+    originBranch: data.sucursal_origen ?? null,
     dimensions: { length: data.largo_cm, width: data.ancho_cm, height: data.alto_cm },
     sender: { name: data.remitente.nombre, document: data.remitente.documento, phone: data.remitente.telefono, email: data.remitente.email },
     recipient: {
@@ -195,6 +201,15 @@ export async function getPackageTrace(code: string, token: string): Promise<Pack
       deliveryEventId: event.evento_entrega_id,
       hasSignature: event.con_firma,
     })),
+  }
+}
+
+/** Vence los registros que no se llevaron a tiempo y devuelve lo que no se retiró. */
+export async function processDeadlines(token: string): Promise<{ result: DeadlinesResult; message: string }> {
+  const payload = await operationalRequest<{ data: ApiDeadlinesResult; message: string }>(`${BASE}/procesar-plazos`, token, { method: 'POST' })
+  return {
+    result: { expiredRegistrations: payload.data.registros_vencidos, returnsStarted: payload.data.devoluciones_iniciadas },
+    message: payload.message,
   }
 }
 

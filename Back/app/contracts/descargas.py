@@ -1,6 +1,7 @@
 """Contratos del control de descarga en la sucursal de destino."""
 
 from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import Field
@@ -12,6 +13,7 @@ class RecorridoEntranteData(ApiModel):
     recorrido_id: UUID
     fecha: date
     estado: str
+    tipo_distancia: str = "LARGA"
     repartidor_nombre: str
     sucursal_origen: str
     esperados: int
@@ -55,12 +57,14 @@ class RecorridoDescargaData(ApiModel):
     id: UUID
     fecha: date
     estado: str
+    tipo_distancia: str = "LARGA"
     repartidor_nombre: str
     sucursal_origen: str
 
 
 class ControlDescargaData(ApiModel):
     id: UUID
+    tipo: str = Field("DESCARGA", description="CARGA (origen, antes de salir) o DESCARGA (destino, al llegar).")
     estado: str
     recorrido: RecorridoDescargaData
     sucursal: SucursalDescargaData
@@ -86,6 +90,7 @@ class ControlDescargaResponse(ApiModel):
 class IniciarControlRequest(ApiModel):
     recorrido_id: UUID
     sucursal_id: int = Field(..., ge=1)
+    tipo: Literal["CARGA", "DESCARGA"] = "DESCARGA"
 
 
 class RegistrarLecturaRequest(ApiModel):
@@ -98,6 +103,8 @@ class ResultadoLecturaData(ApiModel):
     repetida: bool = False
     mensaje: str
     control: ControlDescargaData
+    paquete_id: UUID | None = None
+    listo_para_retiro: bool = Field(False, description="El paquete quedó listo para retirar en esta sucursal.")
 
 
 class ResultadoLecturaResponse(ApiModel):

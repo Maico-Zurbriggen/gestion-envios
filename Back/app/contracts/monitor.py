@@ -78,6 +78,8 @@ class PaqueteMonitorData(ApiModel):
     reclamos_en_curso: int
     sin_recorrido: bool
     faltante_en_descarga: bool = False
+    en_devolucion: bool = False
+    retiro_hasta: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -172,6 +174,8 @@ class PaqueteHermanoData(ApiModel):
 class TrazaPaqueteData(ApiModel):
     paquete: PaqueteMonitorData
     observaciones: str | None = None
+    peso_admision_kg: float | None = None
+    sucursal_origen: str | None = None
     largo_cm: float
     ancho_cm: float
     alto_cm: float
@@ -192,3 +196,15 @@ class TrazaPaqueteData(ApiModel):
 class TrazaPaqueteResponse(ApiModel):
     status: str = "success"
     data: TrazaPaqueteData
+
+
+class PlazosProcesadosData(ApiModel):
+    registros_vencidos: int
+    devoluciones_iniciadas: int
+    procesado_at: datetime
+
+
+class PlazosProcesadosResponse(ApiModel):
+    status: str = "success"
+    message: str = "Plazos revisados."
+    data: PlazosProcesadosData

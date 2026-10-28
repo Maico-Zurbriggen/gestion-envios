@@ -36,6 +36,14 @@ def _headers(usuario, scope=ScopeEnum.FULL_ACCESS.value):
     return {"Authorization": f"Bearer {token}"}
 
 
+def _olvidar_aviso_de_reparto(variables):
+    """Al iniciar un recorrido corto sale el aviso «hoy entregamos tu paquete»; estas pruebas miran la visita."""
+    for nombre in ("correo", "whatsapp"):
+        proveedor = variables.get(nombre)
+        if proveedor is not None and hasattr(proveedor, "mensajes_enviados"):
+            proveedor.mensajes_enviados.clear()
+
+
 def _constancia(**cambios):
     return {
         "operacion_id": str(uuid.uuid4()),
@@ -97,6 +105,7 @@ async def test_hu11_aislamiento_de_recorridos_y_roles(
     repartidor_token,
 ):
     id_, paquetes, _, headers, _ = await _armar(client, db_session, administrativo_token)
+    _olvidar_aviso_de_reparto(locals())
     otro = await _crear_repartidor(db_session, "Otro repartidor")
     ajeno = _headers(otro)
     assert (await client.get(BASE, headers=ajeno)).json()["data"] == []
@@ -131,6 +140,7 @@ async def test_hu11_aislamiento_de_recorridos_y_roles(
 
 async def test_hu11_escenario_2_ubicacion_corta_no_modifica_estados(client, db_session, administrativo_token):
     id_, paquetes, usuario, headers, token = await _armar(client, db_session, administrativo_token)
+    _olvidar_aviso_de_reparto(locals())
     assert (await client.get(f"{BASE}/{id_}/ubicacion", headers=headers)).json()["data"] is None
     for lat in (-31.42, -31.43):
         resp = await client.put(f"{BASE}/{id_}/ubicacion", headers=headers, json={"latitud": lat, "longitud": -64.2})
@@ -163,6 +173,7 @@ async def test_hu11_escenario_2_ubicacion_corta_no_modifica_estados(client, db_s
 )
 async def test_hu11_rechaza_coordenadas_invalidas(client, db_session, administrativo_token, datos):
     id_, _, usuario, headers, _ = await _armar(client, db_session, administrativo_token)
+    _olvidar_aviso_de_reparto(locals())
     resp = await client.put(f"{BASE}/{id_}/ubicacion", headers=headers, json=datos)
     assert resp.status_code == 400, resp.text
     assert await db_session.get(PosicionActualRepartidorModel, usuario.id) is None
@@ -253,6 +264,7 @@ async def test_hu11_respeta_siguiente_sucursal_y_no_anticipa_otro_tramo(client, 
 
 async def test_hu12_escenario_1_entrega_firma_receptor_e_historial(client, db_session, administrativo_token):
     id_, paquetes, usuario, headers, token = await _armar(client, db_session, administrativo_token)
+    _olvidar_aviso_de_reparto(locals())
     cuerpo = _constancia()
     url = f"{BASE}/{id_}/paquetes/{paquetes[0].numero_paquete}/entrega"
     antes = datetime.now(UTC)
@@ -308,6 +320,7 @@ async def test_hu12_escenario_1_entrega_firma_receptor_e_historial(client, db_se
 )
 async def test_hu12_rechaza_constancia_invalida_sin_cambios(client, db_session, administrativo_token, cambio):
     id_, paquetes, _, headers, _ = await _armar(client, db_session, administrativo_token)
+    _olvidar_aviso_de_reparto(locals())
     resp = await client.post(
         f"{BASE}/{id_}/paquetes/{paquetes[0].id}/entrega", headers=headers, json=_constancia(**cambio)
     )
@@ -319,6 +332,7 @@ async def test_hu12_rechaza_constancia_invalida_sin_cambios(client, db_session, 
 
 async def test_hu12_escenario_2_contacto_y_telefono_no_disponible(client, db_session, administrativo_token):
     id_, paquetes, _, headers, _ = await _armar(client, db_session, administrativo_token)
+    _olvidar_aviso_de_reparto(locals())
     url = f"{BASE}/{id_}/paquetes/{paquetes[0].id}/contacto"
     datos = (await client.get(url, headers=headers)).json()["data"]
     assert datos["telefono"] == "+543564333444" and datos["telefono_disponible"]
@@ -346,6 +360,7 @@ async def test_hu12_escenario_3_visita_email_idempotente_y_seguimiento(
     whatsapp,
 ):
     id_, paquetes, usuario, headers, token = await _armar(client, db_session, administrativo_token, cantidad=1)
+    _olvidar_aviso_de_reparto(locals())
     cuerpo = {"operacion_id": str(uuid.uuid4()), "motivo_fallo": "Persona ausente"}
     url = f"{BASE}/{id_}/paquetes/{paquetes[0].id}/visita-fallida"
     respuesta = await client.post(url, headers=headers, json=cuerpo)
@@ -362,7 +377,7 @@ async def test_hu12_escenario_3_visita_email_idempotente_y_seguimiento(
     assert paquetes[0].estado == "ENTREGA_FALLIDA"
     evento = await db_session.get(EventoEntregaModel, uuid.UUID(evento_id))
     assert evento.motivo_fallo == "Persona ausente" and evento.usuario_registro_id == usuario.id
-    aviso = (await db_session.scalars(select(NotificacionEnvioModel).where(NotificacionEnvioModel.canal == "EMAIL"))).one()
+    aviso = (await db_session.scalars(select(NotificacionEnvioModel).where(NotificacionEnvioModel.canal == "EMAIL", NotificacionEnvioModel.tipo_aviso == "VISITA_FALLIDA"))).one()
     assert aviso.canal == "EMAIL" and aviso.estado == "ENVIADO"
     assert aviso.proveedor_mensaje_id and aviso.error_detalle is None
     assert str(aviso.evento_entrega_id) == evento_id
@@ -372,7 +387,7 @@ async def test_hu12_escenario_3_visita_email_idempotente_y_seguimiento(
     assert mensaje_wa["destinatario"] == "5493564333444"
     assert token in mensaje_wa["texto"] and "Persona ausente" not in mensaje_wa["texto"]
     aviso_wa = (
-        await db_session.scalars(select(NotificacionEnvioModel).where(NotificacionEnvioModel.canal == "WHATSAPP"))
+        await db_session.scalars(select(NotificacionEnvioModel).where(NotificacionEnvioModel.canal == "WHATSAPP", NotificacionEnvioModel.tipo_aviso == "VISITA_FALLIDA"))
     ).one()
     assert aviso_wa.estado == "ENVIADO" and str(aviso_wa.evento_entrega_id) == evento_id
     publico =(await client.get(f"/api/v1/seguimiento/{token}")).json()["data"]["paquetes"][0]
@@ -395,6 +410,7 @@ async def test_hu12_error_proveedor_conserva_visita_y_reintenta_solo_aviso_falli
     excepcion,
 ):
     id_, paquetes, _, headers, _ = await _armar(client, db_session, administrativo_token)
+    _olvidar_aviso_de_reparto(locals())
     if excepcion:
 
         async def fallar(**kwargs):
@@ -407,7 +423,7 @@ async def test_hu12_error_proveedor_conserva_visita_y_reintenta_solo_aviso_falli
     url = f"{BASE}/{id_}/paquetes/{paquetes[0].id}/visita-fallida"
     resp = await client.post(url, headers=headers, json=cuerpo)
     assert resp.status_code == 200, resp.text
-    aviso = (await db_session.scalars(select(NotificacionEnvioModel).where(NotificacionEnvioModel.canal == "EMAIL"))).one()
+    aviso = (await db_session.scalars(select(NotificacionEnvioModel).where(NotificacionEnvioModel.canal == "EMAIL", NotificacionEnvioModel.tipo_aviso == "VISITA_FALLIDA"))).one()
     await db_session.refresh(aviso)
     assert aviso.estado == "FALLIDO" and aviso.proveedor_mensaje_id is None
     assert "credencial-secreta" not in aviso.error_detalle
@@ -426,6 +442,7 @@ async def test_hu12_error_proveedor_conserva_visita_y_reintenta_solo_aviso_falli
 
 async def test_hu12_reserva_notificacion_impide_despachos_duplicados(client, db_session, administrativo_token, correo):
     id_, paquetes, _, headers, _ = await _armar(client, db_session, administrativo_token)
+    _olvidar_aviso_de_reparto(locals())
     resp = await client.post(
         f"{BASE}/{id_}/paquetes/{paquetes[0].id}/visita-fallida",
         headers=headers,
@@ -440,6 +457,7 @@ async def test_hu12_reserva_notificacion_impide_despachos_duplicados(client, db_
 
 async def test_hu11_perfil_inactivo_no_expone_ubicacion(client, db_session, administrativo_token):
     id_, _, usuario, headers, token = await _armar(client, db_session, administrativo_token)
+    _olvidar_aviso_de_reparto(locals())
     await client.put(f"{BASE}/{id_}/ubicacion", headers=headers, json={"latitud": 0, "longitud": 0})
     perfil = await db_session.get(RepartidorModel, usuario.id)
     perfil.activo = False
@@ -459,6 +477,7 @@ async def test_hu12_rollback_si_no_se_puede_confirmar_constancia(
     tipo,
 ):
     id_, paquetes, _, headers, _ = await _armar(client, db_session, administrativo_token)
+    _olvidar_aviso_de_reparto(locals())
     paquete_id = paquetes[0].id
 
     async def sesion_con_rollback():
@@ -479,7 +498,9 @@ async def test_hu12_rollback_si_no_se_puede_confirmar_constancia(
         await client.post(f"{BASE}/{id_}/paquetes/{paquete_id}/{tipo}", headers=headers, json=cuerpo)
     assert await db_session.scalar(select(PaqueteModel.estado).where(PaqueteModel.id == paquete_id)) == "EN_REPARTO"
     assert await db_session.scalar(select(func.count()).select_from(EventoEntregaModel)) == 0
-    assert await db_session.scalar(select(func.count()).select_from(NotificacionEnvioModel)) == 0
+    assert await db_session.scalar(
+        select(func.count()).select_from(NotificacionEnvioModel).where(NotificacionEnvioModel.tipo_aviso != "EN_REPARTO")
+    ) == 0
     assert (
         await db_session.scalar(
             select(func.count())
@@ -504,6 +525,7 @@ async def test_hu11_limite_de_proximidad_10_km(client, db_session, administrativ
 
 async def test_hu12_sin_email_registra_fallo_y_conserva_visita(client, db_session, administrativo_token, correo):
     id_, paquetes, _, headers, _ = await _armar(client, db_session, administrativo_token)
+    _olvidar_aviso_de_reparto(locals())
     envio = await db_session.get(EnvioModel, paquetes[0].envio_id)
     envio.destinatario_email = ""
     await db_session.commit()
@@ -513,13 +535,14 @@ async def test_hu12_sin_email_registra_fallo_y_conserva_visita(client, db_sessio
         json={"operacion_id": str(uuid.uuid4()), "motivo_fallo": "No responde"},
     )
     assert resp.status_code == 200, resp.text
-    aviso = (await db_session.scalars(select(NotificacionEnvioModel).where(NotificacionEnvioModel.canal == "EMAIL"))).one()
+    aviso = (await db_session.scalars(select(NotificacionEnvioModel).where(NotificacionEnvioModel.canal == "EMAIL", NotificacionEnvioModel.tipo_aviso == "VISITA_FALLIDA"))).one()
     assert aviso.estado == "FALLIDO" and aviso.error_detalle
     assert not correo.mensajes_enviados
 
 
 async def test_hu12_operacion_id_no_puede_reutilizarse_para_otro_paquete(client, db_session, administrativo_token):
     id_, paquetes, _, headers, _ = await _armar(client, db_session, administrativo_token)
+    _olvidar_aviso_de_reparto(locals())
     cuerpo = _constancia()
     assert (
         await client.post(f"{BASE}/{id_}/paquetes/{paquetes[0].id}/entrega", headers=headers, json=cuerpo)

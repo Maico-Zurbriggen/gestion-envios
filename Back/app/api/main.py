@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from asgi_correlation_id import CorrelationIdMiddleware
@@ -25,9 +26,15 @@ from app.api.v1.routers.roles import router as roles_router
 from app.api.v1.routers.seguimiento import router as seguimiento_router
 from app.api.v1.routers.sucursal_retiro import router as sucursal_retiro_router
 from app.api.v1.routers.sucursales import router as sucursales_router
+from app.application.services.servicio_notificaciones import ServicioNotificaciones
+from app.application.services.servicio_plazos import ServicioPlazos
 from app.core.config import settings
 from app.core.logging import logger, setup_logging
 from app.infrastructure.db.seed import ejecutar_siembra
+from app.infrastructure.db.session import AsyncSessionLocal
+from app.infrastructure.email.email_provider import obtener_proveedor_email
+from app.infrastructure.repositories.repositorio_plazos import RepositorioPlazos
+from app.infrastructure.whatsapp.whatsapp_provider import obtener_proveedor_whatsapp
 
 
 @asynccontextmanager
@@ -43,8 +50,34 @@ async def lifespan(app: FastAPI):
         await ejecutar_siembra()
     except Exception as e:
         logger.error(f"Error durante la inicialización/siembra de BD: {e}", exc_info=True)
+    revision = asyncio.create_task(revisar_plazos_periodicamente()) if settings.INTERVALO_PLAZOS_MINUTOS > 0 else None
     yield
+    if revision is not None:
+        revision.cancel()
     logger.info(f"Deteniendo {settings.PROJECT_NAME}...")
+
+
+async def revisar_plazos_periodicamente() -> None:
+    """Registros vencidos y retiros no realizados, cada `INTERVALO_PLAZOS_MINUTOS`."""
+    while True:
+        try:
+            async with AsyncSessionLocal() as sesion:
+                notificaciones = ServicioNotificaciones(
+                    email_provider=obtener_proveedor_email(),
+                    session_factory=AsyncSessionLocal,
+                    whatsapp_provider=obtener_proveedor_whatsapp(),
+                )
+                resultado = (await ServicioPlazos(RepositorioPlazos(sesion), notificaciones).procesar()).data
+                if resultado.registros_vencidos or resultado.devoluciones_iniciadas:
+                    logger.info(
+                        "Plazos: %s registro(s) vencido(s), %s devolución(es) iniciada(s).",
+                        resultado.registros_vencidos, resultado.devoluciones_iniciadas,
+                    )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("No se pudieron revisar los plazos; se reintenta en el próximo ciclo.")
+        await asyncio.sleep(settings.INTERVALO_PLAZOS_MINUTOS * 60)
 
 
 def crear_aplicacion() -> FastAPI:

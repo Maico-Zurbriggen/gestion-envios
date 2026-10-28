@@ -74,6 +74,7 @@ function mapShipment(response: CreateShipmentSuccessResponse): CreatedShipment {
       : null,
     packages: shipment.paquetes.map(mapPackage),
     createdAt: shipment.created_at,
+    admitBy: shipment.admitir_hasta ?? null,
   }
 }
 

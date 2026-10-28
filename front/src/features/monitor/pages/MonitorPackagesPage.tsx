@@ -24,6 +24,7 @@ import { selectAuthToken } from '../../auth/redux/authSlice'
 import { useMonitorPackages, useMonitorSummary } from '../hooks/useMonitor'
 import { exportMonitorPackages } from '../services/monitorApi'
 import type { GroupFilter, MonitorFilters, MonitorOrder, MonitorPackage, MonitorSummary } from '../types/monitor.types'
+import { formatShortDay } from '../../../shared/utils/dates'
 import { formatDateTime, formatDay, formatRelative, GROUP_META } from '../utils/monitorFormat'
 
 export interface PackagesSectionConfig {
@@ -340,6 +341,10 @@ function PackageRow({ item }: { item: MonitorPackage }) {
           </Link>
           <span className={`badge monitor-badge tone-${meta.tone}`}>{item.statusLabel}</span>
           {item.missingAtUnload ? <span className="badge badge--danger">Faltante en la descarga</span> : null}
+          {item.isReturn && item.group !== 'DEVOLUCIONES' ? <span className="badge badge--warning">Devolución al remitente</span> : null}
+          {item.pickupUntil && item.group === 'PARA_RETIRAR' ? (
+            <span className="badge badge--muted" title={formatDateTime(item.pickupUntil)}>Retirar hasta el {formatShortDay(item.pickupUntil)}</span>
+          ) : null}
           {item.withoutRoute ? <span className="badge badge--warning">Sin recorrido</span> : null}
           {item.failedAttempts ? (
             <span className="badge badge--danger">

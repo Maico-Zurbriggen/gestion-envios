@@ -1,14 +1,19 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.application.interfaces.repositorio_recorridos import IRepositorioRecorridos
 from app.core.exceptions import DuplicateEntryException
-from app.domain.constants.estados_logistica import EstadoRecorridoPaqueteEnum, MotivoAlertaRecorridoEnum
+from app.domain.constants.estados_logistica import (
+    EstadoRecorridoPaqueteEnum,
+    MotivoAlertaRecorridoEnum,
+    ResultadoEventoEntregaEnum,
+    TipoControlEnum,
+)
 from app.domain.rules.recorrido_rules import (
     ESTADOS_PAQUETE_LISTOS_PARA_DESPACHO,
     ESTADOS_RECORRIDO_ACTIVOS,
@@ -16,7 +21,10 @@ from app.domain.rules.recorrido_rules import (
 )
 from app.infrastructure.db.models import (
     AlertaRecorridoModel,
+    ControlDescargaModel,
     EnvioModel,
+    EventoEntregaModel,
+    LecturaDescargaModel,
     PaqueteModel,
     PosicionActualRepartidorModel,
     RecorridoModel,
@@ -33,6 +41,38 @@ class RepositorioRecorridos(IRepositorioRecorridos):
         self.db = db
 
     # --- Paquetes ---
+
+    async def visitas_fallidas_de(self, paquete_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
+        if not paquete_ids:
+            return {}
+        resultado = await self.db.execute(
+            select(EventoEntregaModel.paquete_id, func.count())
+            .where(
+                EventoEntregaModel.paquete_id.in_(paquete_ids),
+                EventoEntregaModel.resultado == ResultadoEventoEntregaEnum.FALLIDO.value,
+            )
+            .group_by(EventoEntregaModel.paquete_id)
+        )
+        return {paquete_id: int(cantidad) for paquete_id, cantidad in resultado.all()}
+
+    async def control_de_carga(self, recorrido_id: uuid.UUID) -> tuple[str, int] | None:
+        """Estado del control de carga del recorrido y cuántos paquetes se verificaron."""
+        control = (
+            await self.db.execute(
+                select(ControlDescargaModel.id, ControlDescargaModel.estado).where(
+                    ControlDescargaModel.recorrido_id == recorrido_id,
+                    ControlDescargaModel.tipo == TipoControlEnum.CARGA.value,
+                )
+            )
+        ).first()
+        if control is None:
+            return None
+        verificados = await self.db.scalar(
+            select(func.count()).select_from(LecturaDescargaModel).where(
+                LecturaDescargaModel.control_id == control.id, LecturaDescargaModel.resultado == "CORRECTO"
+            )
+        )
+        return control.estado, int(verificados or 0)
 
     async def listar_paquetes_listos_en_sucursal(self, sucursal_id: int) -> list[PaqueteModel]:
         stmt = (

@@ -8,6 +8,10 @@ class IRepositorioMonitor(Protocol):
 
     async def contar_por_estado(self) -> dict[str, int]: ...
 
+    async def contar_devoluciones_en_espera(self) -> int:
+        """Paquetes en devolución que esperan en la sucursal de origen (Listo para retirar)."""
+        ...
+
     async def contar_envios(self) -> int: ...
 
     async def contar_paquetes_especiales(self) -> dict[str, int]:
@@ -33,6 +37,7 @@ class IRepositorioMonitor(Protocol):
         *,
         buscar: str | None = None,
         estados: tuple[str, ...] | None = None,
+        devolucion: bool | None = None,
         especial: str | None = None,
         sucursal_id: int | None = None,
         tipo_entrega: str | None = None,

@@ -120,6 +120,8 @@ class EnvioCreadoData(ApiModel):
     sucursal_destino: SucursalData | None = None
     paquetes: list[PaqueteCreadoData]
     created_at: datetime
+    admitir_hasta: datetime | None = None
+    """Último día para llevar el paquete a una sucursal; después el registro vence."""
 
 
 class CrearEnvioResponse(ApiModel):

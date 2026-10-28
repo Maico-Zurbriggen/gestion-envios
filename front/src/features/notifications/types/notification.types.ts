@@ -1,9 +1,13 @@
 export type NotificationChannel = 'EMAIL' | 'WHATSAPP'
 export type NotificationStatus = 'PENDIENTE' | 'ENVIADO' | 'FALLIDO'
+/** Hito del envío que originó el aviso. */
+export type NotificationReason =
+  | 'NUEVO_ENVIO' | 'ADMITIDO' | 'EN_REPARTO' | 'LISTO_PARA_RETIRO'
+  | 'ENTREGADO' | 'VISITA_FALLIDA' | 'DEVOLUCION' | 'VENCIDO'
 
 export interface ApiShipmentNotification {
   id: string
-  motivo: 'NUEVO_ENVIO' | 'VISITA_FALLIDA'
+  motivo: NotificationReason
   canal: NotificationChannel
   destinatario_tipo: 'REMITENTE' | 'DESTINATARIO'
   destino: string
@@ -21,7 +25,7 @@ export interface ShipmentNotificationsResponse {
 
 export interface ShipmentNotification {
   id: string
-  reason: 'NUEVO_ENVIO' | 'VISITA_FALLIDA'
+  reason: NotificationReason
   channel: NotificationChannel
   recipient: 'REMITENTE' | 'DESTINATARIO'
   destination: string

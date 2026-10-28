@@ -28,10 +28,11 @@ from app.domain.rules.notificacion_rules import armar_enlace_seguimiento
 from app.domain.rules.plantillas_correo import (
     CAMPOS_CONFIGURACION,
     CAMPOS_PLANTILLA,
+    CLAVES,
+    CLAVES_CON_LISTA_DE_PAQUETES,
     CONFIGURACION_DEFECTO,
     DATOS_EJEMPLO,
     DEFINICIONES,
-    VISITA_FALLIDA,
     renderizar,
     validar_configuracion,
     validar_plantilla,
@@ -83,7 +84,7 @@ class ServicioPlantillasCorreo:
     async def listar(self) -> PlantillasCorreoResponse:
         filas = await self.repo.obtener_plantillas()
         return PlantillasCorreoResponse(data=PlantillasCorreoData(
-            plantillas=[self._a_dato(clave, filas.get(clave)) for clave in DEFINICIONES],
+            plantillas=[self._a_dato(clave, filas.get(clave)) for clave in CLAVES],
             configuracion=await self._configuracion_dato(),
         ))
 
@@ -118,7 +119,7 @@ class ServicioPlantillasCorreo:
         if errores:
             raise ValidationException(message="Revisá los textos de la plantilla.", errors=errores)
         valores = {**DATOS_EJEMPLO, "enlace": armar_enlace_seguimiento(settings.FRONTEND_BASE_URL, DATOS_EJEMPLO["token"])}
-        paquetes = None if clave == VISITA_FALLIDA else DATOS_EJEMPLO["paquetes"].split(", ")
+        paquetes = DATOS_EJEMPLO["paquetes"].split(", ") if clave in CLAVES_CON_LISTA_DE_PAQUETES else None
         return renderizar(textos, await self._configuracion(), valores, paquetes=paquetes)
 
     async def vista_previa(self, clave: str, datos: VistaPreviaRequest) -> VistaPreviaResponse:

@@ -1048,3 +1048,47 @@ a.shipment-inline-action {
   min-height: auto;
   background: none;
 }
+
+/* Próximos pasos tras registrar el envío */
+.shipment-next-steps {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 34rem;
+  margin: var(--space-5) auto 0;
+  padding: 0;
+  counter-reset: paso;
+  list-style: none;
+  text-align: left;
+}
+
+.shipment-next-steps li {
+  position: relative;
+  display: grid;
+  gap: 0.15rem;
+  padding: var(--space-3) var(--space-4) var(--space-3) 3.25rem;
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-md);
+  counter-increment: paso;
+  font-size: var(--font-size-sm);
+}
+
+.shipment-next-steps li::before {
+  position: absolute;
+  top: 50%;
+  left: var(--space-4);
+  width: 1.6rem;
+  height: 1.6rem;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-on-primary);
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  content: counter(paso);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  transform: translateY(-50%);
+}
+
+.shipment-next-steps span {
+  color: var(--color-text-muted);
+}
