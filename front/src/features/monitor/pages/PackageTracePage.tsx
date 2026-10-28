@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   AlertTriangle,
+  ArrowLeft,
   ArrowRightLeft,
   ClipboardCheck,
   Bell,
@@ -20,7 +21,6 @@ import {
   Phone,
   RefreshCw,
   Route,
-  Search,
   Truck,
   UserRound,
   XCircle,
@@ -30,12 +30,11 @@ import { useAppSelector } from '../../../app/store'
 import { LocationMap, type MapLocation } from '../../../shared/components/LocationMap'
 import { Modal } from '../../../shared/components/Modal'
 import { PageHeader } from '../../../shared/components/PageHeader'
-import { ScanWithCameraButton } from '../../../shared/components/ScanWithCameraButton'
 import { PrintLabelsButton } from '../../../shared/printing/PrintLabelsButton'
 import { formatDimensions } from '../../../shared/printing/shipmentLabels'
-import { PACKAGE_CODE_PATTERN } from '../../../shared/services/scannedCode'
 import { showToast } from '../../../shared/services/toast'
 import { selectAuthToken } from '../../auth/redux/authSlice'
+import { PackageSearchBar } from '../components/PackageSearchBar'
 import { usePackageTrace } from '../hooks/useMonitor'
 import { getSignature } from '../services/monitorApi'
 import type { PackageTrace, TraceEvent, TraceEventType } from '../types/monitor.types'
@@ -72,51 +71,6 @@ async function copy(text: string) {
 
 export function PackageTracePage() {
   const { code } = useParams()
-  const navigate = useNavigate()
-  const [input, setInput] = useState(code ?? '')
-
-  function open(value: string) {
-    const normalized = value.trim().toUpperCase()
-    if (!normalized) return
-    navigate(`/monitor/trazabilidad/${normalized}`)
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    open(input)
-  }
-
-  const searchForm = (
-    <form className="trace-search" onSubmit={handleSubmit} role="search">
-      <div className="list-search">
-        <Search size={16} aria-hidden="true" />
-        <label className="visually-hidden" htmlFor="trace-code">Número de paquete</label>
-        <input
-          id="trace-code"
-          placeholder="PAQ-XXXXXXXXXX"
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          autoComplete="off"
-          spellCheck={false}
-          autoFocus={!code}
-        />
-      </div>
-      <button className="btn btn--primary" type="submit" disabled={!input.trim()}>
-        <PackageSearch size={17} aria-hidden="true" />
-        Ver trazabilidad
-      </button>
-      <ScanWithCameraButton
-        mode="single"
-        className="btn"
-        pattern={PACKAGE_CODE_PATTERN}
-        patternMessage={(read) => `${read} no es un número de paquete (PAQ-XXXXXXXXXX).`}
-        onScan={(read) => {
-          setInput(read)
-          open(read)
-        }}
-      />
-    </form>
-  )
 
   if (!code) {
     return (
@@ -125,22 +79,32 @@ export function PackageTracePage() {
           icon={PackageSearch}
           title="Trazabilidad"
           description="Escribí o escaneá el número de un paquete para ver todo lo que pasó con él: quién lo movió, dónde estuvo, entregas, firma, avisos y reclamos."
+          actions={<BackToPackages />}
         />
         <section className="surface-card trace-start">
-          {searchForm}
+          <PackageSearchBar autoFocus />
           <p>
-            También podés abrir la trazabilidad desde cualquier listado del monitor con el botón <PackageSearch size={14} aria-label="Ver trazabilidad" />.
-            Para buscar por código de seguimiento, persona o teléfono usá <Link to="/monitor/paquetes">Todos los paquetes</Link>.
+            También se abre tocando un paquete en <Link to="/monitor/paquetes">Paquetes</Link>, donde además podés buscar por código de
+            seguimiento, persona o teléfono.
           </p>
         </section>
       </main>
     )
   }
 
-  return <TraceView key={code} code={code} searchForm={searchForm} />
+  return <TraceView key={code} code={code} />
 }
 
-function TraceView({ code, searchForm }: { code: string; searchForm: ReactNode }) {
+function BackToPackages() {
+  return (
+    <Link className="btn btn--ghost" to="/monitor/paquetes">
+      <ArrowLeft size={17} aria-hidden="true" />
+      Paquetes
+    </Link>
+  )
+}
+
+function TraceView({ code }: { code: string }) {
   const traceQuery = usePackageTrace(code)
   const trace = traceQuery.data
   const [filter, setFilter] = useState<TimelineFilter>('todo')
@@ -161,8 +125,10 @@ function TraceView({ code, searchForm }: { code: string; searchForm: ReactNode }
   if (traceQuery.isError || !trace) {
     return (
       <main className="monitor-page">
-        <PageHeader icon={PackageSearch} title={code.toUpperCase()} />
-        <section className="surface-card trace-start">{searchForm}</section>
+        <PageHeader icon={PackageSearch} title={code.toUpperCase()} actions={<BackToPackages />} />
+        <section className="surface-card trace-start trace-start--compact">
+          <PackageSearchBar initialCode={code.toUpperCase()} />
+        </section>
         <div className="list-card list-empty" role="alert">
           <PackageSearch size={30} aria-hidden="true" />
           <strong>No pudimos mostrar este paquete</strong>
@@ -191,6 +157,7 @@ function TraceView({ code, searchForm }: { code: string; searchForm: ReactNode }
         }
         actions={
           <>
+            <BackToPackages />
             <button className="btn" type="button" onClick={() => void traceQuery.refetch()} disabled={traceQuery.isFetching}>
               <RefreshCw size={17} className={traceQuery.isFetching ? 'loading-icon' : undefined} aria-hidden="true" />
               Actualizar
@@ -219,7 +186,9 @@ function TraceView({ code, searchForm }: { code: string; searchForm: ReactNode }
         }
       />
 
-      <section className="surface-card trace-start trace-start--compact">{searchForm}</section>
+      <section className="surface-card trace-start trace-start--compact">
+        <PackageSearchBar />
+      </section>
 
       <TraceProgress trace={trace} />
 

@@ -1,4 +1,4 @@
-import type { RouteObject } from 'react-router-dom'
+import { Navigate, type RouteObject } from 'react-router-dom'
 import {
   ClaimsAdminRoute,
   MonitorOverviewRoute,
@@ -6,9 +6,9 @@ import {
   MonitorShellRoute,
   PackageTraceRoute,
 } from './components/MonitorLazy'
-import { MONITOR_SECTIONS } from './monitorSections'
+import { LEGACY_SECTIONS, MONITOR_SECTIONS } from './monitorSections'
 
-/** Sección general «Monitor» con sus subsecciones. */
+/** Sección general «Monitor»: Resumen, Paquetes, Incidencias, Reclamos y la trazabilidad de cada paquete. */
 export const monitorRoute: RouteObject = {
   path: '/monitor',
   element: <MonitorShellRoute />,
@@ -17,6 +17,10 @@ export const monitorRoute: RouteObject = {
     ...Object.entries(MONITOR_SECTIONS).map(([path, config]) => ({
       path,
       element: <MonitorPackagesRoute key={path} config={config} />,
+    })),
+    ...Object.entries(LEGACY_SECTIONS).map(([path, group]) => ({
+      path,
+      element: <Navigate to={`/monitor/paquetes?grupo=${group}`} replace />,
     })),
     { path: 'reclamos', element: <ClaimsAdminRoute /> },
     { path: 'trazabilidad', element: <PackageTraceRoute /> },

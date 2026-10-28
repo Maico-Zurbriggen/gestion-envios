@@ -179,6 +179,12 @@
   margin-bottom: var(--space-8);
 }
 
+/* Resumen: «Requieren atención» y «Hoy» lado a lado. */
+.monitor-columns--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 0;
+}
+
 @media (max-width: 1180px) {
   .monitor-columns {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -284,135 +290,6 @@
 
 .monitor-attention__item.is-clear {
   --tone: var(--color-success);
-}
-
-/* Tarjetas de subsección (como ModuleCard de TamboApp) */
-.monitor-section-title {
-  margin-bottom: var(--space-4);
-}
-
-.monitor-section-title h2 {
-  margin: 0;
-  font-size: var(--font-size-lg);
-}
-
-.monitor-section-title p {
-  margin: 0.25rem 0 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-}
-
-.section-card-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-5);
-}
-
-@media (max-width: 1050px) {
-  .section-card-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 680px) {
-  .section-card-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.section-card {
-  min-height: 19rem;
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-5);
-  overflow: hidden;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--color-primary-500) 10%, var(--color-surface)), var(--color-surface) 48%);
-  border: 1px solid color-mix(in srgb, var(--color-primary-500) 50%, var(--color-border));
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card);
-  transition:
-    box-shadow var(--transition-base),
-    transform var(--transition-base);
-}
-
-.section-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-.section-card__icon {
-  width: 2.75rem;
-  height: 2.75rem;
-  display: grid;
-  place-items: center;
-  margin-bottom: var(--space-4);
-  color: var(--color-text-on-primary);
-  background: var(--color-primary);
-  border-radius: var(--radius-sm);
-}
-
-.section-card__content {
-  flex: 1;
-}
-
-.section-card__status {
-  display: inline-flex;
-  padding: 0.125rem 0.625rem;
-  color: var(--color-success-text);
-  background: var(--color-success-subtle);
-  border-radius: var(--radius-full);
-  font-size: 0.6875rem;
-  font-weight: var(--font-weight-semibold);
-  line-height: 1rem;
-  text-transform: uppercase;
-}
-
-.section-card__content h3 {
-  margin: 0.65rem 0 0.5rem;
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-}
-
-.section-card__content p {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
-}
-
-.section-card__content ul {
-  margin: var(--space-4) 0 0;
-  padding-left: 1.1rem;
-  color: var(--color-text-muted);
-  font-size: 0.86rem;
-  line-height: 1.7;
-}
-
-.section-card__link {
-  min-height: 2.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-top: var(--space-5);
-  padding: 0.625rem var(--space-4);
-  color: var(--color-text-on-primary);
-  background: var(--color-primary);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  text-decoration: none;
-}
-
-.section-card__link:hover {
-  color: var(--color-text-on-primary);
-  background: var(--color-primary-hover);
-}
-
-@media (max-width: 680px) {
-  .section-card {
-    min-height: 0;
-  }
 }
 
 /* Panel de filtros de los listados */

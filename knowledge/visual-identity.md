@@ -47,7 +47,7 @@ Las escalas completas y los tokens están en `front/src/styles/theme.css`. Los c
 - Dentro del panel todas las pantallas usan el mismo tamaño de título (24 a 28 px); las páginas públicas conservan su título de portada.
 - **Secciones con subsecciones**, como en TamboApp (por ejemplo, Monitor):
   - **Menú lateral:** la sección se despliega con una flecha y muestra sus subsecciones con ícono; la activa se resalta en naranja.
-  - **Portada:** la ruta de la sección muestra tarjetas por subsección, con estado, descripción, lo que permite hacer y el botón «Abrir…».
+  - **Pocas subsecciones:** cuando varias pantallas son el mismo listado con distinto filtro, se unifican en una sola con pestañas.
   - **Encabezado de cada subsección:** ícono, título y descripción, sin antetítulo.
   - **Filtros:** van en un panel plegable y fijo (`CollapsibleFilterSection`) que muestra un resumen de lo aplicado.
   - **Pie:** enlaces «Ver también» hacia las subsecciones relacionadas.

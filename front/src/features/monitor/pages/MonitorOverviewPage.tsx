@@ -16,25 +16,19 @@ import {
   XCircle,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { NAVIGATION_MODULES } from '../../../app/navigation'
 import { PageHeader, StatCard } from '../../../shared/components/PageHeader'
+import { PackageSearchBar } from '../components/PackageSearchBar'
 import { useMonitorSummary } from '../hooks/useMonitor'
-import { countForSection, formatRelative, GROUP_META, percent, PIPELINE } from '../utils/monitorFormat'
+import { formatRelative, GROUP_META, percent, PIPELINE } from '../utils/monitorFormat'
 
-const MONITOR = NAVIGATION_MODULES.find((module) => module.id === 'monitor')!
-const GROUP_PATHS: Record<string, string> = {
-  PENDIENTES: '/monitor/pendientes',
-  EN_DEPOSITO: '/monitor/deposito',
-  EN_CAMINO: '/monitor/en-camino',
-  PARA_RETIRAR: '/monitor/para-retirar',
-  ENTREGADOS: '/monitor/entregados',
-  NO_ENTREGADOS: '/monitor/incidencias?grupo=NO_ENTREGADOS',
+/** Cada etapa del flujo abre el listado ya filtrado. */
+function stagePath(group: string) {
+  return group === 'NO_ENTREGADOS' ? '/monitor/incidencias?grupo=NO_ENTREGADOS' : `/monitor/paquetes?grupo=${group}`
 }
 
 export function MonitorOverviewPage() {
   const summaryQuery = useMonitorSummary()
   const summary = summaryQuery.data
-  const sections = (MONITOR.children ?? []).filter((child) => child.path !== MONITOR.path)
 
   const attention = summary
     ? [
@@ -46,12 +40,23 @@ export function MonitorOverviewPage() {
       ]
     : []
 
+  const today = summary
+    ? [
+        { label: 'Registrados', value: summary.today.registered, icon: PackagePlus },
+        { label: 'Recibidos en terminal', value: summary.today.received, icon: ScanBarcode },
+        { label: 'Entregados', value: summary.today.delivered, icon: CircleCheckBig },
+        { label: 'Visitas fallidas', value: summary.today.failedVisits, icon: XCircle },
+        { label: 'Recorridos en curso', value: `${summary.routesToday.inProgress} de ${summary.routesToday.total}`, icon: Route },
+        { label: 'Repartidores en ruta', value: summary.routesToday.driversOnRoute, icon: Bike },
+      ]
+    : []
+
   return (
     <main className="monitor-page">
       <PageHeader
         icon={MonitorDot}
         title="Monitor de envíos"
-        description="El estado de todos los paquetes de un vistazo: en qué etapa están, qué pasó hoy y qué necesita atención. Elegí una sección para ver el detalle."
+        description="El estado de todos los paquetes de un vistazo: en qué etapa están, qué necesita atención y qué pasó hoy."
         actions={
           <button className="btn" type="button" onClick={() => void summaryQuery.refetch()} disabled={summaryQuery.isFetching}>
             <RefreshCw size={17} className={summaryQuery.isFetching ? 'loading-icon' : undefined} aria-hidden="true" />
@@ -59,6 +64,10 @@ export function MonitorOverviewPage() {
           </button>
         }
       />
+
+      <section className="surface-card trace-start trace-start--compact" aria-label="Ir a un paquete">
+        <PackageSearchBar />
+      </section>
 
       {summaryQuery.isError ? (
         <div className="list-card list-empty" role="alert">
@@ -71,16 +80,20 @@ export function MonitorOverviewPage() {
       <section className="stat-grid" aria-label="Indicadores generales">
         <StatCard label="Paquetes" value={summary?.totalPackages ?? '—'} icon={Boxes} hint={summary ? `${summary.totalShipments} envíos registrados` : undefined} />
         <StatCard label="Entregados hoy" value={summary?.today.delivered ?? '—'} icon={CircleCheckBig} tone="success" hint="A domicilio o en sucursal" />
-        <StatCard label="Visitas fallidas hoy" value={summary?.today.failedVisits ?? '—'} icon={XCircle} tone="muted" hint="Se reintentan en otro recorrido" />
+        <StatCard label="Incidencias" value={summary?.withProblems ?? '—'} icon={AlertTriangle} tone="muted" hint="Fallidas, faltantes, sin recorrido o con reclamo" />
         <StatCard label="Reclamos en curso" value={summary?.openClaims ?? '—'} icon={MessageSquareWarning} tone="info" hint="Abiertos o en revisión" />
       </section>
 
       <section className="surface-card monitor-flow" aria-labelledby="monitor-flow-title">
         <header className="monitor-card__header">
           <div>
-            <h2 id="monitor-flow-title">Flujo de paquetes</h2>
-            <p>Cuántos paquetes hay en cada etapa, del registro a la entrega. Tocá una etapa para ver sus paquetes.</p>
+            <h2 id="monitor-flow-title">Paquetes por etapa</h2>
+            <p>Del registro a la entrega. Tocá una etapa para ver sus paquetes.</p>
           </div>
+          <Link className="monitor-link" to="/monitor/paquetes">
+            Ver todos
+            <ArrowRight size={15} aria-hidden="true" />
+          </Link>
         </header>
         <div className="monitor-flow__bar" aria-hidden="true">
           {PIPELINE.map((group) => {
@@ -97,7 +110,7 @@ export function MonitorOverviewPage() {
             const count = summary?.byGroup[group] ?? 0
             return (
               <li key={group}>
-                <Link className={`monitor-stage tone-${meta.tone}`} to={GROUP_PATHS[group]}>
+                <Link className={`monitor-stage tone-${meta.tone}`} to={stagePath(group)}>
                   <span className="monitor-stage__icon" aria-hidden="true">
                     <Icon size={18} />
                   </span>
@@ -113,8 +126,8 @@ export function MonitorOverviewPage() {
         </ol>
       </section>
 
-      <div className="monitor-columns">
-        <section className="surface-card monitor-card monitor-card--attention" aria-labelledby="monitor-attention-title">
+      <div className="monitor-columns monitor-columns--two">
+        <section className="surface-card monitor-card" aria-labelledby="monitor-attention-title">
           <header className="monitor-card__header">
             <div>
               <h2 id="monitor-attention-title">
@@ -148,79 +161,31 @@ export function MonitorOverviewPage() {
             <div>
               <h2 id="monitor-today-title">
                 <CalendarClock size={18} aria-hidden="true" />
-                Actividad de hoy
+                Hoy
               </h2>
-              <p>Movimientos registrados desde las 00:00.</p>
-            </div>
-          </header>
-          <dl className="monitor-metrics">
-            <div><dt><PackagePlus size={16} aria-hidden="true" />Registrados</dt><dd>{summary?.today.registered ?? '—'}</dd></div>
-            <div><dt><ScanBarcode size={16} aria-hidden="true" />Recibidos en terminal</dt><dd>{summary?.today.received ?? '—'}</dd></div>
-            <div><dt><CircleCheckBig size={16} aria-hidden="true" />Entregados</dt><dd>{summary?.today.delivered ?? '—'}</dd></div>
-            <div><dt><XCircle size={16} aria-hidden="true" />Visitas fallidas</dt><dd>{summary?.today.failedVisits ?? '—'}</dd></div>
-          </dl>
-        </section>
-
-        <section className="surface-card monitor-card" aria-labelledby="monitor-routes-title">
-          <header className="monitor-card__header">
-            <div>
-              <h2 id="monitor-routes-title">
-                <Route size={18} aria-hidden="true" />
-                Recorridos de hoy
-              </h2>
-              <p>Planificación y reparto del día.</p>
+              <p>Movimientos y recorridos desde las 00:00.</p>
             </div>
             <Link className="monitor-link" to="/recorridos">
-              Gestionar
+              Recorridos
               <ArrowRight size={15} aria-hidden="true" />
             </Link>
           </header>
           <dl className="monitor-metrics">
-            <div><dt>Generados</dt><dd>{summary?.routesToday.generated ?? '—'}</dd></div>
-            <div><dt>En curso</dt><dd>{summary?.routesToday.inProgress ?? '—'}</dd></div>
-            <div><dt>Finalizados</dt><dd>{summary?.routesToday.finished ?? '—'}</dd></div>
-            <div><dt><Bike size={16} aria-hidden="true" />Repartidores en ruta</dt><dd>{summary?.routesToday.driversOnRoute ?? '—'}</dd></div>
+            {today.map((item) => {
+              const Icon = item.icon
+              return (
+                <div key={item.label}>
+                  <dt>
+                    <Icon size={16} aria-hidden="true" />
+                    {item.label}
+                  </dt>
+                  <dd>{item.value}</dd>
+                </div>
+              )
+            })}
           </dl>
         </section>
       </div>
-
-      <section aria-labelledby="monitor-sections-title">
-        <header className="monitor-section-title">
-          <h2 id="monitor-sections-title">Secciones del monitor</h2>
-          <p>Cada sección muestra una etapa o una tarea. También las encontrás en el menú lateral, dentro de Monitor.</p>
-        </header>
-        <div className="section-card-grid">
-          {sections.map((section) => {
-            const Icon = section.icon
-            const count = countForSection(section.id, summary)
-            return (
-              <article className="section-card" key={section.id}>
-                <span className="section-card__icon" aria-hidden="true">
-                  <Icon size={24} strokeWidth={1.8} />
-                </span>
-                <div className="section-card__content">
-                  <span className={`section-card__status ${count ? 'has-items' : ''}`}>
-                    {count === undefined ? 'Disponible' : `${count} ${count === 1 ? 'elemento' : 'elementos'}`}
-                  </span>
-                  <h3>{section.label}</h3>
-                  <p>{section.description}</p>
-                  {section.capabilities?.length ? (
-                    <ul>
-                      {section.capabilities.map((capability) => (
-                        <li key={capability}>{capability}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-                <Link className="section-card__link" to={section.path}>
-                  Abrir {section.label.toLowerCase()}
-                  <ArrowRight size={17} aria-hidden="true" />
-                </Link>
-              </article>
-            )
-          })}
-        </div>
-      </section>
     </main>
   )
 }

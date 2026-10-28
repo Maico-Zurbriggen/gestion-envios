@@ -2,32 +2,30 @@
 
 ## Monitor de envíos
 
-Sección general del menú lateral (`/monitor`), para `ADMINISTRATIVO` y `SUPERADMIN`. Sigue el patrón de TamboApp: la sección se despliega en subsecciones y su ruta raíz es una portada con una tarjeta por subsección.
+Sección general del menú lateral (`/monitor`), para `ADMINISTRATIVO` y `SUPERADMIN`, con cuatro subsecciones:
 
 | Subsección | Ruta | Contenido |
 |---|---|---|
-| Panel general | `/monitor` | Indicadores, flujo de paquetes por etapa, actividad y recorridos del día, lo que requiere atención y tarjetas de las subsecciones. |
-| Todos los paquetes | `/monitor/paquetes` | Listado completo con pestañas por etapa. |
-| Pendientes de ingreso | `/monitor/pendientes` | Registrados que todavía no llegaron a una terminal. |
-| En depósito | `/monitor/deposito` | En terminal de origen o en sucursal. |
-| En camino | `/monitor/en-camino` | En tránsito o en reparto, con repartidor, día y parada. |
-| Para retirar | `/monitor/para-retirar` | Esperando retiro en sucursal. |
-| Entregados | `/monitor/entregados` | Entregados a domicilio o retirados. |
+| Resumen | `/monitor` | «Ir a un paquete» (escribir o escanear), indicadores, paquetes por etapa, lo que requiere atención y la actividad del día. |
+| Paquetes | `/monitor/paquetes` | Todos los paquetes, con pestañas por etapa: pendientes, en depósito, en camino, para retirar, entregados y visita fallida. |
 | Incidencias | `/monitor/incidencias` | Visitas fallidas, faltantes en la descarga, sin recorrido y con reclamo. |
 | Reclamos | `/monitor/reclamos` | Bandeja para revisar, responder y cerrar reclamos. |
-| Trazabilidad | `/monitor/trazabilidad/:paquete` | Todo lo ocurrido con un paquete, en una sola pantalla. |
+
+**Trazabilidad.** Se abre tocando un paquete, desde «Ir a un paquete» o desde las pantallas operativas: `/monitor/trazabilidad/:paquete`. No ocupa un lugar en el menú; mientras está abierta, se marca «Paquetes».
+
+**Rutas anteriores.** `/monitor/pendientes`, `/deposito`, `/en-camino`, `/para-retirar` y `/entregados` redirigen a Paquetes con la pestaña correspondiente.
 
 ### Pantallas de listado
 
-Todas las de paquetes comparten la misma organización:
+Paquetes e Incidencias comparten la misma organización:
 
 - **Encabezado:** ícono, título y descripción.
-- **Pestañas:** cuando la subsección agrupa más de una etapa.
+- **Pestañas:** por etapa o por tipo de incidencia.
 - **Panel de filtros plegable y fijo:** búsqueda, sucursal, tipo de entrega, fechas y orden, con un resumen de lo aplicado.
 - **Listado en filas:** con paginado y exportación a CSV, que se abre con Excel.
-- **Enlaces «Ver también»:** al pie, hacia las subsecciones relacionadas.
+- **Enlaces «Ver también»:** al pie.
 
-Los filtros quedan en la URL, así que una búsqueda se puede compartir y el botón «Atrás» la conserva.
+Los filtros y la pestaña quedan en la URL, así que una búsqueda se puede compartir y el botón «Atrás» la conserva.
 
 ### Trazabilidad
 

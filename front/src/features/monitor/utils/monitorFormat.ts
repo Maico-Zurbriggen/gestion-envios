@@ -9,7 +9,7 @@ import {
   XCircle,
   type LucideIcon,
 } from 'lucide-react'
-import type { MonitorSummary, PackageGroup, Tone } from '../types/monitor.types'
+import type { PackageGroup, Tone } from '../types/monitor.types'
 
 export const GROUP_META: Record<PackageGroup, { label: string; icon: LucideIcon; tone: Tone }> = {
   PENDIENTES: { label: 'Pendientes de ingreso', icon: Clock3, tone: 'neutral' },
@@ -88,20 +88,3 @@ export function formatRelative(value: string, now = Date.now()) {
 export function percent(part: number, total: number) {
   return total > 0 ? Math.round((part / total) * 100) : 0
 }
-
-/** Cantidad que acompaña a cada subsección en la barra interna. */
-export function countForSection(id: string, summary: MonitorSummary | undefined): number | undefined {
-  if (!summary) return undefined
-  const counts: Record<string, number> = {
-    'monitor-all': summary.totalPackages,
-    'monitor-pending': summary.byGroup.PENDIENTES ?? 0,
-    'monitor-warehouse': summary.byGroup.EN_DEPOSITO ?? 0,
-    'monitor-transit': summary.byGroup.EN_CAMINO ?? 0,
-    'monitor-pickup': summary.byGroup.PARA_RETIRAR ?? 0,
-    'monitor-delivered': summary.byGroup.ENTREGADOS ?? 0,
-    'monitor-incidents': summary.withProblems,
-    'monitor-claims': summary.openClaims,
-  }
-  return counts[id]
-}
-
