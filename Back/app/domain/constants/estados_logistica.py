@@ -44,16 +44,6 @@ class TipoRetiroEnum(StrEnum):
     TERCERO_AUTORIZADO = "TERCERO_AUTORIZADO"
 
 
-class TipoDocumentoEnum(StrEnum):
-    """Tipos de documento válidos para verificación de identidad."""
-
-    DNI = "DNI"
-    PASAPORTE = "PASAPORTE"
-    LC = "LC"
-    LE = "LE"
-    OTRO = "OTRO"
-
-
 class TipoDistanciaEnum(StrEnum):
     """HU10 Escenario 4: corta distancia = misma ciudad; larga distancia =
     entre ciudades, dejando paquetes en sucursales."""

@@ -330,19 +330,6 @@ async def obtener_usuario_actual(
     return usuario
 
 
-def requerir_scope(scope_requerido: str) -> Callable:
-    """Fabrica una dependencia que restringe el acceso al scope JWT especificado."""
-    async def validador_scope(payload: dict[str, Any] = Depends(obtener_token_payload)) -> dict[str, Any]:
-        scope_actual = payload.get("scope")
-        if scope_actual != scope_requerido:
-            raise ForbiddenScopeException(
-                f"El token no posee el alcance necesario ({scope_requerido})."
-            )
-        return payload
-
-    return validador_scope
-
-
 async def validar_token_para_cambio_password(
     payload: dict[str, Any] = Depends(obtener_token_payload),
 ) -> dict[str, Any]:

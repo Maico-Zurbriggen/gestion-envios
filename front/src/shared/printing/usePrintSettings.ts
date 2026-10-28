@@ -5,7 +5,7 @@ import { DEFAULT_PRINT_SETTINGS, normalizePrintSettings, type PrintSettings } fr
  * La impresora depende del puesto, no de la persona: se guarda en este
  * navegador como comodidad local y nunca viaja al servidor.
  */
-export const PRINT_SETTINGS_STORAGE_KEY = 'gestion-envios.impresion'
+const PRINT_SETTINGS_STORAGE_KEY = 'gestion-envios.impresion'
 
 const listeners = new Set<() => void>()
 let cachedRaw: string | null | undefined
@@ -51,7 +51,7 @@ function subscribe(listener: () => void) {
   }
 }
 
-export function savePrintSettings(settings: PrintSettings) {
+function savePrintSettings(settings: PrintSettings) {
   const raw = JSON.stringify(normalizePrintSettings(settings))
   memoryRaw = raw
   try {

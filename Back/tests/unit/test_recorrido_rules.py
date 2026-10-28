@@ -29,7 +29,6 @@ from app.domain.rules.recorrido_rules import (
     particionar_equitativamente,
     planificar_recorridos,
     repartir_paradas_equitativamente,
-    validar_orientacion,
 )
 
 CORTA = TipoDistanciaEnum.CORTA.value
@@ -124,10 +123,6 @@ def test_estado_al_iniciar_segun_tipo():
 def test_todos_los_motivos_de_alerta_tienen_descripcion():
     assert set(DESCRIPCIONES_MOTIVO_ALERTA) == {m.value for m in MotivoAlertaRecorridoEnum}
 
-
-@pytest.mark.parametrize("valor, esperado", [(0, True), (45, True), (89.9, True), (90, False), (-1, False)])
-def test_validar_orientacion(valor, esperado):
-    assert validar_orientacion(valor) is esperado
 
 
 # --- Distancias y orientación de las calles ---

@@ -188,7 +188,6 @@ async def test_retiro_vencido_vuelve_al_remitente(client: AsyncClient, db_sessio
     # El que quedó en destino viaja de vuelta en un recorrido de larga distancia.
     await _crear_repartidor(db_session, "Larga vuelta", sucursal_id=2, tipo="LARGA")
     generado = (await _generar(client, administrativo_token, sucursal_id=2, tipo_distancia="LARGA"))["data"]["recorridos"]
-    parada = generado[0]["paradas"][0] if generado and "paradas" in generado[0] else None
     detalle = (await client.get(f"/api/v1/recorridos/{generado[0]['id']}", headers=_auth(administrativo_token))).json()["data"]
     parada = detalle["paradas"][0]
     assert parada["sucursal_destino"]["id"] == 1 and parada["paquetes"][0]["en_devolucion"] is True

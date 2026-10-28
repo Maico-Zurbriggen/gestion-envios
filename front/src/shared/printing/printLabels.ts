@@ -9,7 +9,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
  * Code 128 en SVG, plano y sin márgenes ni texto: el número se imprime
  * aparte. Sin ancho ni alto fijos, el SVG ocupa el lugar que le da la etiqueta.
  */
-export function renderBarcodeSvg(value: string): string {
+function renderBarcodeSvg(value: string): string {
   const svg = document.createElementNS(SVG_NS, 'svg')
   JsBarcode(svg, value, {
     format: 'CODE128',

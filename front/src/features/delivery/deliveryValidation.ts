@@ -19,7 +19,7 @@ export function canRegisterDelivery(route: RouteForDelivery, stop: Pick<RouteSto
   return route.distanceType === 'CORTA' && stop.type === 'DOMICILIO' && route.status === 'EN_CURSO' && item.routeStatus === 'PENDIENTE' && item.status === 'EN_REPARTO'
 }
 
-export type ScannedDeliveryMatch<T extends PackageForDelivery> =
+type ScannedDeliveryMatch<T extends PackageForDelivery> =
   | { kind: 'enabled'; item: T }
   | { kind: 'not-in-route' }
   | { kind: 'not-enabled'; item: T; reason: 'already-visited' | 'branch-stop' | 'not-in-delivery' | 'route-not-active' }

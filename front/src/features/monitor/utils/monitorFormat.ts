@@ -1,5 +1,4 @@
 import {
-  AlertTriangle,
   CircleCheckBig,
   Clock3,
   Package,
@@ -13,8 +12,6 @@ import {
 } from 'lucide-react'
 import { parseApiDate } from '../../../shared/utils/dates'
 import type { PackageGroup, Tone } from '../types/monitor.types'
-
-export { parseApiDate }
 
 export const GROUP_META: Record<PackageGroup, { label: string; icon: LucideIcon; tone: Tone }> = {
   PENDIENTES: { label: 'Pendientes de ingreso', icon: Clock3, tone: 'neutral' },
@@ -39,8 +36,6 @@ export const PIPELINE: ReadonlyArray<Exclude<PackageGroup, 'OTROS' | 'DEVOLUCION
   'NO_ENTREGADOS',
 ]
 
-export const INCIDENT_ICON = AlertTriangle
-
 export const CLAIM_TYPE_LABELS: Record<string, string> = {
   DEMORA: 'Demora',
   DANIO: 'Daño',
@@ -53,15 +48,6 @@ export const CLAIM_STATUS_META: Record<string, { label: string; badge: string; t
   EN_REVISION: { label: 'En revisión', badge: 'badge--info', tone: 'info' },
   RESUELTO: { label: 'Resuelto', badge: 'badge--success', tone: 'success' },
   RECHAZADO: { label: 'Rechazado', badge: 'badge--muted', tone: 'neutral' },
-}
-
-export const TONE_BADGE: Record<Tone, string> = {
-  neutral: 'badge--muted',
-  info: 'badge--info',
-  brand: '',
-  success: 'badge--success',
-  warning: 'badge--warning',
-  danger: 'badge--danger',
 }
 
 const dateTime = new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })

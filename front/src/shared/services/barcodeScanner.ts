@@ -17,7 +17,7 @@
  * cuantos más formatos, más trabajo por cuadro. Las etiquetas usan Code 128;
  * QR, Code 39 y EAN-13 cubren etiquetas de terceros.
  */
-export const NATIVE_BARCODE_FORMATS = ['code_128', 'qr_code', 'code_39', 'ean_13'] as const
+const NATIVE_BARCODE_FORMATS = ['code_128', 'qr_code', 'code_39', 'ean_13'] as const
 
 /** Por qué no se puede usar la cámara. Cada motivo tiene una salida distinta. */
 export type CameraUnavailableReason = 'sin-https' | 'sin-soporte'

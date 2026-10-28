@@ -25,7 +25,7 @@ export interface ShipmentLabelData {
 }
 
 /** Dibuja el Code 128 del valor y devuelve el SVG como texto. */
-export type BarcodeRenderer = (value: string) => string
+type BarcodeRenderer = (value: string) => string
 
 export function formatDimensions(lengthCm: number, widthCm: number, heightCm: number): string {
   return `${lengthCm} × ${widthCm} × ${heightCm} cm`

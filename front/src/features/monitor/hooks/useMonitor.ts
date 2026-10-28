@@ -5,7 +5,7 @@ import { listAdminClaims, updateClaimStatus, type ClaimStatus } from '../service
 import { getMonitorSummary, getPackageTrace, listMonitorPackages, processDeadlines } from '../services/monitorApi'
 import type { MonitorFilters } from '../types/monitor.types'
 
-export const MONITOR_KEY = ['admin', 'monitor'] as const
+const MONITOR_KEY = ['admin', 'monitor'] as const
 /** El monitor se refresca solo cada 30 segundos mientras está abierto. */
 const AUTO_REFRESH_MS = 30_000
 

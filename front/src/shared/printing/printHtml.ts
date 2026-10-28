@@ -16,7 +16,7 @@ export function escapeHtml(value: unknown): string {
 }
 
 /** Política de contenido del documento impreso: ningún script puede ejecutarse. */
-export const PRINT_CSP = "default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; font-src data:"
+const PRINT_CSP = "default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; font-src data:"
 
 const CLEANUP_FALLBACK_MS = 60_000
 

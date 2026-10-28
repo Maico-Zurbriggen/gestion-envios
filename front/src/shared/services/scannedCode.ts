@@ -10,14 +10,14 @@ export const PACKAGE_CODE_PATTERN = /^PAQ-[A-Z0-9]{10}$/i
 export const TRACKING_TOKEN_PATTERN = /^ENV-[A-Z0-9]{10}$/i
 
 /** Tiempo durante el que se ignora una nueva lectura del mismo código. */
-export const REPEATED_READ_WINDOW_MS = 2500
+const REPEATED_READ_WINDOW_MS = 2500
 
 /** Deja el código como lo generan las etiquetas: en mayúsculas y sin espacios. */
 export function normalizeScannedCode(raw: string): string {
   return raw.replace(/\s/g, '').toUpperCase()
 }
 
-export type ScannedCodeCheck =
+type ScannedCodeCheck =
   | { valid: true; code: string }
   | { valid: false; code: string; reason: 'empty' | 'pattern' }
 

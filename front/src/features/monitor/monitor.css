@@ -189,10 +189,6 @@
   .monitor-columns {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  .monitor-card--attention {
-    grid-column: 1 / -1;
-  }
 }
 
 @media (max-width: 720px) {

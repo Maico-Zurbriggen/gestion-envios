@@ -12,7 +12,7 @@ export class OperationalApiError extends Error {
   }
 }
 
-export interface OperationalMessages {
+interface OperationalMessages {
   notFound?: string
 }
 

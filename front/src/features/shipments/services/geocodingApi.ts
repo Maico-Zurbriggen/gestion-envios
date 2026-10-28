@@ -7,14 +7,14 @@ interface NominatimResult {
   display_name: string
 }
 
-export interface GeocodingInput {
+interface GeocodingInput {
   street: string
   streetNumber: string
   city: string
   province: string
 }
 
-export interface GeocodingResult {
+interface GeocodingResult {
   latitude: number
   longitude: number
   label: string

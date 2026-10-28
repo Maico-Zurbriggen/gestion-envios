@@ -43,8 +43,7 @@
   }
 }
 
-.app-content__body > *,
-.public-page-enter {
+.app-content__body > * {
   animation: page-in var(--transition-slow) both;
 }
 
@@ -110,11 +109,6 @@
   background: var(--color-surface-subtle);
   border-color: transparent;
   box-shadow: none;
-}
-
-.btn--icon {
-  width: 2.75rem;
-  padding: 0;
 }
 
 /* Tarjeta base. */
@@ -318,37 +312,6 @@
   }
 }
 
-/* Botón que abre un modal con el detalle de un elemento de una lista. */
-.disclosure-button {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-5);
-  color: var(--color-text);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-weight: var(--font-weight-semibold);
-  text-align: left;
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
-}
-
-.disclosure-button:hover {
-  border-color: var(--color-primary-300);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
-}
-
-.disclosure-button svg {
-  flex: 0 0 auto;
-  color: var(--color-brand);
-}
-
 /* Mismo comportamiento para los botones de todas las pantallas: transición,
    respuesta al presionar y sombra de marca en las acciones principales. */
 :is(.ops-button, .route-button, .route-icon-button, .faq-button, .claim-button, .pickup-button,
@@ -382,7 +345,7 @@
 }
 
 /* Las tarjetas de cada pantalla comparten la sombra suave de las presentaciones. */
-:is(.ops-panel, .route-panel, .pickup-panel, .user-form-card, .package-form-card, .tracking-result,
+:is(.ops-panel, .route-panel, .pickup-panel, .package-form-card, .tracking-result,
   .tracking-search, .faq-search, .shipment-claims, .password-change-card, .overview-card, .branches-page__card) {
   box-shadow: var(--shadow-card);
 }

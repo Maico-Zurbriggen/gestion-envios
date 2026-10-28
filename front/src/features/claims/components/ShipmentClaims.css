@@ -64,16 +64,6 @@
   gap: var(--space-5);
 }
 
-.shipment-claims__context {
-  margin: 0;
-  font-size: var(--font-size-sm);
-}
-
-.shipment-claims__context strong {
-  color: var(--color-text);
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-}
-
 .claim-button {
   display: inline-flex;
   justify-content: center;

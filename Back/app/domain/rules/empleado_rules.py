@@ -9,7 +9,6 @@ from typing import Any
 
 ESTADO_ACTIVO = "Activo"
 ESTADO_INACTIVO = "Inactivo"
-ESTADOS_EMPLEADO = (ESTADO_ACTIVO, ESTADO_INACTIVO)
 ROL_SUPERADMIN = "SUPERADMIN"
 
 
@@ -30,11 +29,3 @@ def deja_de_ser_superadmin_activo(*, rol_actual: str, estado_actual: str, rol_nu
     era = rol_actual == ROL_SUPERADMIN and estado_actual == ESTADO_ACTIVO
     sigue = rol_nuevo == ROL_SUPERADMIN and estado_nuevo == ESTADO_ACTIVO
     return era and not sigue
-
-
-def coincide_busqueda(texto: str, *campos: str | None) -> bool:
-    """Búsqueda simple sin distinguir mayúsculas en nombre, DNI, email o teléfono."""
-    buscado = (texto or "").strip().lower()
-    if not buscado:
-        return True
-    return any(buscado in (campo or "").lower() for campo in campos)

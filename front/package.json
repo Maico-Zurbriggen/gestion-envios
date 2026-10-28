@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "test": "node --experimental-strip-types --test --test-isolation=none tests/sprint3-rules.test.mjs tests/scanner-labels.test.mjs",
     "test:browser": "node tests/sprint3-browser.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:navigation": "node tests/panel-navigation.mjs"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.12.0",
@@ -30,7 +31,6 @@
     "@eslint/js": "^10.0.1",
     "@rolldown/plugin-babel": "^0.2.3",
     "@types/babel__core": "^7.20.5",
-    "@types/jsbarcode": "^3.11.4",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",

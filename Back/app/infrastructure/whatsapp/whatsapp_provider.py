@@ -73,9 +73,6 @@ class MockWhatsAppProvider:
         logger.info(f"[MockWhatsAppProvider] Mensaje a {enmascarar_telefono(destinatario)} | ID: {mensaje_id}")
         return True, mensaje_id, None
 
-    def limpiar(self) -> None:
-        self.mensajes_enviados.clear()
-
 
 class DeshabilitadoWhatsAppProvider:
     """Canal apagado explícitamente: cada intento queda auditado como fallido."""

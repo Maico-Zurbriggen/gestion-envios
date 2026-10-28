@@ -7,7 +7,7 @@
  * Módulo puro: se prueba desde `tests/` con Node.
  */
 
-export interface LabelSize {
+interface LabelSize {
   id: string
   name: string
   /** Ancho de la página, en milímetros. */
@@ -16,7 +16,7 @@ export interface LabelSize {
   heightMm: number
 }
 
-export interface PrinterProfile {
+interface PrinterProfile {
   id: string
   name: string
   sizes: LabelSize[]

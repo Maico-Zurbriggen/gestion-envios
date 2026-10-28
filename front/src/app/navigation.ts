@@ -54,7 +54,7 @@ export const NAVIGATION_SECTIONS: ReadonlyArray<{ id: NavigationSection; label: 
   { id: 'administration', label: 'Administración' },
 ]
 
-export const NAVIGATION_MODULES: NavigationModule[] = [
+const NAVIGATION_MODULES: NavigationModule[] = [
   {
     id: 'home',
     label: 'Inicio',

@@ -4,8 +4,8 @@ import type { ApiRouteDetail, ApiRouteSummary } from '../../routes/types/route.t
 import type { ApiDeliveryReceipt, ApiDriverPosition, DeliveryOperation, DeliveryReceipt, DriverPosition, RecipientContact } from '../types/delivery.types'
 
 const root = '/reparto/recorridos'
-export const routePath = (id: string) => `${root}/${encodeURIComponent(id)}`
-export function mapPosition(position: ApiDriverPosition | null): DriverPosition | null {
+const routePath = (id: string) => `${root}/${encodeURIComponent(id)}`
+function mapPosition(position: ApiDriverPosition | null): DriverPosition | null {
   return position ? { latitude: position.latitud, longitude: position.longitud, updatedAt: position.actualizado_at } : null
 }
 export async function getMyRoutes(date: string, status: string, token: string, signal?: AbortSignal) {

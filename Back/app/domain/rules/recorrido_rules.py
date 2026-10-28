@@ -260,10 +260,6 @@ def vuelve_a_la_sucursal(tipo_distancia: str) -> bool:
     return tipo_distancia == TipoDistanciaEnum.CORTA.value
 
 
-def validar_orientacion(orientacion_grados: float) -> bool:
-    return ORIENTACION_MINIMA_GRADOS <= orientacion_grados < ORIENTACION_MAXIMA_GRADOS
-
-
 # --- Distancias ---
 
 

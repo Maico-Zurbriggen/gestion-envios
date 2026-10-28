@@ -10,7 +10,7 @@ import {
 } from '../services/barcodeScanner'
 import { isRepeatedRead, normalizeScannedCode, type LastRead } from '../services/scannedCode'
 
-export type CameraScannerStatus = 'starting' | 'scanning' | 'error'
+type CameraScannerStatus = 'starting' | 'scanning' | 'error'
 
 /** `'stop'` deja de analizar cuadros (por ejemplo, en el modo de lectura única). */
 export type CameraReadResult = 'stop' | void
