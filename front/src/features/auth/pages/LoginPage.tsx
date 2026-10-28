@@ -64,7 +64,7 @@ export function LoginPage() {
           </div>
 
           <div className="login-brand__content">
-            <h2>Tu operación logística, en un solo lugar.</h2>
+            <h2>Tu operación logística, <span>en un solo lugar</span>.</h2>
             <p>
               Administrá cada envío con información clara, segura y siempre
               disponible.

@@ -99,7 +99,6 @@
 
 .tracking-hero h1 {
   margin: var(--space-3) 0;
-  font-size: clamp(2.2rem, 5vw, 3.5rem);
 }
 
 .tracking-hero p {
@@ -489,6 +488,84 @@
 
 .tracking-timeline small {
   font-size: var(--font-size-xs);
+}
+
+.tracked-package__history-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-self: start;
+  min-height: 2.5rem;
+  margin-top: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+}
+
+.tracked-package__history-button svg {
+  color: var(--color-brand);
+}
+
+.tracked-package__history-button:hover {
+  border-color: var(--color-primary-300);
+  box-shadow: var(--shadow-sm);
+}
+
+.tracking-history {
+  position: relative;
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0 0 0 var(--space-6);
+  list-style: none;
+}
+
+.tracking-history::before {
+  position: absolute;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  left: 0.42rem;
+  width: 2px;
+  background: var(--color-border);
+  content: '';
+}
+
+.tracking-history li {
+  position: relative;
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+}
+
+.tracking-history li::before {
+  position: absolute;
+  top: 0.3rem;
+  left: calc(-1 * var(--space-6) + 0.1rem);
+  width: 0.7rem;
+  height: 0.7rem;
+  background: var(--color-surface);
+  border: 2px solid var(--color-brand);
+  border-radius: var(--radius-full);
+  content: '';
+}
+
+.tracking-history li:last-child::before {
+  background: var(--color-brand);
+}
+
+.tracking-history time {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+}
+
+.tracking-history strong {
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
 }
 
 .tracked-package__dates {

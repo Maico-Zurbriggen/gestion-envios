@@ -1,6 +1,9 @@
 .user-page {
-  width: min(820px, 100%);
-  margin: 0 auto;
+  width: 100%;
+}
+
+.user-page > :not(.user-page__header) {
+  max-width: 54rem;
 }
 
 .user-page__header {
@@ -8,8 +11,7 @@
 }
 
 .user-page__header h1 {
-  margin: var(--space-2) 0 var(--space-3);
-  font-size: clamp(2rem, 4vw, 2.75rem);
+  margin: 0 0 var(--space-2);
 }
 
 .user-page__header p {

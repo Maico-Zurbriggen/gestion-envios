@@ -53,16 +53,23 @@ export function TerminalPage() {
 
   const item = scan.data
   return <div className="ops-page">
-    <header><h1><ScanBarcode size={28} aria-hidden="true" /> Recepción en terminal</h1><p>Leé el código de barras con el lector o ingresá el número del paquete. Revisá los datos antes de confirmar.</p></header>
-    <form className="ops-panel ops-stack" onSubmit={search}>
+    <header className="ops-page__header"><span className="eyebrow"><ScanBarcode size={15} aria-hidden="true" /> Operación de terminal</span><h1>Recepción en terminal</h1><p>Leé el código de barras con el lector o ingresá el número del paquete. Revisá los datos antes de confirmar.</p></header>
+    <form className="ops-panel ops-scan" onSubmit={search}>
       <label className="form-field" htmlFor="terminal-code">Código del paquete<input ref={codeInputRef} id="terminal-code" className="form-control" value={input} onChange={(e) => setInput(e.target.value)} onFocus={(e) => e.target.select()} required maxLength={80} autoComplete="off" autoFocus disabled={receive.isPending} placeholder="PAQ-XXXXXXXXXX" /></label>
-      <button className="ops-button" disabled={scan.isFetching || receive.isPending}><Search size={18} aria-hidden="true" />{scan.isFetching ? 'Consultando…' : 'Identificar paquete'}</button>
+      <button className="ops-button ops-button--primary" disabled={scan.isFetching || receive.isPending}><Search size={18} aria-hidden="true" />{scan.isFetching ? 'Consultando…' : 'Identificar paquete'}</button>
     </form>
     {scan.isFetching && <p role="status">Consultando el paquete…</p>}
     {scan.isError && <div className="form-error" role="alert">{scan.error.message}<button className="ops-button" type="button" disabled={scan.isFetching} onClick={() => void scan.refetch()}><RefreshCw size={18} aria-hidden="true" /> Reintentar</button></div>}
     {item && !scan.isError && <section className="ops-panel ops-stack" aria-label="Paquete identificado">
-      <h2>{item.code}</h2><p><strong>{item.description}</strong> · {item.weightKg} kg · {item.dimensions}</p><p>Estado: {getStatusLabel(item.status)}</p>
-      <p>Remitente: {item.senderName} · Documento: {item.senderDocument}</p><p>Destinatario: {item.recipientName}</p><p>Destino: {item.destination}</p>{item.notes && <p>Observaciones declaradas: {item.notes}</p>}
+      <div className="ops-package__heading"><div><span className="eyebrow">Paquete identificado</span><h2>{item.code}</h2></div><span className="badge">{getStatusLabel(item.status)}</span></div>
+      <dl className="ops-details">
+        <div><dt>Contenido</dt><dd><strong>{item.description}</strong> · {item.weightKg} kg · {item.dimensions}</dd></div>
+        <div><dt>Estado</dt><dd>{getStatusLabel(item.status)}</dd></div>
+        <div><dt>Remitente</dt><dd>{item.senderName} · Documento: {item.senderDocument}</dd></div>
+        <div><dt>Destinatario</dt><dd>{item.recipientName}</dd></div>
+        <div className="ops-details__wide"><dt>Destino</dt><dd>{item.destination}</dd></div>
+        {item.notes && <div className="ops-details__wide"><dt>Observaciones declaradas</dt><dd>{item.notes}</dd></div>}
+      </dl>
       {!item.available && <p role="status">{item.unavailableReason || 'Este paquete no está disponible para recepción.'}</p>}
       {item.available && !receive.isSuccess && <form className="ops-stack" onSubmit={(e) => {
         e.preventDefault()
@@ -73,7 +80,7 @@ export function TerminalPage() {
           {branches.isPending && <p role="status">Cargando sucursales…</p>}
           {branches.isError && <div role="alert"><p>{branches.error.message}</p><button className="ops-button" type="button" onClick={() => void branches.refetch()}><RefreshCw size={18} aria-hidden="true" /> Reintentar sucursales</button></div>}
           <label className="form-field" htmlFor="terminal-notes">Observaciones de recepción (opcional)<textarea id="terminal-notes" className="form-control" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} /></label>
-          <button className="ops-button" disabled={!branchExists || branches.isError || branches.isPending}><CheckCircle2 size={18} aria-hidden="true" />{receive.isPending ? 'Registrando…' : 'Confirmar recepción física'}</button>
+          <button className="ops-button ops-button--primary" disabled={!branchExists || branches.isError || branches.isPending}><CheckCircle2 size={18} aria-hidden="true" />{receive.isPending ? 'Registrando…' : 'Confirmar recepción física'}</button>
         </fieldset>
       </form>}
     </section>}

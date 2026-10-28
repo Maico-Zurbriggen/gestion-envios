@@ -18,13 +18,22 @@
 .shipment-claims__header {
   padding: var(--space-5);
   flex-wrap: wrap;
-  background: var(--color-surface-subtle);
+  background:
+    radial-gradient(18rem 8rem at 100% 0%, rgb(217 112 31 / 0.10), transparent 70%),
+    var(--color-surface);
   border-radius: var(--radius-md);
 }
 
-.shipment-claims__header > svg {
-  color: var(--color-primary);
+.shipment-claims__icon {
+  width: 2.75rem;
+  height: 2.75rem;
   flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: var(--color-brand);
+  background: color-mix(in srgb, var(--color-primary-500) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary-500) 35%, transparent);
+  border-radius: var(--radius-full);
 }
 
 .shipment-claims__header > div {
@@ -53,8 +62,6 @@
 .shipment-claims__body {
   display: grid;
   gap: var(--space-5);
-  padding: var(--space-5);
-  border-top: 1px solid var(--color-border);
 }
 
 .shipment-claims__context {

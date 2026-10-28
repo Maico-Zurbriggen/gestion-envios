@@ -7,6 +7,8 @@ import { AppRouter } from './router/AppRouter'
 import { AuthBootstrap } from './features/auth/components/AuthBootstrap'
 import { applyTheme, getInitialTheme } from './shared/theme/theme'
 import './styles/theme.css'
+import './styles/base.css'
+import './styles/ui.css'
 import './styles/forms.css'
 import './index.css'
 

@@ -79,8 +79,8 @@ export function MainLayout() {
               <PackageCheck size={23} />
             </span>
             <span>
-              <strong>Gestión</strong>
-              <small>de envíos</small>
+              <strong>Gestión de envíos</strong>
+              <small>y distribución</small>
             </span>
           </NavLink>
           <button
@@ -170,7 +170,10 @@ export function MainLayout() {
           >
             <Menu size={22} aria-hidden="true" />
           </button>
-          <span>Gestión de envíos</span>
+          <span className="mobile-header__brand">
+            <span className="mobile-header__mark" aria-hidden="true"><PackageCheck size={17} /></span>
+            Gestión de envíos
+          </span>
         </header>
         <div className="app-content__body">
           <PanelLayoutContext.Provider value={true}>

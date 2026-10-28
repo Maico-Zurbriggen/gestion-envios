@@ -8,6 +8,7 @@ import {
   CircleAlert,
   CircleHelp,
   Clock3,
+  History,
   House,
   LoaderCircle,
   LogIn,
@@ -33,6 +34,7 @@ import type { TrackedPackage } from '../types/tracking.types'
 import { getStatusLabel, getStatusStep, type TrackingDeliveryType } from '../trackingStatus'
 import { PickupBranchInfo } from '../components/PickupBranchInfo'
 import { LocationMap, type MapLocation } from '../../../shared/components/LocationMap'
+import { Modal } from '../../../shared/components/Modal'
 import './TrackingPage.css'
 
 const HOME_TRACKING_STEPS = [
@@ -62,6 +64,7 @@ function formatDate(value: string) {
 }
 
 function PackageProgress({ shipmentPackage, deliveryType }: { shipmentPackage: TrackedPackage; deliveryType: TrackingDeliveryType }) {
+  const [historyOpen, setHistoryOpen] = useState(false)
   const currentStep = getStatusStep(shipmentPackage.status, deliveryType)
   const steps = deliveryType === 'sucursal' ? PICKUP_TRACKING_STEPS : HOME_TRACKING_STEPS
 
@@ -117,7 +120,14 @@ function PackageProgress({ shipmentPackage, deliveryType }: { shipmentPackage: T
         </ol>
 
         {shipmentPackage.status === 'ENTREGA_FALLIDA' && <p role="status">La visita no pudo completarse. El paquete aún no fue entregado.</p>}
-        {shipmentPackage.history.length > 0 && <details><summary>Historial real del paquete</summary><ol>{shipmentPackage.history.map((event, index) => <li key={`${event.occurredAt}-${index}`}><time dateTime={event.occurredAt}>{formatDate(event.occurredAt)}</time> · {event.description} ({getStatusLabel(event.status)})</li>)}</ol></details>}
+        {shipmentPackage.history.length > 0 && <>
+          <button className="tracked-package__history-button" type="button" aria-haspopup="dialog" onClick={() => setHistoryOpen(true)}>
+            <History size={17} aria-hidden="true" /> Ver historial real del paquete <span className="badge badge--muted">{shipmentPackage.history.length}</span>
+          </button>
+          <Modal open={historyOpen} onClose={() => setHistoryOpen(false)} eyebrow="Seguimiento" title="Historial real del paquete" description={shipmentPackage.packageNumber} icon={History}>
+            <ol className="tracking-history">{shipmentPackage.history.map((event, index) => <li key={`${event.occurredAt}-${index}`}><time dateTime={event.occurredAt}>{formatDate(event.occurredAt)}</time><strong>{event.description}</strong><span className="badge badge--muted">{getStatusLabel(event.status)}</span></li>)}</ol>
+          </Modal>
+        </>}
         <footer className="tracked-package__dates">
           <span>
             <CalendarClock size={15} aria-hidden="true" />

@@ -6,6 +6,7 @@ import { DeliveryAction } from '../components/DeliveryAction'
 import { DeliveryRouteMap } from '../../routes/components/DeliveryRouteMap'
 import { useRoadRoute } from '../../routes/hooks/useRoadRoute'
 import { distanceLabels, localToday, routeStatusLabels } from '../../routes/routePresentation'
+import { Modal } from '../../../shared/components/Modal'
 import '../../../shared/styles/operations.css'
 import '../../routes/pages/DeliveryRoutesPage.css'
 import './DriverDeliveryPage.css'
@@ -27,13 +28,17 @@ function DriverRoute({ id, onBack }: { id: string; onBack: () => void }) {
         <h2>{distanceLabels[route.distanceType]} · {route.branchName}</h2><p>{route.date} · {routeStatusLabels[route.status]} · {pendingPackages} de {route.packageCount} paquetes pendientes</p>
         <button className="ops-button" type="button" disabled={detail.isFetching || start.isPending} onClick={() => { void detail.refetch(); void position.refetch() }}><RefreshCw size={18} aria-hidden="true" /> Actualizar recorrido</button>
         {route.status === 'GENERADO' && !detail.isError && <div className="ops-stack">
-          {!confirmStart ? <button className="ops-button" type="button" onClick={() => setConfirmStart(true)}><Play size={18} aria-hidden="true" /> Iniciar recorrido</button> : <div className="ops-stack"><p>¿Confirmás que estás listo para salir? Los paquetes pasarán a traslado o reparto.</p><div className="ops-actions"><button className="ops-button" type="button" disabled={start.isPending} onClick={() => start.mutate(undefined, { onSuccess: () => setConfirmStart(false) })}><Play size={18} aria-hidden="true" />{start.isPending ? 'Iniciando…' : 'Confirmar inicio'}</button><button className="ops-button" type="button" disabled={start.isPending} onClick={() => setConfirmStart(false)}>Cancelar</button></div></div>}
+          <button className="ops-button ops-button--primary" type="button" aria-haspopup="dialog" onClick={() => setConfirmStart(true)}><Play size={18} aria-hidden="true" /> Iniciar recorrido</button>
+          <Modal open={confirmStart} onClose={() => { if (!start.isPending) setConfirmStart(false) }} size="narrow" icon={Play} eyebrow="Mi reparto" title="¿Listo para salir?" description="¿Confirmás que estás listo para salir? Los paquetes pasarán a traslado o reparto."
+            footer={<><button className="ops-button" type="button" disabled={start.isPending} onClick={() => setConfirmStart(false)}>Cancelar</button><button className="ops-button ops-button--primary" type="button" disabled={start.isPending} onClick={() => start.mutate(undefined, { onSuccess: () => setConfirmStart(false) })}><Play size={18} aria-hidden="true" />{start.isPending ? 'Iniciando…' : 'Confirmar inicio'}</button></>}>
+            <p className="ops-hint">El seguimiento público mostrará el cambio de estado de cada paquete.</p>
+          </Modal>
         </div>}
         {route.status === 'EN_EDICION' && <p role="status">El recorrido está en edición. Logística debe guardarlo antes de iniciar.</p>}
         {start.isError && <p className="form-error" role="alert">{start.error.message} Actualizá el recorrido para verificar su estado.</p>}
         {route.status === 'EN_CURSO' && !detail.isError && <div className="ops-stack">
           <p>Activá la ubicación y mantené esta pantalla abierta durante el reparto. El navegador puede suspender el GPS si bloqueás el teléfono o cambiás de aplicación.</p>
-          <button className="ops-button" type="button" onClick={gps.toggle}><LocateFixed size={18} aria-hidden="true" />{gps.enabled ? 'Dejar de compartir ubicación' : 'Activar ubicación GPS'}</button>
+          <button className={`ops-button${gps.enabled ? '' : ' ops-button--primary'}`} type="button" onClick={gps.toggle}><LocateFixed size={18} aria-hidden="true" />{gps.enabled ? 'Dejar de compartir ubicación' : 'Activar ubicación GPS'}</button>
           <p role="status">{gps.sending ? 'Enviando ubicación…' : gps.enabled ? 'GPS activo. Se envía como máximo una posición cada 10 segundos.' : 'GPS desactivado.'}</p>
           {route.distanceType === 'LARGA' && <p className="ops-hint">La llegada a la siguiente sucursal se registra automáticamente al informar una posición dentro de 10 km. Se respeta el orden de paradas.</p>}
         </div>}
@@ -45,10 +50,10 @@ function DriverRoute({ id, onBack }: { id: string; onBack: () => void }) {
       </section>
       {packageCode && <DeliveryAction key={packageCode} routeId={id} code={packageCode} onClose={() => { setPackageCode(''); void detail.refetch() }} />}
       <section className="ops-panel ops-stack" aria-labelledby="driver-stops-title"><h2 id="driver-stops-title">Paradas en orden</h2>
-        <ol className="ops-list">{route.stops.map((stop) => <li key={stop.order} className="ops-panel"><h3>{stop.order}. {stop.destination}</h3>
+        <ol className="ops-list">{route.stops.map((stop) => <li key={stop.order} className="ops-panel ops-stop"><h3><span className="ops-stop__number">{stop.order}</span> {stop.destination}</h3>
           {stop.latitude != null && stop.longitude != null ? <a className="ops-button" href={`https://www.google.com/maps/dir/?api=1&destination=${stop.latitude},${stop.longitude}`} target="_blank" rel="noopener noreferrer"><Navigation size={18} aria-hidden="true" /> Navegar a esta parada</a> : <p className="ops-hint">Sin coordenadas. Consultá la dirección con logística antes de salir.</p>}
           <ul className="ops-list">{stop.packages.map((item) => <li key={item.id}><strong>{item.code}</strong><p>{item.description} · {item.weightKg} kg</p><p>{item.recipientName} · {item.status} · {item.routeStatus}</p>
-            {route.distanceType === 'CORTA' && stop.type === 'DOMICILIO' && route.status === 'EN_CURSO' && item.routeStatus === 'PENDIENTE' && item.status === 'EN_REPARTO' && !detail.isError && <button className="ops-button" type="button" disabled={Boolean(packageCode)} onClick={() => setPackageCode(item.code)}><CheckCircle2 size={18} aria-hidden="true" /> Registrar entrega o visita</button>}
+            {route.distanceType === 'CORTA' && stop.type === 'DOMICILIO' && route.status === 'EN_CURSO' && item.routeStatus === 'PENDIENTE' && item.status === 'EN_REPARTO' && !detail.isError && <button className="ops-button ops-button--primary" type="button" disabled={Boolean(packageCode)} onClick={() => setPackageCode(item.code)}><CheckCircle2 size={18} aria-hidden="true" /> Registrar entrega o visita</button>}
           </li>)}</ul>
         </li>)}</ol>
       </section>
@@ -61,7 +66,7 @@ export default function DriverDeliveryPage() {
   const [status, setStatus] = useState('')
   const [selected, setSelected] = useState('')
   const routes = useMyRoutes(date, status)
-  return <div className="ops-page"><header><h1><Truck size={28} aria-hidden="true" /> Mi reparto</h1><p>Consultá tus recorridos, seguí las paradas y registrá el resultado de cada visita.</p></header>
+  return <div className="ops-page"><header className="ops-page__header"><span className="eyebrow"><Truck size={15} aria-hidden="true" /> Reparto</span><h1>Mi reparto</h1><p>Consultá tus recorridos, seguí las paradas y registrá el resultado de cada visita.</p></header>
     {selected ? <DriverRoute key={selected} id={selected} onBack={() => setSelected('')} /> : <>
       <section className="ops-panel ops-stack" aria-label="Filtros de mis recorridos"><div className="ops-grid">
         <label className="form-field" htmlFor="driver-date">Fecha (vacía para todas)<input className="form-control" id="driver-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
@@ -69,7 +74,7 @@ export default function DriverDeliveryPage() {
       </div><button className="ops-button" type="button" disabled={routes.isFetching} onClick={() => void routes.refetch()}><RefreshCw size={18} aria-hidden="true" /> Actualizar recorridos</button></section>
       {routes.isFetching && <p role="status">Consultando tus recorridos…</p>}{routes.isError && <p className="form-error" role="alert">{routes.error.message}</p>}
       {routes.data?.length === 0 && <p role="status">No tenés recorridos asignados para estos filtros.</p>}
-      <ul className="ops-list">{!routes.isError && routes.data?.map((route) => <li className="ops-panel" key={route.id}><h2>{distanceLabels[route.distanceType]} · {route.branchName}</h2><p>{route.date} · {routeStatusLabels[route.status]} · {route.stopCount} paradas · {route.packageCount} paquetes</p><button className="ops-button" type="button" onClick={() => setSelected(route.id)}><Truck size={18} aria-hidden="true" /> Abrir recorrido</button></li>)}</ul>
+      <ul className="ops-list">{!routes.isError && routes.data?.map((route) => <li className="ops-panel ops-card" key={route.id}><h2>{distanceLabels[route.distanceType]} · {route.branchName}</h2><p>{route.date} · {routeStatusLabels[route.status]} · {route.stopCount} paradas · {route.packageCount} paquetes</p><button className="ops-button ops-button--primary" type="button" onClick={() => setSelected(route.id)}><Truck size={18} aria-hidden="true" /> Abrir recorrido</button></li>)}</ul>
     </>}
   </div>
 }

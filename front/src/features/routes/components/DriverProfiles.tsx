@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { CheckCircle2, LoaderCircle, Save, UsersRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { Modal } from '../../../shared/components/Modal'
 import type { Branch } from '../../shipments/types/shipment.types'
 import { useSaveDriverProfile } from '../hooks/useRoutes'
 import { distanceLabels } from '../routePresentation'
@@ -32,14 +33,23 @@ function ProfileForm({ driver, branches, busy }: { driver: Driver; branches: Bra
 
 export function DriverProfiles({ drivers, branches, busy, canCreateUser }: { drivers: Driver[]; branches: Branch[]; busy: boolean; canCreateUser: boolean }) {
   const [selectedId, setSelectedId] = useState('')
+  const [open, setOpen] = useState(false)
   const driver = drivers.find((item) => item.id === selectedId)
-  return <details className="route-panel route-profiles">
-    <summary><UsersRound size={21} aria-hidden="true" /><span><strong>Repartidores</strong><small>Configurá la sucursal base y el tipo de reparto antes de generar.</small></span></summary>
+  const configured = drivers.filter((item) => item.configured).length
+  return <section className="route-panel route-profiles" aria-labelledby="route-profiles-title">
+    <div className="route-profiles__summary">
+      <span className="route-profiles__icon" aria-hidden="true"><UsersRound size={21} /></span>
+      <span><strong id="route-profiles-title">Repartidores</strong><small>Configurá la sucursal base y el tipo de reparto antes de generar.</small></span>
+      <span className="badge badge--muted">{configured} de {drivers.length} con perfil</span>
+      <button className="route-button" type="button" aria-haspopup="dialog" onClick={() => setOpen(true)}><UsersRound size={18} aria-hidden="true" /> Configurar repartidores</button>
+    </div>
+    <Modal open={open} onClose={() => setOpen(false)} eyebrow="Logística" title="Perfiles de repartidores" description="Sucursal base, tipo de reparto y disponibilidad para recibir recorridos." icon={UsersRound} size="wide">
     <div className="route-profiles__body">
       {drivers.length === 0 ? <p>No hay usuarios con rol Repartidor. {canCreateUser ? <Link to="/admin/usuarios/nuevo">Registrar un repartidor</Link> : 'Pedile al superadministrador que registre los usuarios.'}</p> : <>
         <div className="form-field"><label htmlFor="driver-profile-user">Repartidor a configurar</label><select id="driver-profile-user" className="form-control" value={selectedId} onChange={(event) => setSelectedId(event.target.value)} disabled={busy}><option value="">Seleccioná un repartidor</option>{drivers.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.configured ? item.available ? 'Perfil activo' : 'No disponible' : 'Sin perfil'}</option>)}</select></div>
         {driver && <ProfileForm key={driver.id} driver={driver} branches={branches} busy={busy} />}
       </>}
     </div>
-  </details>
+    </Modal>
+  </section>
 }

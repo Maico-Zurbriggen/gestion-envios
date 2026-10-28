@@ -89,7 +89,8 @@ El cierre de sesión es local: elimina la sesión persistida, limpia Redux y des
 
 ### 3.5. Experiencia visual
 
-- La identidad se centraliza en `src/styles/theme.css`, con variantes clara y oscura.
+- La identidad se centraliza en `src/styles/theme.css`, con variantes clara y oscura, y es la misma de las presentaciones y los informes: Montserrat, azul petróleo, naranja de marca y verde azulado (ver [Identidad visual](./visual-identity.md)).
+- `src/styles/base.css` y `src/styles/ui.css` reúnen los estilos base y los componentes compartidos; `src/shared/components/Modal.tsx` reemplaza a los paneles desplegables para detalles, formularios secundarios y confirmaciones.
 - Los controles y acciones utilizan `lucide-react` como única librería de iconos.
 - El layout privado dispone de navegación lateral permanente en escritorio, colapsable por debajo de 968 px y de pantalla completa en móviles pequeños.
 - Se mantienen labels asociados, foco visible, estados de carga y mensajes accesibles desde 320 px de ancho.
