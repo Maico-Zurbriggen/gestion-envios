@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from 'react'
-import { LoaderCircle } from 'lucide-react'
+import { PageLoading } from '../../../shared/components/PageLoading'
 import type { PackagesSectionConfig } from '../pages/MonitorPackagesPage'
 
 // El monitor se carga recién al entrar: el mapa y la impresión pesan.
@@ -11,14 +11,7 @@ const ClaimsAdminPage = lazy(() => import('../pages/ClaimsAdminPage').then((m) =
 
 function Loading({ children }: { children: ReactNode }) {
   return (
-    <Suspense
-      fallback={
-        <p className="monitor-loading" role="status">
-          <LoaderCircle className="loading-icon" size={20} aria-hidden="true" />
-          Cargando el monitor…
-        </p>
-      }
-    >
+    <Suspense fallback={<PageLoading label="Cargando el monitor…" />}>
       {children}
     </Suspense>
   )

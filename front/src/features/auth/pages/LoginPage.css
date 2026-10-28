@@ -42,11 +42,11 @@
   justify-content: space-between;
   padding: var(--space-10);
   overflow: hidden;
-  color: #fff;
+  color: var(--color-neutral-0);
   background:
     radial-gradient(26rem 20rem at 110% -10%, rgb(217 112 31 / 0.32), transparent 70%),
     radial-gradient(22rem 18rem at -20% 115%, rgb(19 138 128 / 0.28), transparent 70%),
-    linear-gradient(160deg, #0f2a37, #0b2230);
+    linear-gradient(160deg, var(--color-neutral-900), #0b2230);
 }
 
 .login-brand::after {
@@ -74,7 +74,7 @@
   height: 2.75rem;
   display: grid;
   place-items: center;
-  color: #fff;
+  color: var(--color-neutral-0);
   background: linear-gradient(145deg, var(--color-primary-400), var(--color-primary-600));
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
@@ -92,7 +92,7 @@
 .login-brand__content h2 {
   max-width: 20rem;
   margin-bottom: var(--space-4);
-  color: #fff;
+  color: var(--color-neutral-0);
   font-size: clamp(1.75rem, 3vw, 2.5rem);
   letter-spacing: -0.03em;
 }

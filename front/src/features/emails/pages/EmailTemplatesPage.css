@@ -276,7 +276,7 @@
 .email-preview__frame iframe {
   width: 100%;
   height: 46rem;
-  background: #fff;
+  background: var(--color-neutral-0);
   border: 0;
   border-radius: var(--radius-sm);
   transition: width var(--transition-base);

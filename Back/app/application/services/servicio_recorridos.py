@@ -1044,6 +1044,30 @@ class ServicioRecorridos(IServicioRecorridos):
             longitud=sucursal.longitud,
         )
 
+    async def paradas_en_sucursales(
+        self, recorrido: RecorridoModel
+    ) -> list[tuple[SucursalModel, list[RecorridoPaqueteModel]]]:
+        sucursales = await self.repo_sucursales.listar_todas()
+        return [
+            (destino.sucursal, grupo)
+            for destino, grupo in self._paradas(recorrido, sucursales)
+            if destino.sucursal is not None
+        ]
+
+    async def paquetes_que_bajan_en(
+        self, recorridos: list[RecorridoModel], sucursal_id: int
+    ) -> dict[uuid.UUID, list[RecorridoPaqueteModel]]:
+        sucursales = await self.repo_sucursales.listar_todas()
+        return {
+            recorrido.id: [
+                rp
+                for destino, grupo in self._paradas(recorrido, sucursales)
+                if destino.sucursal is not None and destino.sucursal.id == sucursal_id
+                for rp in grupo
+            ]
+            for recorrido in recorridos
+        }
+
     def _paradas(
         self, recorrido: RecorridoModel, sucursales: list[SucursalModel]
     ) -> list[tuple[_DestinoReparto, list[RecorridoPaqueteModel]]]:

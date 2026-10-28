@@ -36,19 +36,34 @@ class RepositorioDescargas(IRepositorioDescargas):
             selectinload(ControlDescargaModel.lecturas).joinedload(LecturaDescargaModel.usuario),
         )
 
-    async def recorridos_desde(self, desde: date, estados: tuple[str, ...]) -> list[Any]:
+    async def recorridos_desde(
+        self,
+        desde: date,
+        estados: tuple[str, ...],
+        *,
+        sucursal_origen_id: int | None = None,
+        excluir_origen_id: int | None = None,
+        tipo_distancia: str | None = None,
+    ) -> list[Any]:
         stmt = (
             select(RecorridoModel)
-            .where(
-                RecorridoModel.fecha >= desde,
-                RecorridoModel.estado.in_(estados),
-            )
+            .where(RecorridoModel.fecha >= desde, RecorridoModel.estado.in_(estados))
             .options(
                 joinedload(RecorridoModel.repartidor).joinedload(RepartidorModel.usuario),
                 joinedload(RecorridoModel.sucursal_origen),
+                selectinload(RecorridoModel.paquetes)
+                .joinedload(RecorridoPaqueteModel.paquete)
+                .joinedload(PaqueteModel.envio)
+                .joinedload(EnvioModel.sucursal_destino),
             )
             .order_by(RecorridoModel.fecha.desc(), RecorridoModel.created_at.desc())
         )
+        if sucursal_origen_id is not None:
+            stmt = stmt.where(RecorridoModel.sucursal_origen_id == sucursal_origen_id)
+        if excluir_origen_id is not None:
+            stmt = stmt.where(RecorridoModel.sucursal_origen_id != excluir_origen_id)
+        if tipo_distancia is not None:
+            stmt = stmt.where(RecorridoModel.tipo_distancia == tipo_distancia)
         return list((await self.db.execute(stmt)).unique().scalars().all())
 
     async def controles_de_sucursal(
@@ -83,7 +98,8 @@ class RepositorioDescargas(IRepositorioDescargas):
                 selectinload(RecorridoModel.paquetes)
                 .joinedload(RecorridoPaqueteModel.paquete)
                 .joinedload(PaqueteModel.envio)
-                .joinedload(EnvioModel.sucursal_destino)
+                .joinedload(EnvioModel.sucursal_destino),
+                joinedload(RecorridoModel.sucursal_origen),
             )
         )
         return (await self.db.execute(stmt)).unique().scalar_one_or_none()

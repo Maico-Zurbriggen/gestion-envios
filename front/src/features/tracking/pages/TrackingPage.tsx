@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import {
-  ArrowLeft,
   Box,
   Building2,
   CalendarClock,
@@ -11,23 +10,17 @@ import {
   History,
   House,
   LoaderCircle,
-  LogIn,
   MapPin,
-  Moon,
   PackageCheck,
   PackagePlus,
   RefreshCw,
   Route,
   Search,
-  Sun,
   Truck,
   Undo2,
   Warehouse,
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useAppSelector } from '../../../app/store'
-import { selectIsAuthenticated } from '../../auth/redux/authSlice'
-import { useTheme } from '../../../shared/hooks/useTheme'
 import { useInsidePanel } from '../../../layouts/MainLayout/panelContext'
 import { ShipmentClaims } from '../../claims/components/ShipmentClaims'
 import { useShipmentTracking } from '../hooks/useShipmentTracking'
@@ -38,6 +31,7 @@ import { LocationMap, type MapLocation } from '../../../shared/components/Locati
 import { Modal } from '../../../shared/components/Modal'
 import { formatLongDay, parseApiDate } from '../../../shared/utils/dates'
 import './TrackingPage.css'
+import { PublicHeader } from '../../../shared/components/PublicHeader'
 
 const HOME_TRACKING_STEPS = [
   { label: 'Registrado', description: 'Código de seguimiento generado', icon: Check },
@@ -103,7 +97,7 @@ function PackageNotices({ shipmentPackage }: { shipmentPackage: TrackedPackage }
         </p>
       )}
       {pickup && !closed && (
-        <div className="tracking-pickup" role="status">
+        <div className="tracking-pickup-notice" role="status">
           <Building2 size={20} aria-hidden="true" />
           <div>
             <strong>Para retirar en {pickup.branch}</strong>
@@ -206,9 +200,7 @@ export function TrackingPage() {
   const initialToken = normalizeToken(searchParams.get('token') ?? '')
   const [tokenInput, setTokenInput] = useState(initialToken)
   const [submittedToken, setSubmittedToken] = useState(initialToken)
-  const isAuthenticated = useAppSelector(selectIsAuthenticated)
   const insidePanel = useInsidePanel()
-  const { theme, toggleTheme } = useTheme()
   const trackingQuery = useShipmentTracking(submittedToken)
   const locations: MapLocation[] = []
   const tracking = trackingQuery.data
@@ -247,21 +239,7 @@ export function TrackingPage() {
 
   return (
     <main className={`tracking-page${insidePanel ? ' is-embedded' : ''}`}>
-      {!insidePanel && <header className="tracking-public-header">
-        <Link className="tracking-brand" to={isAuthenticated ? '/' : '/login'}>
-          <span aria-hidden="true"><PackageCheck size={22} /></span>
-          <strong>Gestión de envíos</strong>
-        </Link>
-        <div className="tracking-public-header__actions">
-          <button type="button" onClick={toggleTheme} aria-label="Cambiar tema">
-            {theme === 'light' ? <Moon size={19} aria-hidden="true" /> : <Sun size={19} aria-hidden="true" />}
-          </button>
-          <Link to={isAuthenticated ? '/' : '/login'} aria-label={isAuthenticated ? 'Volver al panel' : 'Iniciar sesión'}>
-            {isAuthenticated ? <ArrowLeft size={18} aria-hidden="true" /> : <LogIn size={18} aria-hidden="true" />}
-            <span>{isAuthenticated ? 'Volver al panel' : 'Ingresar'}</span>
-          </Link>
-        </div>
-      </header>}
+      {!insidePanel && <PublicHeader />}
 
       <div className="tracking-page__content">
         <section className="tracking-hero" aria-labelledby="tracking-title">

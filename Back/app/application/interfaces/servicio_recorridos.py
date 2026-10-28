@@ -42,6 +42,14 @@ class IServicioRecorridos(Protocol):
 
     async def quitar_paquete(self, id: UUID, codigo: str) -> RecorridoResponse: ...
 
+    async def paradas_en_sucursales(self, recorrido: Any) -> list[tuple[Any, list[Any]]]:
+        """Paradas en sucursales de un recorrido ya cargado, en orden, con sus paquetes."""
+        ...
+
+    async def paquetes_que_bajan_en(self, recorridos: list[Any], sucursal_id: int) -> dict[UUID, list[Any]]:
+        """Por recorrido ya cargado, los paquetes cuya parada es esa sucursal (misma regla que el detalle)."""
+        ...
+
     async def completar_ubicacion(
         self, id: UUID, codigo: str, datos: CompletarUbicacionPaqueteRequest
     ) -> RecorridoResponse: ...

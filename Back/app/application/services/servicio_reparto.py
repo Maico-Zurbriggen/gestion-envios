@@ -129,24 +129,18 @@ class ServicioReparto(IServicioReparto):
         actualizados = []
         if recorrido.tipo_distancia == TipoDistanciaEnum.LARGA.value:
             await self.repo.sincronizar()
-            # Se reutiliza el mismo destino y orden que HU10 entrega al mapa.
-            detalle = (await self.recorridos.obtener(id)).data
-            por_id = {rp.paquete_id: rp for rp in recorrido.paquetes}
-            for parada in detalle.paradas:
+            # Mismas paradas y orden que HU10 muestra en el mapa, sobre el recorrido ya cargado.
+            for sucursal, grupo in await self.recorridos.paradas_en_sucursales(recorrido):
                 pendientes = [
-                    por_id[p.paquete_id]
-                    for p in parada.paquetes
-                    if por_id[p.paquete_id].estado_en_recorrido == EstadoRecorridoPaqueteEnum.PENDIENTE.value
+                    rp for rp in grupo if rp.estado_en_recorrido == EstadoRecorridoPaqueteEnum.PENDIENTE.value
                 ]
                 if not pendientes:
                     continue
-                sucursal = parada.sucursal_destino
                 if (
-                    sucursal is not None
-                    and sucursal.id != recorrido.sucursal_origen_id
-                    and parada.latitud is not None
-                    and parada.longitud is not None
-                    and distancia_haversine_km((datos.latitud, datos.longitud), (parada.latitud, parada.longitud))
+                    sucursal.id != recorrido.sucursal_origen_id
+                    and sucursal.latitud is not None
+                    and sucursal.longitud is not None
+                    and distancia_haversine_km((datos.latitud, datos.longitud), (sucursal.latitud, sucursal.longitud))
                     <= 10.0
                 ):
                     for rp in pendientes:

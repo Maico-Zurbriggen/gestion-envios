@@ -6,7 +6,17 @@ from uuid import UUID
 class IRepositorioDescargas(Protocol):
     """Acceso a datos del control de descarga en la sucursal de destino."""
 
-    async def recorridos_desde(self, desde: date, estados: tuple[str, ...]) -> list[Any]: ...
+    async def recorridos_desde(
+        self,
+        desde: date,
+        estados: tuple[str, ...],
+        *,
+        sucursal_origen_id: int | None = None,
+        excluir_origen_id: int | None = None,
+        tipo_distancia: str | None = None,
+    ) -> list[Any]:
+        """Recorridos desde esa fecha, con repartidor, origen y paquetes cargados."""
+        ...
 
     async def controles_de_sucursal(self, sucursal_id: int, recorrido_ids: list[UUID], tipo: str) -> dict[UUID, Any]:
         """Controles existentes de esa sucursal, por recorrido, con sus lecturas."""

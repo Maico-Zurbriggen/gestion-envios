@@ -79,9 +79,25 @@ class ServicioDescargas:
 
     async def _esperados(self, tipo: str, recorrido_id: uuid.UUID, sucursal_id: int) -> list[dict[str, Any]]:
         """Paquetes que tienen que subir (carga) o bajar en la sucursal (descarga)."""
+        recorrido = await self.repo.obtener_recorrido(recorrido_id)
+        if recorrido is None:
+            return []
+        return (await self._esperados_por_recorrido(tipo, [recorrido], sucursal_id))[recorrido.id]
+
+    async def _esperados_por_recorrido(
+        self, tipo: str, recorridos: list[Any], sucursal_id: int
+    ) -> dict[uuid.UUID, list[dict[str, Any]]]:
+        """Lo mismo para varios recorridos ya cargados, sin consultas por recorrido.
+
+        En la carga sube todo el recorrido; en la descarga, lo que tiene parada en
+        esta sucursal según la misma regla que el detalle del recorrido.
+        """
         if tipo == CARGA:
-            recorrido = await self.repo.obtener_recorrido(recorrido_id)
-            return [
+            por_recorrido = {r.id: sorted(r.paquetes, key=lambda rp: rp.orden) for r in recorridos}
+        else:
+            por_recorrido = await self.recorridos.paquetes_que_bajan_en(recorridos, sucursal_id)
+        return {
+            recorrido_id: [
                 {
                     "paquete_id": rp.paquete_id,
                     "numero_paquete": rp.paquete.numero_paquete,
@@ -90,24 +106,10 @@ class ServicioDescargas:
                     "estado": rp.paquete.estado,
                     "tipo_entrega": rp.paquete.envio.tipo_entrega,
                 }
-                for rp in sorted(recorrido.paquetes, key=lambda rp: rp.orden)
-            ] if recorrido else []
-        detalle = (await self.recorridos.obtener(recorrido_id)).data
-        recorrido = await self.repo.obtener_recorrido(recorrido_id)
-        entrega = {rp.paquete_id: rp.paquete.envio.tipo_entrega for rp in recorrido.paquetes} if recorrido else {}
-        return [
-            {
-                "paquete_id": p.paquete_id,
-                "numero_paquete": p.numero_paquete,
-                "descripcion": p.descripcion,
-                "destinatario_nombre": p.destinatario_nombre,
-                "estado": p.estado,
-                "tipo_entrega": entrega.get(p.paquete_id, "sucursal"),
-            }
-            for parada in detalle.paradas
-            if parada.sucursal_destino is not None and parada.sucursal_destino.id == sucursal_id
-            for p in parada.paquetes
-        ]
+                for rp in paquetes
+            ]
+            for recorrido_id, paquetes in por_recorrido.items()
+        }
 
     # --- Recorridos para controlar en una sucursal ---------------------------
 
@@ -123,19 +125,19 @@ class ServicioDescargas:
         hoy = hoy or datetime.now(UTC)
         desde = (hoy - timedelta(days=DIAS_RECORRIDOS_ENTRANTES)).date()
         if tipo == CARGA:
-            recorridos = [
-                r for r in await self.repo.recorridos_desde(desde, tuple(ESTADOS_RECORRIDO_EDITABLES))
-                if r.sucursal_origen_id == sucursal_id
-            ]
+            recorridos = await self.repo.recorridos_desde(
+                desde, tuple(ESTADOS_RECORRIDO_EDITABLES), sucursal_origen_id=sucursal_id
+            )
         else:
-            recorridos = [
-                r for r in await self.repo.recorridos_desde(desde, ESTADOS_RECORRIDO_CONTROLABLES)
-                if r.tipo_distancia == TipoDistanciaEnum.LARGA.value and r.sucursal_origen_id != sucursal_id
-            ]
+            recorridos = await self.repo.recorridos_desde(
+                desde, ESTADOS_RECORRIDO_CONTROLABLES,
+                excluir_origen_id=sucursal_id, tipo_distancia=TipoDistanciaEnum.LARGA.value,
+            )
         controles = await self.repo.controles_de_sucursal(sucursal_id, [r.id for r in recorridos], tipo)
+        esperados_por_recorrido = await self._esperados_por_recorrido(tipo, recorridos, sucursal_id)
         resultado = []
         for recorrido in recorridos:
-            esperados = await self._esperados(tipo, recorrido.id, sucursal_id)
+            esperados = esperados_por_recorrido[recorrido.id]
             if not esperados:
                 continue
             control = controles.get(recorrido.id)

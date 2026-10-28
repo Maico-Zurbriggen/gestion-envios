@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import {
-  ArrowLeft,
   Building2,
   CircleAlert,
   CircleHelp,
@@ -8,24 +7,17 @@ import {
   House,
   LoaderCircle,
   LocateFixed,
-  LogIn,
   MapPin,
   MapPinned,
   MousePointerClick,
-  Moon,
   Package,
-  PackageCheck,
   Plus,
   RefreshCw,
   Send,
-  Sun,
   Trash2,
   UserRound,
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useAppSelector } from '../../../app/store'
-import { selectIsAuthenticated } from '../../auth/redux/authSlice'
-import { useTheme } from '../../../shared/hooks/useTheme'
 import { useInsidePanel } from '../../../layouts/MainLayout/panelContext'
 import { useBranches } from '../hooks/useBranches'
 import { useCreateShipment } from '../hooks/useCreateShipment'
@@ -34,6 +26,7 @@ import type { DeliveryType } from '../types/shipment.types'
 import { ShipmentResult } from '../components/ShipmentResult'
 import { ShipmentMap } from '../components/ShipmentMap'
 import './CreateShipmentPage.css'
+import { PublicHeader } from '../../../shared/components/PublicHeader'
 
 interface ShipmentForm {
   senderName: string
@@ -111,9 +104,7 @@ export function CreateShipmentPage() {
     createEmptyPackage(),
   ])
   const [clientError, setClientError] = useState<string | null>(null)
-  const isAuthenticated = useAppSelector(selectIsAuthenticated)
   const insidePanel = useInsidePanel()
-  const { theme, toggleTheme } = useTheme()
   const branchesQuery = useBranches()
   const createShipmentMutation = useCreateShipment()
   const geocodeMutation = useGeocodeDestination()
@@ -292,34 +283,7 @@ export function CreateShipmentPage() {
 
   return (
     <main className={`shipment-page${insidePanel ? ' is-embedded' : ''}`}>
-      {!insidePanel && <header className="shipment-public-header">
-        <Link className="shipment-brand" to={isAuthenticated ? '/' : '/login'}>
-          <span aria-hidden="true">
-            <PackageCheck size={22} />
-          </span>
-          <strong>Gestión de envíos</strong>
-        </Link>
-        <div className="shipment-public-header__actions">
-          <button type="button" onClick={toggleTheme} aria-label="Cambiar tema">
-            {theme === 'light' ? (
-              <Moon size={19} aria-hidden="true" />
-            ) : (
-              <Sun size={19} aria-hidden="true" />
-            )}
-          </button>
-          <Link
-            to={isAuthenticated ? '/' : '/login'}
-            aria-label={isAuthenticated ? 'Volver al panel' : 'Iniciar sesión'}
-          >
-            {isAuthenticated ? (
-              <ArrowLeft size={18} aria-hidden="true" />
-            ) : (
-              <LogIn size={18} aria-hidden="true" />
-            )}
-            <span>{isAuthenticated ? 'Volver al panel' : 'Ingresar'}</span>
-          </Link>
-        </div>
-      </header>}
+      {!insidePanel && <PublicHeader />}
 
       <div className="shipment-page__content">
         <header className="shipment-page__intro">

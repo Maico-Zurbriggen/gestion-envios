@@ -1,17 +1,15 @@
 import { useState, type FormEvent } from 'react'
 import {
-  ArrowLeft, ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, CircleAlert, CircleHelp, ListFilter,
-  LoaderCircle, LogIn, MapPin, Moon, PackageCheck, RefreshCw, Search, Sun, X,
+  ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, CircleAlert, CircleHelp, ListFilter,
+  LoaderCircle, MapPin, RefreshCw, Search, X,
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useAppSelector } from '../../../app/store'
-import { useTheme } from '../../../shared/hooks/useTheme'
 import { useInsidePanel } from '../../../layouts/MainLayout/panelContext'
-import { selectIsAuthenticated } from '../../auth/redux/authSlice'
 import { useFaqs } from '../hooks/useFaqs'
 import type { FaqQuestion } from '../types/faq.types'
 import { Modal } from '../../../shared/components/Modal'
 import './FaqPage.css'
+import { PublicHeader } from '../../../shared/components/PublicHeader'
 
 function normalizeCategory(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-AR').trim()
@@ -56,9 +54,7 @@ export function FaqPage() {
   const search = (searchParams.get('q') ?? '').trim().slice(0, 100)
   const category = (searchParams.get('categoria') ?? '').trim().slice(0, 80)
   const query = useFaqs({ search, category })
-  const isAuthenticated = useAppSelector(selectIsAuthenticated)
   const insidePanel = useInsidePanel()
-  const { theme, toggleTheme } = useTheme()
   const loading = query.isPending || query.isPlaceholderData
   const hasFilters = Boolean(search || category)
   const listing = !query.isPlaceholderData ? query.data : undefined
@@ -83,20 +79,7 @@ export function FaqPage() {
 
   return (
     <main className={`faq-page${insidePanel ? ' is-embedded' : ''}`}>
-      {!insidePanel && <header className="faq-public-header">
-        <Link className="faq-brand" to={isAuthenticated ? '/' : '/login'}>
-          <span aria-hidden="true"><PackageCheck size={22} /></span><strong>Gestión de envíos</strong>
-        </Link>
-        <div className="faq-public-header__actions">
-          <button type="button" onClick={toggleTheme} aria-label="Cambiar tema">
-            {theme === 'light' ? <Moon size={19} aria-hidden="true" /> : <Sun size={19} aria-hidden="true" />}
-          </button>
-          <Link to={isAuthenticated ? '/' : '/login'} aria-label={isAuthenticated ? 'Volver al panel' : 'Iniciar sesión'}>
-            {isAuthenticated ? <ArrowLeft size={18} aria-hidden="true" /> : <LogIn size={18} aria-hidden="true" />}
-            <span>{isAuthenticated ? 'Volver al panel' : 'Ingresar'}</span>
-          </Link>
-        </div>
-      </header>}
+      {!insidePanel && <PublicHeader />}
 
       <div className="faq-page__content">
         <header className="faq-hero">

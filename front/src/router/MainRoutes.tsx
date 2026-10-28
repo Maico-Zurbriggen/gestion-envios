@@ -3,14 +3,12 @@ import { DriverDeliveryRoute } from '../features/delivery/components/DriverDeliv
 import { TerminalRoute } from '../features/terminal/components/TerminalRoute'
 import App from '../App'
 import { HomePage } from '../features/home/pages/HomePage'
-import { PickupPage } from '../features/pickup/pages/PickupPage'
 import { RoutesRoute } from '../features/routes/components/RoutesRoute'
-import { EmailTemplatesPage } from '../features/emails/pages/EmailTemplatesPage'
 import { monitorRoute } from '../features/monitor/monitorRoutes'
 import { UnloadRoute } from '../features/unload/components/UnloadRoute'
-import { UsersPage } from '../features/users/pages/UsersPage'
 import { UnauthorizedPage } from '../pages/UnauthorizedPage'
 import { ProtectedRoutes } from './ProtectedRoutes'
+import { EmailTemplatesRoute, PickupRoute, UsersRoute } from './LazyPages'
 
 export const mainRoutes: RouteObject[] = [
   {
@@ -25,7 +23,7 @@ export const mainRoutes: RouteObject[] = [
         children: [
           {
             path: '/admin/usuarios',
-            element: <UsersPage />,
+            element: <UsersRoute />,
           },
           {
             path: '/admin/usuarios/nuevo',
@@ -38,7 +36,7 @@ export const mainRoutes: RouteObject[] = [
         children: [
           {
             path: '/sucursal/retiros',
-            element: <PickupPage />,
+            element: <PickupRoute />,
           },
           {
             path: '/recorridos',
@@ -46,7 +44,7 @@ export const mainRoutes: RouteObject[] = [
           },
           {
             path: '/admin/correos',
-            element: <EmailTemplatesPage />,
+            element: <EmailTemplatesRoute />,
           },
           monitorRoute,
         ],

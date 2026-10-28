@@ -50,7 +50,7 @@ for (const [path, name] of [['/', 'inicio'], ['/envios/nuevo', 'registrar-envio'
   await waitFor('Boolean(document.querySelector("main, .app-content__body > *"))')
   await new Promise((r) => setTimeout(r, 600))
   assert.equal(await evaluate(hasSidebar), true, `${path}: debería mostrar el menú lateral con sesión`)
-  assert.equal(await evaluate('Boolean(document.querySelector(".shipment-public-header, .tracking-public-header, .faq-public-header"))'), false, `${path}: sin encabezado público duplicado`)
+  assert.equal(await evaluate('Boolean(document.querySelector(".public-header"))'), false, `${path}: sin encabezado público duplicado`)
   await screenshot(`panel-${name}`)
 }
 // Navegar con clics del menú, como un usuario.

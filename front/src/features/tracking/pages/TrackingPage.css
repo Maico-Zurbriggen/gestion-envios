@@ -13,39 +13,11 @@
     var(--color-background);
 }
 
-.tracking-public-header {
-  min-height: 4.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-3) max(var(--space-4), calc((100% - 1080px) / 2));
-  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.tracking-brand,
 .tracking-public-header__actions,
 .tracking-public-header__actions a,
 .tracking-public-header__actions button {
   display: inline-flex;
   align-items: center;
-}
-
-.tracking-brand {
-  gap: var(--space-3);
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-.tracking-brand > span {
-  width: 2.5rem;
-  height: 2.5rem;
-  display: grid;
-  place-items: center;
-  color: var(--color-text-on-primary);
-  background: var(--color-primary);
-  border-radius: var(--radius-md);
 }
 
 .tracking-public-header__actions {
@@ -673,13 +645,6 @@
 }
 
 @media (max-width: 460px) {
-  .tracking-public-header {
-    min-height: 4rem;
-  }
-
-  .tracking-brand strong {
-    font-size: var(--font-size-sm);
-  }
 
   .tracking-public-header__actions a {
     width: 2.5rem;
@@ -800,7 +765,7 @@
   --tone: var(--color-danger);
 }
 
-.tracking-pickup {
+.tracking-pickup-notice {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
@@ -811,18 +776,18 @@
   border-radius: var(--radius-md);
 }
 
-.tracking-pickup > svg {
+.tracking-pickup-notice > svg {
   flex: 0 0 auto;
   color: var(--color-success);
 }
 
-.tracking-pickup > div {
+.tracking-pickup-notice > div {
   min-width: 0;
   display: grid;
   gap: 0.2rem;
   font-size: var(--font-size-sm);
 }
 
-.tracking-pickup small {
+.tracking-pickup-notice small {
   color: var(--color-text-muted);
 }

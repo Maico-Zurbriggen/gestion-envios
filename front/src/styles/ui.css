@@ -349,3 +349,12 @@
   .tracking-search, .faq-search, .shipment-claims, .password-change-card, .overview-card, .branches-page__card) {
   box-shadow: var(--shadow-card);
 }
+
+/* Página que se está descargando (rutas a demanda). */
+.page-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  color: var(--color-text-muted);
+}
