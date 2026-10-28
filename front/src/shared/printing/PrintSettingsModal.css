@@ -1,0 +1,100 @@
+/* Configuración de impresión de etiquetas. */
+.print-settings {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.print-settings__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 9rem;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.print-settings__copies small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.print-settings__preview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--color-surface-subtle);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+/* Papel a escala: conserva la proporción del tamaño elegido. */
+.print-settings__paper {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+.print-settings__bars {
+  flex: 1 1 auto;
+  max-height: 2.4rem;
+  min-height: 0.5rem;
+  background: repeating-linear-gradient(90deg, var(--color-text) 0 2px, transparent 2px 4px, var(--color-text) 4px 5px, transparent 5px 8px);
+}
+
+.print-settings__lines {
+  flex: 1 1 auto;
+  max-height: 2.5rem;
+  background: repeating-linear-gradient(180deg, var(--color-border-strong) 0 2px, transparent 2px 6px);
+}
+
+.print-settings__preview figcaption {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.print-settings__preview figcaption span {
+  color: var(--color-text-muted);
+}
+
+.print-settings__note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text);
+  background: var(--color-info-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+.print-settings__note svg {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+  color: var(--color-info);
+}
+
+/* Acciones de impresión dentro de cada pantalla. */
+.print-labels__error {
+  flex-basis: 100%;
+}
+
+@media (max-width: 480px) {
+  .print-settings__row {
+    grid-template-columns: 1fr;
+  }
+
+  .print-settings__preview {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

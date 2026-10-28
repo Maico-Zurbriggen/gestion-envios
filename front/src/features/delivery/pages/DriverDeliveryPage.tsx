@@ -7,6 +7,10 @@ import { DeliveryRouteMap } from '../../routes/components/DeliveryRouteMap'
 import { useRoadRoute } from '../../routes/hooks/useRoadRoute'
 import { distanceLabels, localToday, routeStatusLabels } from '../../routes/routePresentation'
 import { Modal } from '../../../shared/components/Modal'
+import { ScanWithCameraButton } from '../../../shared/components/ScanWithCameraButton'
+import { PACKAGE_CODE_PATTERN } from '../../../shared/services/scannedCode'
+import { getStatusLabel } from '../../tracking/trackingStatus'
+import { canRegisterDelivery, findScannedDelivery } from '../deliveryValidation'
 import '../../../shared/styles/operations.css'
 import '../../routes/pages/DeliveryRoutesPage.css'
 import './DriverDeliveryPage.css'
@@ -19,6 +23,21 @@ function DriverRoute({ id, onBack }: { id: string; onBack: () => void }) {
   const [packageCode, setPackageCode] = useState('')
   const [confirmStart, setConfirmStart] = useState(false)
   const pendingPackages = route?.stops.flatMap((stop) => stop.packages).filter((item) => item.routeStatus === 'PENDIENTE').length ?? 0
+
+  // El código leído abre el mismo registro que "Registrar entrega o visita" de ese paquete.
+  function openScannedPackage(code: string) {
+    if (!route || detail.isError) return 'No pudimos verificar el recorrido. Actualizalo y volvé a intentar.'
+    if (packageCode) return 'Terminá o cancelá el registro en curso antes de escanear otro paquete.'
+    const match = findScannedDelivery(route, code)
+    if (match.kind === 'not-in-route') return `El paquete ${code} no pertenece a este recorrido.`
+    if (match.kind === 'not-enabled') {
+      if (match.reason === 'already-visited') return `El paquete ${code} ya tiene su visita registrada en este recorrido.`
+      if (match.reason === 'branch-stop') return `El paquete ${code} va a una sucursal: no se registra como entrega a domicilio.`
+      if (match.reason === 'route-not-active') return 'Este recorrido no admite registrar entregas en este momento.'
+      return `El paquete ${code} todavía no está habilitado para entrega (estado: ${getStatusLabel(match.item.status)}).`
+    }
+    setPackageCode(match.item.code)
+  }
   return <div className="ops-stack">
     {!packageCode && <button className="ops-button" type="button" onClick={onBack} disabled={start.isPending}><Truck size={18} aria-hidden="true" /> Volver a mis recorridos</button>}
     {detail.isPending && <p role="status">Cargando recorrido…</p>}
@@ -50,10 +69,14 @@ function DriverRoute({ id, onBack }: { id: string; onBack: () => void }) {
       </section>
       {packageCode && <DeliveryAction key={packageCode} routeId={id} code={packageCode} onClose={() => { setPackageCode(''); void detail.refetch() }} />}
       <section className="ops-panel ops-stack" aria-labelledby="driver-stops-title"><h2 id="driver-stops-title">Paradas en orden</h2>
+        {route.distanceType === 'CORTA' && route.status === 'EN_CURSO' && !detail.isError && <div className="ops-actions">
+          <ScanWithCameraButton mode="single" label="Escanear paquete" pattern={PACKAGE_CODE_PATTERN} patternMessage={(read) => `${read} no es un código de paquete (PAQ-XXXXXXXXXX).`} onScan={openScannedPackage} disabled={Boolean(packageCode)}
+            description="Apuntá la cámara trasera a la etiqueta del paquete que vas a entregar. Se abre el registro de esa entrega." />
+        </div>}
         <ol className="ops-list">{route.stops.map((stop) => <li key={stop.order} className="ops-panel ops-stop"><h3><span className="ops-stop__number">{stop.order}</span> {stop.destination}</h3>
           {stop.latitude != null && stop.longitude != null ? <a className="ops-button" href={`https://www.google.com/maps/dir/?api=1&destination=${stop.latitude},${stop.longitude}`} target="_blank" rel="noopener noreferrer"><Navigation size={18} aria-hidden="true" /> Navegar a esta parada</a> : <p className="ops-hint">Sin coordenadas. Consultá la dirección con logística antes de salir.</p>}
           <ul className="ops-list">{stop.packages.map((item) => <li key={item.id}><strong>{item.code}</strong><p>{item.description} · {item.weightKg} kg</p><p>{item.recipientName} · {item.status} · {item.routeStatus}</p>
-            {route.distanceType === 'CORTA' && stop.type === 'DOMICILIO' && route.status === 'EN_CURSO' && item.routeStatus === 'PENDIENTE' && item.status === 'EN_REPARTO' && !detail.isError && <button className="ops-button ops-button--primary" type="button" disabled={Boolean(packageCode)} onClick={() => setPackageCode(item.code)}><CheckCircle2 size={18} aria-hidden="true" /> Registrar entrega o visita</button>}
+            {canRegisterDelivery(route, stop, item) && !detail.isError && <button className="ops-button ops-button--primary" type="button" disabled={Boolean(packageCode)} onClick={() => setPackageCode(item.code)}><CheckCircle2 size={18} aria-hidden="true" /> Registrar entrega o visita</button>}
           </li>)}</ul>
         </li>)}</ol>
       </section>

@@ -9,6 +9,7 @@ import { applyTheme, getInitialTheme } from './shared/theme/theme'
 import './styles/theme.css'
 import './styles/base.css'
 import './styles/ui.css'
+import './styles/panel.css'
 import './styles/forms.css'
 import './index.css'
 

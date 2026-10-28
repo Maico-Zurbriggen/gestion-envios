@@ -92,7 +92,9 @@ El cierre de sesión es local: elimina la sesión persistida, limpia Redux y des
 - La identidad se centraliza en `src/styles/theme.css`, con variantes clara y oscura, y es la misma de las presentaciones y los informes: Montserrat, azul petróleo, naranja de marca y verde azulado (ver [Identidad visual](./visual-identity.md)).
 - `src/styles/base.css` y `src/styles/ui.css` reúnen los estilos base y los componentes compartidos; `src/shared/components/Modal.tsx` reemplaza a los paneles desplegables para detalles, formularios secundarios y confirmaciones.
 - Los controles y acciones utilizan `lucide-react` como única librería de iconos.
-- El layout privado dispone de navegación lateral permanente en escritorio, colapsable por debajo de 968 px y de pantalla completa en móviles pequeños.
+- El layout privado tiene un menú lateral colapsable en escritorio, una barra superior con buscador rápido (Ctrl + K) y estado de la API, y en el celular un menú deslizable más una barra inferior.
+- El celular puede usarse como escáner de códigos: `BarcodeDetector` nativo o, si no existe (Safari), ZXing cargado bajo demanda. Requiere HTTPS: en desarrollo, `HTTPS_DEV=true npm run dev`.
+- Las etiquetas se imprimen desde el navegador con perfiles de impresora tomados de Soderia ERP (Zebra, SATO, Brother, 100×150 y A4). La configuración vive en `shared/printing/` y se guarda por puesto en el almacenamiento local.
 - Se mantienen labels asociados, foco visible, estados de carga y mensajes accesibles desde 320 px de ancho.
 - Las funcionalidades de mayor peso se cargan por ruta para no penalizar la entrada inicial.
 

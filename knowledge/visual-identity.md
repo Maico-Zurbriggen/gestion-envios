@@ -22,6 +22,14 @@ Las escalas completas y los tokens están en `front/src/styles/theme.css`. Los c
 - `front/src/styles/base.css`: estilos de los elementos HTML (títulos, enlaces, foco, selección, movimiento reducido).
 - `front/src/styles/ui.css`: etiqueta superior (`.eyebrow`), botones (`.btn`), tarjetas (`.surface-card`), insignias (`.badge`), entrada animada de cada pantalla y estilos del modal.
 - `front/src/shared/components/Modal.tsx`: modal accesible sobre `<dialog>` (foco atrapado, Escape, fondo inerte). En pantallas de hasta 560 px se abre desde abajo como hoja.
+- `front/src/styles/panel.css` y `front/src/shared/components/PageHeader.tsx`: piezas de pantalla tomadas de la organización de Aviso Entrega:
+  - encabezado con ícono (`PageHeader`);
+  - indicadores (`StatCard`);
+  - pestañas con contador (`FilterTabs`);
+  - listas en filas (`.list-card`, `.list-row` con franja de estado y acciones de 36 px);
+  - selector segmentado (`.segmented`);
+  - esqueletos de carga (`.skeleton`).
+- `front/src/shared/components/Toaster.tsx` y `showToast()` (`shared/services/toast.ts`): avisos flotantes abajo a la derecha, que se cierran solos a los 4,5 s.
 
 ## Criterios de interfaz
 
@@ -29,7 +37,14 @@ Las escalas completas y los tokens están en `front/src/styles/theme.css`. Los c
 - Tarjetas blancas con borde suave y sombra moderada (`--shadow-card`), como en las presentaciones.
 - Naranja para acciones principales, ítem activo del menú y foco; verde azulado para estados completados; dorado para advertencias.
 - Los detalles, formularios secundarios y confirmaciones se abren en modales en lugar de paneles desplegables. Se mantienen en la página las operaciones que no deben interrumpirse (por ejemplo, registrar una entrega mientras hay un reintento pendiente).
-- Menú lateral azul petróleo con la marca en naranja; en pantallas angostas se abre como panel deslizable.
+- Panel con la organización de Aviso Entrega y la paleta propia:
+  - **Menú lateral** azul petróleo de 256 px, colapsable a 72 px. La preferencia se guarda en el navegador.
+  - **Secciones** Principal, Operación y Administración, con etiqueta y línea.
+  - **Ítem activo** como bloque naranja sólido.
+  - **Barra superior** fija de 64 px: usuario y rol, buscador rápido (Ctrl + K o «/»), hora, estado de la API, tema Claro/Oscuro y «Salir».
+  - **Contenido** de hasta 1400 px.
+  - **Celular:** menú deslizable de 288 px y barra inferior con cuatro accesos más «Más».
+- Dentro del panel todas las pantallas usan el mismo tamaño de título (24 a 28 px); las páginas públicas conservan su título de portada.
 - Animaciones breves (160 a 420 ms) para entrada de pantallas, modales y respuesta de botones; se desactivan con `prefers-reduced-motion`.
 - Estados de foco visibles, contraste suficiente y diseño responsive desde 320 px.
 - Los iconos de interfaz provienen de `lucide-react`. Se priorizan en botones y acciones cuando ayuden a reconocer su función, siempre con nombre accesible cuando el icono no esté acompañado por texto.

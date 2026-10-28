@@ -4,6 +4,11 @@ import { useBranches } from '../../shipments/hooks/useBranches'
 import { ShipmentNotifications } from '../../notifications/components/ShipmentNotifications'
 import { getStatusLabel } from '../../tracking/trackingStatus'
 import { useTerminal } from '../hooks/useTerminal'
+import type { ScannedPackage } from '../types/terminal.types'
+import { ScanWithCameraButton } from '../../../shared/components/ScanWithCameraButton'
+import { PACKAGE_CODE_PATTERN } from '../../../shared/services/scannedCode'
+import { PrintLabelsButton } from '../../../shared/printing/PrintLabelsButton'
+import type { ShipmentLabelData } from '../../../shared/printing/shipmentLabels'
 import '../../../shared/styles/operations.css'
 
 const BRANCH_STORAGE_KEY = 'terminal-branch'
@@ -15,6 +20,20 @@ function readStoredBranch() {
 
 function storeBranch(value: string) {
   try { localStorage.setItem(BRANCH_STORAGE_KEY, value) } catch { /* almacenamiento no disponible */ }
+}
+
+// Reimpresión con los datos que ya trae la identificación: sin consultas extra.
+function toPrintLabel(item: ScannedPackage): ShipmentLabelData {
+  return {
+    packageNumber: item.code,
+    trackingToken: item.trackingToken,
+    recipientName: item.recipientName,
+    destination: item.destination,
+    weightKg: item.weightKg,
+    dimensions: item.dimensions,
+    date: new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date()),
+    dateCaption: 'Reimpreso',
+  }
 }
 
 export function TerminalPage() {
@@ -31,13 +50,24 @@ export function TerminalPage() {
     requestAnimationFrame(() => codeInputRef.current?.focus())
   }
 
-  function search(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const normalized = input.replace(/\s/g, '').toUpperCase()
+  // Única entrada de códigos: el lector USB, el tipeo manual y la cámara terminan acá.
+  function searchCode(value: string) {
+    const normalized = value.replace(/\s/g, '').toUpperCase()
     if (!normalized) return
     receive.reset(); setNotes('')
     if (normalized === code) void scan.refetch()
     else setCode(normalized)
+  }
+
+  function search(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    searchCode(input)
+  }
+
+  function searchFromCamera(scanned: string) {
+    if (receive.isPending) return 'Esperá a que termine la recepción en curso antes de leer otro paquete.'
+    setInput(scanned)
+    searchCode(scanned)
   }
 
   function selectBranch(value: string) {
@@ -54,9 +84,12 @@ export function TerminalPage() {
   const item = scan.data
   return <div className="ops-page">
     <header className="ops-page__header"><span className="eyebrow"><ScanBarcode size={15} aria-hidden="true" /> Operación de terminal</span><h1>Recepción en terminal</h1><p>Leé el código de barras con el lector o ingresá el número del paquete. Revisá los datos antes de confirmar.</p></header>
-    <form className="ops-panel ops-scan" onSubmit={search}>
+    <form className="ops-panel ops-scan ops-scan--camera" onSubmit={search}>
       <label className="form-field" htmlFor="terminal-code">Código del paquete<input ref={codeInputRef} id="terminal-code" className="form-control" value={input} onChange={(e) => setInput(e.target.value)} onFocus={(e) => e.target.select()} required maxLength={80} autoComplete="off" autoFocus disabled={receive.isPending} placeholder="PAQ-XXXXXXXXXX" /></label>
       <button className="ops-button ops-button--primary" disabled={scan.isFetching || receive.isPending}><Search size={18} aria-hidden="true" />{scan.isFetching ? 'Consultando…' : 'Identificar paquete'}</button>
+      <ScanWithCameraButton mode="continuous" pattern={PACKAGE_CODE_PATTERN} patternMessage={(read) => `${read} no es un código de paquete (PAQ-XXXXXXXXXX).`} onScan={searchFromCamera} disabled={receive.isPending}
+        description="Apuntá la cámara trasera al código de barras de cada paquete. Cada lectura identifica el paquete automáticamente."
+        continuousHint="Cerrá la cámara para revisar los datos del paquete y confirmar la recepción física." />
     </form>
     {scan.isFetching && <p role="status">Consultando el paquete…</p>}
     {scan.isError && <div className="form-error" role="alert">{scan.error.message}<button className="ops-button" type="button" disabled={scan.isFetching} onClick={() => void scan.refetch()}><RefreshCw size={18} aria-hidden="true" /> Reintentar</button></div>}
@@ -70,6 +103,7 @@ export function TerminalPage() {
         <div className="ops-details__wide"><dt>Destino</dt><dd>{item.destination}</dd></div>
         {item.notes && <div className="ops-details__wide"><dt>Observaciones declaradas</dt><dd>{item.notes}</dd></div>}
       </dl>
+      <div className="ops-actions"><PrintLabelsButton labels={[toPrintLabel(item)]} label="Reimprimir etiqueta" /></div>
       {!item.available && <p role="status">{item.unavailableReason || 'Este paquete no está disponible para recepción.'}</p>}
       {item.available && !receive.isSuccess && <form className="ops-stack" onSubmit={(e) => {
         e.preventDefault()

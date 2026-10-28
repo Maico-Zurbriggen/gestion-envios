@@ -45,7 +45,7 @@ export function DriverProfiles({ drivers, branches, busy, canCreateUser }: { dri
     </div>
     <Modal open={open} onClose={() => setOpen(false)} eyebrow="Logística" title="Perfiles de repartidores" description="Sucursal base, tipo de reparto y disponibilidad para recibir recorridos." icon={UsersRound} size="wide">
     <div className="route-profiles__body">
-      {drivers.length === 0 ? <p>No hay usuarios con rol Repartidor. {canCreateUser ? <Link to="/admin/usuarios/nuevo">Registrar un repartidor</Link> : 'Pedile al superadministrador que registre los usuarios.'}</p> : <>
+      {drivers.length === 0 ? <p>No hay usuarios con rol Repartidor. {canCreateUser ? <Link to="/admin/usuarios?nuevo=1">Registrar un repartidor</Link> : 'Pedile al superadministrador que registre los usuarios.'}</p> : <>
         <div className="form-field"><label htmlFor="driver-profile-user">Repartidor a configurar</label><select id="driver-profile-user" className="form-control" value={selectedId} onChange={(event) => setSelectedId(event.target.value)} disabled={busy}><option value="">Seleccioná un repartidor</option>{drivers.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.configured ? item.available ? 'Perfil activo' : 'No disponible' : 'Sin perfil'}</option>)}</select></div>
         {driver && <ProfileForm key={driver.id} driver={driver} branches={branches} busy={busy} />}
       </>}

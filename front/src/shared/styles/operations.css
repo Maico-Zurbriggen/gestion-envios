@@ -64,6 +64,13 @@
   margin-top: 0;
 }
 
+/* Con el botón de cámara: el campo ocupa el resto y las acciones van a la derecha. */
+.ops-scan--camera {
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-columns: auto;
+  grid-auto-flow: column;
+}
+
 .ops-scan .form-control {
   min-height: 3.4rem;
   font-family: var(--font-family-mono);
@@ -321,6 +328,10 @@ section[aria-labelledby='delivery-action-title'] {
 
   .ops-scan {
     grid-template-columns: 1fr;
+  }
+
+  .ops-scan--camera {
+    grid-auto-flow: row;
   }
 
   .ops-details {

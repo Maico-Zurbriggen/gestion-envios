@@ -127,11 +127,11 @@ class ServicioPlantillasCorreo:
 
     async def enviar_prueba(self, clave: str, datos: EnviarPruebaRequest) -> EnviarPruebaResponse:
         asunto, texto, html = await self._renderizar_ejemplo(clave, datos)
-        exito, _, error = await self.email_provider.enviar_email(datos.email, f"[Prueba] {asunto}", texto, html)
+        exito, _, _ = await self.email_provider.enviar_email(datos.email, f"[Prueba] {asunto}", texto, html)
         if not exito:
-            return EnviarPruebaResponse(
-                status="error",
-                message="El proveedor de correo rechazó el envío de prueba.",
-                data=EnviarPruebaData(enviado=False, destino=datos.email, detalle=error),
+            # El detalle del proveedor no se expone: puede incluir datos de la cuenta de envío.
+            raise ValidationException(
+                message="No pudimos enviar el correo de prueba. Revisá la dirección o la configuración del correo saliente.",
+                errors=[{"field": "email", "message": "El proveedor de correo rechazó el envío de prueba."}],
             )
         return EnviarPruebaResponse(data=EnviarPruebaData(enviado=True, destino=datos.email))

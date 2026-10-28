@@ -1,11 +1,12 @@
-import type { RouteObject } from 'react-router-dom'
+import { Navigate, type RouteObject } from 'react-router-dom'
 import { DriverDeliveryRoute } from '../features/delivery/components/DriverDeliveryRoute'
 import { TerminalRoute } from '../features/terminal/components/TerminalRoute'
 import App from '../App'
 import { HomePage } from '../features/home/pages/HomePage'
 import { PickupPage } from '../features/pickup/pages/PickupPage'
 import { RoutesRoute } from '../features/routes/components/RoutesRoute'
-import { CreateUserPage } from '../features/users/pages/CreateUserPage'
+import { EmailTemplatesPage } from '../features/emails/pages/EmailTemplatesPage'
+import { UsersPage } from '../features/users/pages/UsersPage'
 import { UnauthorizedPage } from '../pages/UnauthorizedPage'
 import { ProtectedRoutes } from './ProtectedRoutes'
 
@@ -21,8 +22,12 @@ export const mainRoutes: RouteObject[] = [
         element: <ProtectedRoutes allowedRoles={['SUPERADMIN']} />,
         children: [
           {
+            path: '/admin/usuarios',
+            element: <UsersPage />,
+          },
+          {
             path: '/admin/usuarios/nuevo',
-            element: <CreateUserPage />,
+            element: <Navigate to="/admin/usuarios?nuevo=1" replace />,
           },
         ],
       },
@@ -36,6 +41,10 @@ export const mainRoutes: RouteObject[] = [
           {
             path: '/recorridos',
             element: <RoutesRoute />,
+          },
+          {
+            path: '/admin/correos',
+            element: <EmailTemplatesPage />,
           },
         ],
       },

@@ -10,6 +10,8 @@ import {
 } from 'lucide-react'
 import type { CreatedShipment } from '../types/shipment.types'
 import { downloadShipmentLabelsPdf } from '../services/shipmentLabelPdf'
+import { getShipmentPrintLabels } from '../services/shipmentPrintLabels'
+import { PrintLabelsButton } from '../../../shared/printing/PrintLabelsButton'
 import { PackageBarcode } from './PackageBarcode'
 
 interface ShipmentResultProps {
@@ -117,6 +119,10 @@ export function ShipmentResult({
             )}
             {isDownloadingPdf ? 'Generando PDF…' : 'Descargar PDF'}
           </button>
+          <PrintLabelsButton
+            labels={getShipmentPrintLabels(shipment, destination, createdAt)}
+            className="shipment-secondary-action"
+          />
           <button
             className="shipment-secondary-action"
             type="button"

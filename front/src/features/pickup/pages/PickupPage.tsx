@@ -5,6 +5,8 @@ import { useBranches } from '../../shipments/hooks/useBranches'
 import { getStatusLabel } from '../../tracking/trackingStatus'
 import { usePickupValidation, useRegisterPickup } from '../hooks/usePickup'
 import type { PickupType, RegisteredPickup } from '../types/pickup.types'
+import { ScanWithCameraButton } from '../../../shared/components/ScanWithCameraButton'
+import { PACKAGE_CODE_PATTERN } from '../../../shared/services/scannedCode'
 import './PickupPage.css'
 
 const READY_FOR_PICKUP = new Set(['LISTO_PARA_RETIRO', 'EN_SUCURSAL', 'EN_SUCURSAL_DESTINO'])
@@ -57,7 +59,18 @@ export function PickupPage() {
 
   function searchPackage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const code = codeInput.trim().toUpperCase()
+    searchCode(codeInput)
+  }
+
+  function searchFromCamera(scanned: string) {
+    if (registration.isPending) return 'Esperá a que termine el registro en curso antes de buscar otro paquete.'
+    setCodeInput(scanned)
+    searchCode(scanned)
+  }
+
+  // Única entrada de códigos: el lector, el tipeo manual y la cámara terminan acá.
+  function searchCode(value: string) {
+    const code = value.trim().toUpperCase()
     if (!code) return
     setCompleted(null)
     registration.reset()
@@ -124,6 +137,7 @@ export function PickupPage() {
         <form className="pickup-search" onSubmit={searchPackage}>
           <div className="form-field"><label htmlFor="pickup-code">Código de paquete</label><input className="form-control" id="pickup-code" value={codeInput} onChange={(event) => setCodeInput(event.target.value.toUpperCase())} placeholder="PAQ-XXXXXXXXXX" autoComplete="off" maxLength={40} required /></div>
           <button className="pickup-button" type="submit" disabled={validation.isFetching || registration.isPending || !codeInput.trim()}>{validation.isFetching ? <LoaderCircle className="loading-icon" size={18} aria-hidden="true" /> : <Search size={18} aria-hidden="true" />}{validation.isFetching ? 'Buscando…' : 'Buscar'}</button>
+          <ScanWithCameraButton mode="single" className="pickup-button pickup-button--secondary" pattern={PACKAGE_CODE_PATTERN} patternMessage={(read) => `${read} no es un código de paquete (PAQ-XXXXXXXXXX).`} onScan={searchFromCamera} disabled={validation.isFetching || registration.isPending} />
         </form>
         {validation.isError && <p className="form-error" role="alert"><CircleAlert size={18} aria-hidden="true" />{validation.error.message}</p>}
       </section>

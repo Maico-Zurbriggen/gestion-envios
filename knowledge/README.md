@@ -7,6 +7,7 @@ Este directorio registra criterios compartidos para evitar que las decisiones de
 - [Desarrollo local del backend](./backend-local-development.md)
 - [Identidad visual](./visual-identity.md)
 - [Administración de usuarios](./user-management.md)
+- [Correos personalizables, escáner con el celular e impresión de etiquetas](./correos-escaner-etiquetas.md)
 - [Autenticación](./authentication.md)
 - [Registro de envíos y seguimiento público](./envios-seguimiento.md)
 - [Reclamos, preguntas frecuentes y recorridos](./reclamos-preguntas-recorridos.md)
