@@ -627,3 +627,43 @@ class EventoEntregaModel(Base):
     usuario_registro: Mapped["UsuarioModel"] = relationship("UsuarioModel")
     sucursal: Mapped[Optional["SucursalModel"]] = relationship("SucursalModel")
 
+
+
+class PlantillaCorreoModel(Base):
+    """Textos editados de un correo a clientes. Si no hay fila para una clave,
+    se usan los textos de fábrica de `domain/rules/plantillas_correo.py`."""
+
+    __tablename__ = "plantillas_correo"
+
+    clave: Mapped[str] = mapped_column(String(40), primary_key=True)
+    asunto: Mapped[str] = mapped_column(String(200), nullable=False)
+    titulo: Mapped[str] = mapped_column(String(150), nullable=False)
+    mensaje: Mapped[str] = mapped_column(Text, nullable=False)
+    texto_boton: Mapped[str] = mapped_column(String(60), nullable=False)
+    pie: Mapped[str | None] = mapped_column(Text, nullable=True)
+    actualizado_por_id: Mapped[uuid.UUID | None] = mapped_column(
+        types.Uuid(as_uuid=True), ForeignKey("usuarios.id"), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class ConfiguracionCorreoModel(Base):
+    """Datos de la empresa que firman todos los correos (una sola fila, id=1)."""
+
+    __tablename__ = "configuracion_correo"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    nombre_marca: Mapped[str] = mapped_column(String(100), nullable=False)
+    firma: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    telefono_contacto: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    email_contacto: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    sitio_web: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    mensaje_legal: Mapped[str | None] = mapped_column(Text, nullable=True)
+    actualizado_por_id: Mapped[uuid.UUID | None] = mapped_column(
+        types.Uuid(as_uuid=True), ForeignKey("usuarios.id"), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False
+    )

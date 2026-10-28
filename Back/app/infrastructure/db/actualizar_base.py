@@ -56,6 +56,11 @@ REVISION_HU11_HU12 = "d2a6f81112ac"
 """Revisiones que pudo haber dejado `create_all` antes de este cambio. Desde
 ahora el esquema solo cambia por migraciones, así que la lista no crece."""
 
+REVISION_CORREOS = "539e81c168e2"
+TABLAS_SOLO_POR_MIGRACION = {"plantillas_correo": REVISION_CORREOS, "configuracion_correo": REVISION_CORREOS}
+"""Tablas nacidas después de `create_all`: una base heredada no las tiene (las
+crea la migración). Solo una base armada con los modelos actuales (pruebas) las trae."""
+
 
 class EsquemaNoAdoptableError(RuntimeError):
     """La base tiene tablas creadas a mano que no corresponden a ninguna revisión conocida."""
@@ -110,7 +115,7 @@ def revision_de_base_heredada(conexion: Connection) -> str | None:
     if "alembic_version" in tablas or "usuarios" not in tablas:
         return None
 
-    faltantes = sorted(set(Base.metadata.tables) - tablas)
+    faltantes = sorted(set(Base.metadata.tables) - tablas - set(TABLAS_SOLO_POR_MIGRACION))
     if faltantes:
         raise EsquemaNoAdoptableError(
             "La base tiene tablas creadas sin Alembic y le faltan: "
@@ -121,6 +126,8 @@ def revision_de_base_heredada(conexion: Connection) -> str | None:
     def columnas(tabla: str) -> set[str]:
         return {columna["name"] for columna in inspector.get_columns(tabla)}
 
+    if set(TABLAS_SOLO_POR_MIGRACION) <= tablas:
+        return REVISION_CORREOS
     if "procesando_at" in columnas("notificaciones_envio"):
         return REVISION_HU11_HU12
     if "distancia_estimada_km" in columnas("recorridos"):

@@ -103,7 +103,7 @@ def test_estado_informa_pendientes_sin_modificar(base_sqlite):
     config = configuracion_alembic(url)
     command.upgrade(config, actualizar_base.REVISION_INICIAL)
     estado = estado_esquema(url, comparar_modelos=False)
-    assert not estado.al_dia and len(estado.pendientes) == 2
+    assert not estado.al_dia and len(estado.pendientes) == 3
     assert _version(ruta) == actualizar_base.REVISION_INICIAL
 
 

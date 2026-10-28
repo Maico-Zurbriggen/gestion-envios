@@ -35,6 +35,7 @@ from app.application.services.servicio_auth import ServicioAuth
 from app.application.services.servicio_empleados import ServicioEmpleados
 from app.application.services.servicio_envios import ServicioEnvios
 from app.application.services.servicio_notificaciones import ServicioNotificaciones
+from app.application.services.servicio_plantillas_correo import ServicioPlantillasCorreo
 from app.application.services.servicio_preguntas_frecuentes import ServicioPreguntasFrecuentes
 from app.application.services.servicio_recepcion_terminal import ServicioRecepcionTerminal
 from app.application.services.servicio_reclamos import ServicioReclamos
@@ -59,6 +60,7 @@ from app.infrastructure.email.email_provider import obtener_proveedor_email
 from app.infrastructure.repositories.repositorio_entregas import RepositorioEntregas
 from app.infrastructure.repositories.repositorio_envios import RepositorioEnvios
 from app.infrastructure.repositories.repositorio_notificaciones import RepositorioNotificaciones
+from app.infrastructure.repositories.repositorio_plantillas_correo import RepositorioPlantillasCorreo
 from app.infrastructure.repositories.repositorio_preguntas_frecuentes import RepositorioPreguntasFrecuentes
 from app.infrastructure.repositories.repositorio_recepciones import RepositorioRecepciones
 from app.infrastructure.repositories.repositorio_reclamos import RepositorioReclamos
@@ -167,6 +169,12 @@ def get_servicio_notificaciones(
         repo_notificaciones=repo_notificaciones,
         whatsapp_provider=obtener_proveedor_whatsapp(),
     )
+
+
+def get_servicio_plantillas_correo(
+    db: AsyncSession = Depends(obtener_sesion_db),
+) -> ServicioPlantillasCorreo:
+    return ServicioPlantillasCorreo(RepositorioPlantillasCorreo(db), obtener_proveedor_email())
 
 
 def get_repositorio_entregas(
