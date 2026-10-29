@@ -12,6 +12,7 @@ from app.contracts.reparto import (
     EventoEntregaResponse,
     OptimizarRecorridoRequest,
     RegistrarEntregaRequest,
+    RegistrarLlegadaRequest,
     RegistrarVisitaFallidaRequest,
     UbicacionRequest,
     UbicacionResponse,
@@ -81,6 +82,27 @@ async def optimizar_recorrido(
 ):
     desde = (datos.latitud, datos.longitud) if datos and datos.latitud is not None and datos.longitud is not None else None
     return await servicio.optimizar(id, usuario, desde)
+
+
+@router.post(
+    "/{id}/llegadas",
+    response_model=RecorridoResponse,
+    summary="Marcar la llegada a la próxima sucursal del recorrido",
+    description="Recorridos entre sucursales: el repartidor avisa desde el celular que llegó. Los paquetes que bajan "
+    "ahí se actualizan y, si quedan listos para retirar, se avisa al cliente por email y WhatsApp.",
+)
+async def registrar_llegada(
+    id: uuid.UUID,
+    datos: RegistrarLlegadaRequest,
+    tareas: BackgroundTasks,
+    usuario: UsuarioModel = Depends(repartidor_autorizado),
+    servicio: IServicioReparto = Depends(get_servicio_reparto),
+    notificaciones: IServicioNotificaciones = Depends(get_servicio_notificaciones),
+):
+    respuesta, listos = await servicio.registrar_llegada(id, datos, usuario)
+    for paquete_id in listos:
+        tareas.add_task(notificaciones.notificar_hito, paquete_id, TipoAvisoEnum.LISTO_PARA_RETIRO.value)
+    return respuesta
 
 
 @router.put(

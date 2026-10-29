@@ -161,7 +161,7 @@ domain/constants/estados_logistica.py    # MotivoAlertaRecorridoEnum
 
 ## Lo que esta historia deja pendiente
 
-- **HU11 y HU12**: la ubicación del repartidor, el paso automático a `EN_SUCURSAL_DESTINO` por proximidad, la entrega y el cierre del recorrido (`FINALIZADO`, `estado_en_recorrido`). Los recorridos `EN_CURSO` ya traen todo lo que la app móvil necesita.
+- **HU11 y HU12**: la ubicación del repartidor, la llegada a cada sucursal marcada por el repartidor, la entrega y el cierre del recorrido (`FINALIZADO`, `estado_en_recorrido`). Los recorridos `EN_CURSO` ya traen todo lo que la app móvil necesita.
 - **Capacidad del vehículo**: el reparto equilibra cantidad de paquetes, no peso ni volumen. Si se necesita, el peso ya está en `paquetes.peso_kg` y la partición puede ponderar por él.
 - **Orientación por ciudad**: hoy se indica en cada generación. Si cada sucursal tiene una cuadrícula fija, conviene guardarla en `sucursales` y usarla como valor por defecto.
 - **Sentidos de circulación reales**: requieren un motor de ruteo (ver arriba).

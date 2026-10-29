@@ -22,13 +22,13 @@ Tomado de Aviso Entrega Clientes (`SucursalAcceso`, `ElegirSucursalPage`, `Sucur
 
 - En el frontend, `activeBranchId` vive en Redux (`authSlice`) y se recuerda por usuario en `localStorage` (`gestion-envios.active-branch`). Se cambia desde el menú de la barra superior (`BranchSwitcher`): un menú propio, accesible con teclado (flechas, Inicio, Fin, Enter, Escape), con la ciudad de cada sucursal y un tilde en la activa.
 - `ProtectedRoutes` manda a `/elegir-sucursal` a quien necesita sucursal y no tiene una activa. El envoltorio general solo exige sesión (`requireBranch={false}`), porque si no la pantalla de elegir se redirige a sí misma.
-- Las pantallas usan `useActiveBranch()` y ya no tienen selectores propios: Recibir paquetes, Carga y descarga, Registrar retiro, Recorridos, Monitor, Reclamos y el registro de envíos en el mostrador.
+- Las pantallas usan `useActiveBranch()` y ya no tienen selectores propios: Recibir paquetes, Registrar retiro, Recorridos, Monitor, Reclamos y el registro de envíos en el mostrador.
 
 ## El backend verifica la sucursal
 
 En vez de un header como `X-Sucursal`, cada endpoint recibe `sucursal_id` y lo verifica (`api/dependencies.py`):
 
-- `verificar_sucursal(usuario, id)` devuelve 403 si el usuario no tiene habilitada esa sucursal. La usan admisión, retiro, carga y descarga, recorridos (incluidos los que operan por `id` de recorrido) y repartidores.
+- `verificar_sucursal(usuario, id)` devuelve 403 si el usuario no tiene habilitada esa sucursal. La usan admisión, retiro, recorridos (incluidos los que operan por `id` de recorrido) y repartidores.
 - `exigir_sucursal(usuario, id)`: en los listados, quien no entra en todas tiene que indicar la sucursal (400). La usan el monitor (resumen, listado y exportación), las alertas y listados de recorridos y la bandeja de reclamos.
 - `sucursales_habilitadas(usuario)` devuelve `None` para el Superadministrador, que entra en todas.
 

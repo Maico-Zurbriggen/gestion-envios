@@ -1,7 +1,7 @@
 export type PackageGroup =
   | 'PENDIENTES' | 'EN_DEPOSITO' | 'EN_CAMINO' | 'PARA_RETIRAR' | 'NO_ENTREGADOS' | 'ENTREGADOS'
   | 'DEVOLUCIONES' | 'VENCIDOS' | 'OTROS'
-export type SpecialFilter = 'CON_PROBLEMAS' | 'SIN_RECORRIDO' | 'CON_RECLAMO' | 'FALTANTES'
+export type SpecialFilter = 'CON_PROBLEMAS' | 'SIN_RECORRIDO' | 'CON_RECLAMO'
 export type GroupFilter = 'TODOS' | Exclude<PackageGroup, 'OTROS'> | SpecialFilter
 export type MonitorOrder = 'movimiento' | 'recientes' | 'antiguos'
 
@@ -13,7 +13,6 @@ export interface ApiMonitorSummary {
   por_grupo: Record<string, number>
   por_estado: Record<string, number>
   sin_recorrido: number
-  faltantes: number
   con_reclamo: number
   con_problemas: number
   reclamos_abiertos: number
@@ -53,22 +52,10 @@ export interface ApiMonitorPackage {
   intentos_fallidos: number
   reclamos_en_curso: number
   sin_recorrido: boolean
-  faltante_en_descarga: boolean
   en_devolucion?: boolean
   retiro_hasta?: string | null
   created_at: string
   updated_at: string
-}
-
-export interface ApiDeadlinesResult {
-  registros_vencidos: number
-  devoluciones_iniciadas: number
-  procesado_at: string
-}
-
-export interface DeadlinesResult {
-  expiredRegistrations: number
-  returnsStarted: number
 }
 
 export interface ApiMonitorPage {
@@ -150,14 +137,13 @@ export interface ApiTrace {
 // --- Modelos de la aplicación (camelCase) ---
 
 export type Tone = 'neutral' | 'info' | 'brand' | 'success' | 'warning' | 'danger'
-export type TraceEventType = 'registro' | 'estado' | 'recorrido' | 'descarga' | 'entrega' | 'alerta' | 'reclamo' | 'notificacion'
+export type TraceEventType = 'registro' | 'estado' | 'recorrido' | 'entrega' | 'alerta' | 'reclamo' | 'notificacion'
 
 export interface MonitorSummary {
   totalPackages: number
   totalShipments: number
   byGroup: Record<string, number>
   withoutRoute: number
-  missing: number
   withClaim: number
   withProblems: number
   openClaims: number
@@ -197,7 +183,6 @@ export interface MonitorPackage {
   failedAttempts: number
   activeClaims: number
   withoutRoute: boolean
-  missingAtUnload: boolean
   /** No se retiró a tiempo y vuelve a quien lo envió. */
   isReturn: boolean
   /** Fecha límite para retirarlo en la sucursal, si está esperando. */

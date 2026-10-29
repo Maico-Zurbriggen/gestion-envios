@@ -1,8 +1,6 @@
 """Monitor de envíos: resumen operativo, listado filtrable y trazabilidad completa
 de cada paquete para la administración."""
 
-import csv
-import io
 import math
 from datetime import UTC, datetime
 from typing import Any
@@ -53,7 +51,6 @@ from app.domain.rules.monitor_rules import (
 )
 
 POR_PAGINA_MAX = 100
-EXPORTACION_MAX = 5000
 
 TIPOS_RECLAMO = {"DEMORA": "Demora", "DANIO": "Daño", "EXTRAVIO": "Extravío", "OTRO": "Otro"}
 ESTADOS_RECLAMO = {"ABIERTO": "abierto", "EN_REVISION": "en revisión", "RESUELTO": "resuelto", "RECHAZADO": "rechazado"}
@@ -73,8 +70,6 @@ MOTIVOS_ALERTA = {
     "SIN_REPARTIDOR_DISPONIBLE": "No había repartidores disponibles.",
     "SIN_UBICACION_DESTINO": "El domicilio no tiene ubicación en el mapa.",
     "SIN_SUCURSAL_DESTINO": "Falta la sucursal de destino.",
-    "FALTANTE_EN_DESCARGA": "Tenía que bajar en la sucursal de destino y no apareció al controlar la descarga.",
-    "FALTANTE_EN_CARGA": "Estaba en un recorrido pero no se cargó en el vehículo: se quitó del recorrido.",
 }
 
 
@@ -128,7 +123,6 @@ def _paquete(paquete: Any, operativo: dict[str, Any]) -> PaqueteMonitorData:
         intentos_fallidos=operativo.get("fallidos", 0),
         reclamos_en_curso=operativo.get("reclamos", 0),
         sin_recorrido=operativo.get("alerta", False),
-        faltante_en_descarga=operativo.get("faltante", False),
         en_devolucion=bool(getattr(paquete, "en_devolucion", False)),
         retiro_hasta=getattr(paquete, "retiro_hasta", None),
         created_at=paquete.created_at,
@@ -160,7 +154,6 @@ class ServicioMonitor:
             por_grupo=por_grupo,
             por_estado=por_estado,
             sin_recorrido=especiales["SIN_RECORRIDO"],
-            faltantes=especiales["FALTANTES"],
             con_reclamo=especiales["CON_RECLAMO"],
             con_problemas=especiales["CON_PROBLEMAS"],
             reclamos_abiertos=await self.repo.contar_reclamos_en_curso(),
@@ -195,7 +188,7 @@ class ServicioMonitor:
             elif clave != "TODOS":
                 raise ValidationException(
                     message="El filtro de grupo no es válido.",
-                    errors=[{"field": "grupo", "message": "Usá un grupo de estados o CON_PROBLEMAS, SIN_RECORRIDO, CON_RECLAMO o FALTANTES."}],
+                    errors=[{"field": "grupo", "message": "Usá un grupo de estados o CON_PROBLEMAS, SIN_RECORRIDO o CON_RECLAMO."}],
                 )
         if tipo_entrega and tipo_entrega not in ("domicilio", "sucursal"):
             raise ValidationException(
@@ -238,31 +231,6 @@ class ServicioMonitor:
             paginas=max(1, math.ceil(total / por_pagina)),
         ))
 
-    async def exportar_csv(self, **filtros: Any) -> str:
-        """Mismo filtro que el listado, hasta 5000 paquetes, en CSV separado por `;` (Excel en español)."""
-        datos = (await self.listar(**filtros, pagina=1, por_pagina=POR_PAGINA_MAX)).data
-        filas = list(datos.paquetes)
-        pagina = 2
-        while len(filas) < min(datos.total, EXPORTACION_MAX) and pagina <= datos.paginas:
-            filas += (await self.listar(**filtros, pagina=pagina, por_pagina=POR_PAGINA_MAX)).data.paquetes
-            pagina += 1
-        salida = io.StringIO()
-        escritor = csv.writer(salida, delimiter=";")
-        escritor.writerow([
-            "Paquete", "Código de seguimiento", "Estado", "Descripción", "Peso (kg)", "Remitente", "Destinatario",
-            "Entrega", "Destino", "Ubicación actual", "Recorrido", "Repartidor", "Visitas fallidas",
-            "Reclamos en curso", "Sin recorrido", "Registrado", "Último movimiento",
-        ])
-        for p in filas[:EXPORTACION_MAX]:
-            escritor.writerow([
-                p.numero_paquete, p.token_seguimiento, p.estado_etiqueta, p.descripcion, f"{p.peso_kg:g}".replace(".", ","),
-                p.remitente_nombre, p.destinatario_nombre, "Domicilio" if p.tipo_entrega == "domicilio" else "Sucursal",
-                p.destino, p.sucursal_actual or "", p.recorrido.fecha.strftime("%d/%m/%Y") if p.recorrido else "",
-                p.recorrido.repartidor_nombre if p.recorrido else "", p.intentos_fallidos, p.reclamos_en_curso,
-                "Sí" if p.sin_recorrido else "No", _local(p.created_at), _local(p.updated_at),
-            ])
-        return "﻿" + salida.getvalue()
-
     # --- Trazabilidad -------------------------------------------------------
 
     async def trazabilidad(self, numero_paquete: str) -> TrazaPaqueteResponse:
@@ -279,7 +247,6 @@ class ServicioMonitor:
             r for r in await self.repo.reclamos_del_envio(envio.id) if r.paquete_id in (None, paquete.id)
         ]
         notificaciones = await self.repo.notificaciones_del_envio(envio.id)
-        lecturas = await self.repo.lecturas_descarga(paquete.id)
         hermanos = await self.repo.paquetes_del_envio(envio.id)
 
         entregas = [
@@ -351,13 +318,13 @@ class ServicioMonitor:
                 )
                 for n in notificaciones
             ],
-            linea_de_tiempo=self._linea_de_tiempo(envio, historial, entregas, asignaciones, alertas, reclamos, notificaciones, lecturas),
+            linea_de_tiempo=self._linea_de_tiempo(envio, historial, entregas, asignaciones, alertas, reclamos, notificaciones),
         )
         return TrazaPaqueteResponse(data=traza)
 
     @staticmethod
     def _linea_de_tiempo(
-        envio, historial, entregas, asignaciones, alertas, reclamos, notificaciones, lecturas
+        envio, historial, entregas, asignaciones, alertas, reclamos, notificaciones
     ) -> list[EventoTrazaData]:
         eventos: list[EventoTrazaData] = [
             EventoTrazaData(
@@ -399,20 +366,10 @@ class ServicioMonitor:
                 tono="success" if exitoso else "danger", latitud=e.latitud, longitud=e.longitud,
                 evento_entrega_id=e.id, con_firma=e.con_firma,
             ))
-        for lectura in lecturas:
-            correcto = lectura.resultado == "CORRECTO"
-            eventos.append(EventoTrazaData(
-                fecha=lectura.created_at, tipo="descarga",
-                titulo="Verificado en la descarga" if correcto else "Leído de más en una descarga",
-                detalle=lectura.detalle, actor=_nombre(lectura.usuario),
-                lugar=getattr(lectura.control.sucursal, "nombre", None), tono="success" if correcto else "warning",
-            ))
         for alerta in alertas:
-            faltante = alerta.motivo == "FALTANTE_EN_DESCARGA"
             eventos.append(EventoTrazaData(
-                fecha=alerta.created_at, tipo="alerta",
-                titulo="Alerta: faltante en la descarga" if faltante else "Alerta: sin recorrido",
-                detalle=MOTIVOS_ALERTA.get(alerta.motivo, alerta.motivo), tono="danger" if faltante else "warning",
+                fecha=alerta.created_at, tipo="alerta", titulo="Alerta: sin recorrido",
+                detalle=MOTIVOS_ALERTA.get(alerta.motivo, alerta.motivo), tono="warning",
             ))
             if alerta.resuelta and alerta.resuelta_at:
                 eventos.append(EventoTrazaData(

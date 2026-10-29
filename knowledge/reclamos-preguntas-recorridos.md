@@ -45,7 +45,7 @@ Todo requiere `ADMINISTRATIVO` o `SUPERADMIN`.
 5. **Visualizar**: `GET /api/v1/recorridos?desde=&hasta=` (una semana) y `GET /api/v1/recorridos/{id}` trae `paradas` en orden (con coordenadas y paquetes) y `trazado` (puntos de las paradas en orden; el recorrido por calles lo da `POST /api/v1/mapa/trayecto`).
 6. **Editar** (solo `GENERADO`/`EN_EDICION`): `PUT /{id}/paquetes` con la lista completa en orden, `DELETE /{id}/paquetes/{codigo}`, `POST /{id}/optimizar`, `PATCH /{id}/repartidor`, `DELETE /{id}`. Cada respuesta trae las `alertas` vigentes.
 7. **Iniciar**: `POST /{id}/iniciar` (desde `GENERADO` o `EN_EDICION`; normalmente lo hace el repartidor desde su app). Los paquetes pasan a `EN_REPARTO` (corta) o `EN_TRANSITO` (larga) y el seguimiento público lo refleja.
-8. **Alertas** de paquetes sin recorrido: `GET /api/v1/recorridos/alertas?sucursal_id=`. Se resuelven solas cuando el paquete entra en un recorrido; el monitor las muestra en Incidencias.
+8. **Alertas** de paquetes sin recorrido: `GET /api/v1/recorridos/alertas?sucursal_id=`. Se resuelven solas cuando el paquete entra en un recorrido; la trazabilidad del monitor las muestra.
 
 **Corta / larga distancia:** corta = entregas a domicilio que atiende la propia sucursal (paradas `DOMICILIO`, vuelve a la sucursal); larga = traslados a otra sucursal (paradas `SUCURSAL`, termina en la última).
 
@@ -72,7 +72,7 @@ Pantalla `/recorridos` (módulo «Recorridos»), al estilo de las hojas de ruta 
 - **Repartidores:** botón del encabezado que abre la configuración de perfiles.
 - **Espacio de trabajo de un recorrido:**
   - encabezado con métricas e «Iniciar recorrido», «Cambiar repartidor» y «Eliminar»;
-  - lista «Antes de salir»: repartidor, paquetes, ubicaciones y control de carga;
+  - lista «Antes de salir»: repartidor, paquetes y ubicaciones;
   - paradas que se reordenan arrastrando o con flechas, y se guardan solas;
   - quitar un paquete lo devuelve a la espera; «Optimizar» ordena el recorrido;
   - a la derecha, el mapa, el panel «Agregar» con los paquetes en espera, o «Ubicar domicilio» para paradas sin coordenadas.

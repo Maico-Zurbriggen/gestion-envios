@@ -54,7 +54,7 @@ function mockApi() {
   const long = location.search.includes('long=true')
   const branch = { id: 1, nombre: 'Sucursal Centro', direccion: 'Centro 123', ciudad: 'Córdoba', provincia: 'Córdoba', latitud: -31.4, longitud: -64.18 }
   const item = { paquete_id: 'package-1', numero_paquete: 'PAQ-ABCDEFGHIJ', orden: 1, descripcion: 'Libros', peso_kg: 2, estado: 'EN_SUCURSAL_ORIGEN', estado_en_recorrido: 'PENDIENTE', token_seguimiento: 'ENV-ABCDEFGHIJ', destinatario_nombre: 'Ana Gómez', destinatario_telefono: '123456' }
-  const route = { id: 'route-1', fecha: new Date().toISOString().slice(0, 10), tipo_distancia: long ? 'LARGA' : 'CORTA', estado: 'GENERADO', generado_automaticamente: true, sucursal_origen_id: 1, sucursal_origen_nombre: branch.nombre, repartidor: { usuario_id: 'driver-1', nombre: 'Repartidor de prueba', telefono: '123456' }, cantidad_paradas: 1, cantidad_paquetes: 1, distancia_estimada_km: 2, duracion_estimada_min: 10, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), orientacion_calles_grados: 0, vuelve_a_sucursal: !long, sucursal_origen: branch, paradas: [{ orden: 1, tipo_parada: long ? 'SUCURSAL' : 'DOMICILIO', destino: 'Domicilio de prueba 123', latitud: -31.41, longitud: -64.19, paquetes: [item] }], trazado: [], paquetes_sin_ubicacion: 0 }
+  const route = { id: 'route-1', fecha: new Date().toISOString().slice(0, 10), tipo_distancia: long ? 'LARGA' : 'CORTA', estado: 'GENERADO', generado_automaticamente: true, sucursal_origen_id: 1, sucursal_origen_nombre: branch.nombre, repartidor: { usuario_id: 'driver-1', nombre: 'Repartidor de prueba', telefono: '123456' }, cantidad_paradas: 1, cantidad_paquetes: 1, distancia_estimada_km: 2, duracion_estimada_min: 10, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), orientacion_calles_grados: 0, vuelve_a_sucursal: !long, sucursal_origen: branch, paradas: [{ orden: 1, tipo_parada: long ? 'SUCURSAL' : 'DOMICILIO', sucursal_destino: long ? { id: 2, nombre: 'Sucursal Norte' } : null, destino: long ? 'Sucursal Norte - Norte 456' : 'Domicilio de prueba 123', latitud: -31.41, longitud: -64.19, paquetes: [item] }], trazado: [], paquetes_sin_ubicacion: 0 }
   const state = window.__mock = { route, item, position: null, deliveries: [], receptions: [], gpsCleared: 0, received: false, unexpected: [], notificationRetries: 0 }
   const originalFetch = window.fetch.bind(window)
   const ok = (data, extra = {}) => new Response(JSON.stringify({ status: 'success', data, ...extra }), { status: 200, headers: { 'Content-Type': 'application/json' } })
@@ -71,8 +71,14 @@ function mockApi() {
     if (path === '/reparto/recorridos/route-1') return ok(route)
     if (path.endsWith('/iniciar')) { route.estado = 'EN_CURSO'; item.estado = long ? 'EN_TRANSITO' : 'EN_REPARTO'; return ok(route) }
     if (path.endsWith('/ubicacion')) {
-      if (init.method === 'PUT') { state.position = { ...body, actualizado_at: new Date().toISOString() }; if (long) { item.estado = 'EN_SUCURSAL_DESTINO'; item.estado_en_recorrido = 'ENTREGADO'; route.estado = 'FINALIZADO' } }
-      return ok(state.position, { paquetes_actualizados: long && state.position ? ['package-1'] : [] })
+      if (init.method === 'PUT') state.position = { ...body, actualizado_at: new Date().toISOString() }
+      return ok(state.position)
+    }
+    if (path.endsWith('/llegadas')) {
+      // La llegada la marca el repartidor: la posición sola no cambia estados.
+      state.arrivals = [...(state.arrivals ?? []), body]
+      item.estado = 'LISTO_PARA_RETIRO'; item.estado_en_recorrido = 'ENTREGADO'; route.estado = 'FINALIZADO'
+      return ok(route, { message: 'Llegada a Sucursal Norte registrada: 1 paquete bajó en esta sucursal.' })
     }
     if (path.endsWith('/contacto')) return ok({ destinatario_nombre: item.destinatario_nombre, telefono: null, telefono_disponible: false })
     if (path.endsWith('/entrega') || path.endsWith('/visita-fallida')) {
@@ -93,7 +99,7 @@ function mockApi() {
     state.unexpected.push(path)
     return new Response(JSON.stringify({ status: 'error', message: 'Mock no definido' }), { status: 404 })
   }
-  Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { watchPosition(success, error) { window.__gps = success; window.__gpsError = error; return 1 }, clearWatch() { state.gpsCleared++ } } })
+  Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition(success) { success({ coords: { latitude: -31.41, longitude: -64.19 } }) }, watchPosition(success, error) { window.__gps = success; window.__gpsError = error; return 1 }, clearWatch() { state.gpsCleared++ } } })
   window.__mockReady = true
 }
 try {
@@ -191,9 +197,15 @@ try {
   await waitFor('document.body.innerText.includes("Iniciar recorrido")'); await click('Iniciar recorrido'); await click('Confirmar inicio')
   await waitFor('document.body.innerText.includes("Activar ubicación GPS")'); await click('Activar ubicación GPS')
   await waitFor('typeof window.__gps === "function"'); await evaluate('window.__gps({ coords: { latitude: -31.41, longitude: -64.19 } })')
+  await waitFor('Boolean(window.__mock.position)')
+  assert.equal(await evaluate('window.__mock.route.estado'), 'EN_CURSO', 'la posición sola no marca la llegada')
+  await waitFor('document.body.innerText.includes("Llegué a Sucursal Norte")'); await click('Llegué a Sucursal Norte'); await click('Sí, llegué')
   await waitFor('document.body.innerText.includes("Recorrido finalizado")')
+  assert.equal(await evaluate('window.__mock.arrivals[0].sucursal_id'), 2)
   assert.equal(await evaluate('window.__mock.gpsCleared > 0'), true)
-  console.log('HU11 larga: llegada automática reflejada y GPS detenido al finalizar')
+  assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'), true, 'llegada a 320 px')
+  await screenshot('arrival-320')
+  console.log('HU11 larga: el repartidor marca la llegada a la sucursal y el GPS se detiene al finalizar')
 
   await navigate('/reparto?testRole=VENDEDOR')
   await waitFor('location.pathname === "/unauthorized"')

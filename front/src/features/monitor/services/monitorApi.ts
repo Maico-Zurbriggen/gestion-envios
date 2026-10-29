@@ -1,13 +1,11 @@
 import { OperationalApiError, operationalRequest } from '../../../shared/services/operationalApi'
 import type {
   ApiAssignedRoute,
-  ApiDeadlinesResult,
   ApiMonitorPackage,
   ApiMonitorPage,
   ApiMonitorSummary,
   ApiTrace,
   AssignedRoute,
-  DeadlinesResult,
   MonitorFilters,
   MonitorPackage,
   MonitorPage,
@@ -53,7 +51,6 @@ function mapPackage(item: ApiMonitorPackage): MonitorPackage {
     failedAttempts: item.intentos_fallidos,
     activeClaims: item.reclamos_en_curso,
     withoutRoute: item.sin_recorrido,
-    missingAtUnload: item.faltante_en_descarga,
     isReturn: Boolean(item.en_devolucion),
     pickupUntil: item.retiro_hasta ?? null,
     createdAt: item.created_at,
@@ -87,7 +84,6 @@ export async function getMonitorSummary(token: string, branchId: number | null =
     totalShipments: data.total_envios,
     byGroup: data.por_grupo,
     withoutRoute: data.sin_recorrido,
-    missing: data.faltantes,
     withClaim: data.con_reclamo,
     withProblems: data.con_problemas,
     openClaims: data.reclamos_abiertos,
@@ -205,16 +201,7 @@ export async function getPackageTrace(code: string, token: string): Promise<Pack
   }
 }
 
-/** Vence los registros que no se llevaron a tiempo y devuelve lo que no se retiró. */
-export async function processDeadlines(token: string): Promise<{ result: DeadlinesResult; message: string }> {
-  const payload = await operationalRequest<{ data: ApiDeadlinesResult; message: string }>(`${BASE}/procesar-plazos`, token, { method: 'POST' })
-  return {
-    result: { expiredRegistrations: payload.data.registros_vencidos, returnsStarted: payload.data.devoluciones_iniciadas },
-    message: payload.message,
-  }
-}
-
-/** Descarga un archivo binario autenticado (CSV o imagen de firma). */
+/** Descarga un archivo binario autenticado (la imagen de una firma). */
 async function downloadBlob(path: string, token: string, failure: string): Promise<Blob> {
   const apiUrl = import.meta.env.VITE_API_URL?.replace(/\/+$/, '')
   if (!apiUrl) throw new OperationalApiError('No se configuró la URL de la API.')
@@ -227,11 +214,6 @@ async function downloadBlob(path: string, token: string, failure: string): Promi
   if (response.status === 401) throw new OperationalApiError('Tu sesión venció. Iniciá sesión nuevamente.', 401)
   if (!response.ok) throw new OperationalApiError(failure, response.status)
   return response.blob()
-}
-
-export function exportMonitorPackages(filters: MonitorFilters, token: string) {
-  const params = filterParams(filters)
-  return downloadBlob(`${BASE}/paquetes/exportar${params.size ? `?${params}` : ''}`, token, 'No pudimos generar la exportación.')
 }
 
 export function getSignature(eventId: string, token: string) {

@@ -103,8 +103,26 @@ def test_estado_informa_pendientes_sin_modificar(base_sqlite):
     config = configuracion_alembic(url)
     command.upgrade(config, actualizar_base.REVISION_INICIAL)
     estado = estado_esquema(url, comparar_modelos=False)
-    assert not estado.al_dia and len(estado.pendientes) == 6
+    assert not estado.al_dia and len(estado.pendientes) == 4
     assert _version(ruta) == actualizar_base.REVISION_INICIAL
+
+
+def test_base_con_lo_retirado_del_alcance_se_normaliza(base_sqlite):
+    """Una base local que aplicó revisiones retiradas del alcance pierde esas tablas y sigue
+    la cadena actual hasta la última revisión."""
+    ruta, url = base_sqlite
+    command.upgrade(configuracion_alembic(url), actualizar_base.REVISION_HU11_HU12)
+    with sqlite3.connect(ruta) as db:
+        for tabla in actualizar_base.TABLAS_RETIRADAS:
+            db.execute(f"CREATE TABLE {tabla} (id INTEGER PRIMARY KEY)")
+        db.execute("UPDATE alembic_version SET version_num = '7f3c2a91d4b8'")
+    assert estado_esquema(url, comparar_modelos=False).pendientes  # no falla por la revisión retirada
+    resultado = actualizar_esquema(url)
+    assert resultado.al_dia and resultado.diferencias == []
+    assert _version(ruta) == resultado.revision_head
+    with sqlite3.connect(ruta) as db:
+        tablas = {fila[0] for fila in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    assert not tablas & set(actualizar_base.TABLAS_RETIRADAS)
 
 
 def test_cli_verificar_y_actualizar(base_sqlite, capsys):

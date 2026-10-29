@@ -5,10 +5,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
-  Download,
   ExternalLink,
   FilterX,
-  LoaderCircle,
   MapPin,
   PackageSearch,
   RefreshCw,
@@ -16,13 +14,10 @@ import {
   Truck,
   type LucideIcon,
 } from 'lucide-react'
-import { useAppSelector } from '../../../app/store'
 import { CollapsibleFilterSection } from '../../../shared/components/CollapsibleFilterSection'
 import { FilterTabs, PageHeader } from '../../../shared/components/PageHeader'
 import { showToast } from '../../../shared/services/toast'
-import { selectAuthToken } from '../../auth/redux/authSlice'
 import { useMonitorPackages, useMonitorSummary } from '../hooks/useMonitor'
-import { exportMonitorPackages } from '../services/monitorApi'
 import { useActiveBranch } from '../../auth/hooks/useActiveBranch'
 import type { GroupFilter, MonitorFilters, MonitorOrder, MonitorPackage, MonitorSummary } from '../types/monitor.types'
 import { formatShortDay } from '../../../shared/utils/dates'
@@ -53,7 +48,6 @@ function tabCount(id: GroupFilter, summary: MonitorSummary | undefined) {
   if (id === 'CON_PROBLEMAS') return summary.withProblems
   if (id === 'SIN_RECORRIDO') return summary.withoutRoute
   if (id === 'CON_RECLAMO') return summary.withClaim
-  if (id === 'FALTANTES') return summary.missing
   return summary.byGroup[id] ?? 0
 }
 
@@ -67,11 +61,9 @@ async function copy(text: string) {
 }
 
 export function MonitorPackagesPage({ config }: { config: PackagesSectionConfig }) {
-  const token = useAppSelector(selectAuthToken)
   const [params, setParams] = useSearchParams()
   const [search, setSearch] = useState(() => params.get('q') ?? '')
   const deferredSearch = useDeferredValue(search)
-  const [exporting, setExporting] = useState(false)
   const summary = useMonitorSummary().data
   const { branch: activeBranch, branchId: activeBranchId } = useActiveBranch()
 
@@ -125,25 +117,6 @@ export function MonitorPackagesPage({ config }: { config: PackagesSectionConfig 
     }, { replace: true })
   }
 
-  async function handleExport() {
-    if (!token) return
-    setExporting(true)
-    try {
-      const blob = await exportMonitorPackages(filters, token)
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `paquetes-${new Date().toISOString().slice(0, 10)}.csv`
-      link.click()
-      URL.revokeObjectURL(url)
-      showToast('Exportación lista. Se abre con Excel.')
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'No pudimos exportar.', 'error')
-    } finally {
-      setExporting(false)
-    }
-  }
-
   const first = page && page.total ? (page.page - 1) * page.pageSize + 1 : 0
   const last = page ? Math.min(page.page * page.pageSize, page.total) : 0
 
@@ -158,10 +131,6 @@ export function MonitorPackagesPage({ config }: { config: PackagesSectionConfig 
             <button className="btn" type="button" onClick={() => void packagesQuery.refetch()} disabled={packagesQuery.isFetching}>
               <RefreshCw size={17} className={packagesQuery.isFetching ? 'loading-icon' : undefined} aria-hidden="true" />
               Actualizar
-            </button>
-            <button className="btn btn--primary" type="button" onClick={() => void handleExport()} disabled={exporting || !page?.total}>
-              {exporting ? <LoaderCircle className="loading-icon" size={17} aria-hidden="true" /> : <Download size={17} aria-hidden="true" />}
-              Exportar CSV
             </button>
           </>
         }
@@ -332,7 +301,6 @@ function PackageRow({ item }: { item: MonitorPackage }) {
             {item.code}
           </Link>
           <span className={`badge monitor-badge tone-${meta.tone}`}>{item.statusLabel}</span>
-          {item.missingAtUnload ? <span className="badge badge--danger">Faltante en la descarga</span> : null}
           {item.isReturn && item.group !== 'DEVOLUCIONES' ? <span className="badge badge--warning">Devolución al remitente</span> : null}
           {item.pickupUntil && item.group === 'PARA_RETIRAR' ? (
             <span className="badge badge--muted" title={formatDateTime(item.pickupUntil)}>Retirar hasta el {formatShortDay(item.pickupUntil)}</span>

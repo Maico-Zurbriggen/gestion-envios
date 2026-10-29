@@ -1,7 +1,7 @@
 """circuito logístico completo: origen, balanza, plazo de retiro, devolución y avisos por hito
 
 Revision ID: c41a7e9d2b55
-Revises: 7f3c2a91d4b8
+Revises: d2a6f81112ac
 Create Date: 2026-10-28 14:30:00.000000
 
 Se usa `batch_alter_table` para que la migración también corra sobre SQLite.
@@ -15,7 +15,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'c41a7e9d2b55'
-down_revision: str | None = '7f3c2a91d4b8'
+down_revision: str | None = 'd2a6f81112ac'
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -38,21 +38,15 @@ from app.domain.rules.notificacion_rules import (
 )
 from app.domain.rules.plantillas_correo import (
     ADMITIDO,
-    CAMPOS_CONFIGURACION,
-    CAMPOS_PLANTILLA,
     DEVOLUCION,
     DEVOLUCION_LISTA,
     EN_REPARTO,
     ENTREGADO,
     LISTO_PARA_RETIRO,
-    NUEVO_ENVIO_DESTINATARIO,
-    NUEVO_ENVIO_REMITENTE,
     VENCIDO,
-    VISITA_FALLIDA,
 )
 from app.domain.rules.telefono_rules import normalizar_telefono_whatsapp
 from app.infrastructure.repositories.repositorio_notificaciones import RepositorioNotificaciones
-from app.infrastructure.repositories.repositorio_plantillas_correo import RepositorioPlantillasCorreo
 
 MAX_ERROR_DETALLE = 1000
 NOMBRE_CANAL = {CanalNotificacionEnum.EMAIL.value: "email", CanalNotificacionEnum.WHATSAPP.value: "WhatsApp"}
@@ -141,25 +135,6 @@ class ServicioNotificaciones(IServicioNotificaciones):
         else:
             yield self.repo_notificaciones
 
-    async def _textos_correo(self) -> tuple[dict[str, dict[str, str]], dict[str, str]]:
-        """Plantillas editadas y datos de la empresa. Ante cualquier problema se
-        usan los textos de fábrica: un aviso nunca deja de salir por esto."""
-        if not self.session_factory:
-            return {}, {}
-        try:
-            async with self.session_factory() as session:
-                repo = RepositorioPlantillasCorreo(session)
-                plantillas = {
-                    clave: {campo: getattr(fila, campo) for campo in CAMPOS_PLANTILLA}
-                    for clave, fila in (await repo.obtener_plantillas()).items()
-                }
-                fila = await repo.obtener_configuracion()
-                configuracion = {campo: getattr(fila, campo) or "" for campo in CAMPOS_CONFIGURACION} if fila else {}
-                return plantillas, configuracion
-        except Exception:
-            logger.exception("No se pudieron leer las plantillas de correo; se usan las de fábrica.")
-            return {}, {}
-
     def _canal_habilitado(self, canal: str) -> bool:
         return canal == CanalNotificacionEnum.EMAIL.value or self.whatsapp_provider is not None
 
@@ -176,7 +151,6 @@ class ServicioNotificaciones(IServicioNotificaciones):
                 if repo is None:
                     logger.warning("[ServicioNotificaciones] Sin repositorio para el aviso de visita %s.", evento_id)
                     return
-                plantillas, configuracion = await self._textos_correo()
                 for aviso in await repo.obtener_avisos_visita(evento_id):
                     if not self._canal_habilitado(aviso.canal) or not await repo.tomar_notificacion(aviso.id):
                         continue
@@ -193,8 +167,6 @@ class ServicioNotificaciones(IServicioNotificaciones):
                             enlace=enlace,
                             token=envio.token_seguimiento,
                             proximo_paso=proximo_paso,
-                            plantilla=plantillas.get(VISITA_FALLIDA),
-                            configuracion=configuracion,
                         )
                     else:
                         contenido = armar_whatsapp_visita_fallida(
@@ -236,7 +208,6 @@ class ServicioNotificaciones(IServicioNotificaciones):
                     return
                 envio = paquete.envio
                 destinatarios = (REMITENTE,) if paquete.en_devolucion else HITOS[tipo]
-                plantillas, configuracion = await self._textos_correo()
                 valores = await self._valores_hito(repo, paquete, tipo)
                 clave = self._clave_hito(tipo, paquete)
                 desde = datetime.now(UTC) - VENTANA_AVISO_HITO
@@ -263,7 +234,7 @@ class ServicioNotificaciones(IServicioNotificaciones):
                         contenido: MensajeEmail | MensajeWhatsApp
                         if canal == CanalNotificacionEnum.EMAIL.value:
                             contenido = armar_email_hito(
-                                clave=clave, valores=datos, plantilla=plantillas.get(clave), configuracion=configuracion
+                                clave=clave, valores=datos
                             )
                         else:
                             contenido = armar_whatsapp_hito(nombre=nombre, novedad=self._novedad(tipo, datos, paquete), enlace=datos["enlace"])
@@ -344,7 +315,6 @@ class ServicioNotificaciones(IServicioNotificaciones):
                 if repo is None:
                     logger.warning("[ServicioNotificaciones] Sin repositorio ni session_factory para auditar.")
                     return []
-                plantillas, configuracion = await self._textos_correo()
                 existentes = {
                     (n.canal, n.destinatario_tipo): n
                     for n in await repo.obtener_por_envio_id(datos.envio_id)
@@ -372,8 +342,6 @@ class ServicioNotificaciones(IServicioNotificaciones):
                                 numeros_paquetes=datos.numeros_paquetes,
                                 enlace=enlace,
                                 plazo=f"{settings.VENCIMIENTO_PRE_REGISTRO_DIAS} días",
-                                plantilla=plantillas.get(NUEVO_ENVIO_REMITENTE if es_remitente else NUEVO_ENVIO_DESTINATARIO),
-                                configuracion=configuracion,
                             )
                         else:
                             contenido = armar_whatsapp_nuevo_envio(

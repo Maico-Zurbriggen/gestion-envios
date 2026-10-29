@@ -1,10 +1,8 @@
-"""Plantillas personalizables de los correos a clientes.
+"""Plantillas estándar de los correos a clientes.
 
-Funciones puras. El personal edita textos (asunto, título, mensaje, botón y pie)
-y los datos de la empresa; el diseño HTML es fijo y usa la identidad de la marca.
-Los textos admiten variables como {nombre} o {token}; todo valor (de la
-plantilla o del envío) se escapa antes de ir al HTML, así un texto editado
-nunca puede inyectar marcado.
+Funciones puras. Cada aviso tiene sus textos (asunto, título, mensaje, botón y
+pie) con variables como {nombre} o {token}; el diseño HTML usa la identidad de
+la marca. Todo valor del envío se escapa antes de ir al HTML.
 """
 
 import re
@@ -28,12 +26,6 @@ CLAVES = (
 CLAVES_CON_LISTA_DE_PAQUETES = (NUEVO_ENVIO_REMITENTE, NUEVO_ENVIO_DESTINATARIO)
 
 CAMPOS_PLANTILLA = ("asunto", "titulo", "mensaje", "texto_boton", "pie")
-CAMPOS_CONFIGURACION = ("nombre_marca", "firma", "telefono_contacto", "email_contacto", "sitio_web", "mensaje_legal")
-LIMITES = {
-    "asunto": 200, "titulo": 150, "mensaje": 2000, "texto_boton": 60, "pie": 600,
-    "nombre_marca": 100, "firma": 300, "telefono_contacto": 40, "email_contacto": 150, "sitio_web": 200, "mensaje_legal": 600,
-}
-
 VARIABLES_COMUNES = {
     "nombre": "Nombre de quien recibe el correo",
     "token": "Código de seguimiento del envío",
@@ -204,63 +196,7 @@ CONFIGURACION_DEFECTO = {
     "mensaje_legal": "Este es un mensaje automático: lo recibís porque figurás en un envío registrado en nuestra red.",
 }
 
-DATOS_EJEMPLO = {
-    "nombre": "María Sosa",
-    "token": "ENV-7K2Q9XWB4M",
-    "enlace": "https://envios.ejemplo.com/seguimiento?token=ENV-7K2Q9XWB4M",
-    "destinatario": "Jorge Pereyra",
-    "remitente": "Camila Torres",
-    "paquetes": "PAQ-4D8R2M7KQ1, PAQ-9T3B6X1ZLC",
-    "cantidad_paquetes": "2",
-    "paquete": "PAQ-4D8R2M7KQ1",
-    "fecha": "28/10/2026 15:40",
-    "plazo": "10 días",
-    "proximo_paso": "Mañana volvemos a pasar. Es la 1.ª de 2 visitas: si tampoco podemos entregarlo, te esperamos en la sucursal.",
-    "visita": "1.ª de 2 visitas",
-    "sucursal": "Sucursal Córdoba Centro",
-    "direccion_sucursal": "Av. Colón 1050, Córdoba",
-    "retiro_hasta": "06/11/2026",
-    "motivo": "tu paquete ya llegó a la sucursal que elegiste.",
-    "recibio": "Jorge Pereyra",
-}
-
 _VARIABLE = re.compile(r"\{([a-z_]+)\}")
-
-
-def variables_desconocidas(texto: str, permitidas: dict[str, str]) -> list[str]:
-    return sorted({nombre for nombre in _VARIABLE.findall(texto or "") if nombre not in permitidas})
-
-
-def validar_plantilla(clave: str, campos: dict[str, str | None]) -> list[dict[str, str]]:
-    """Errores por campo: obligatorios, largo máximo y variables que no existen."""
-    definicion = DEFINICIONES[clave]
-    errores = []
-    for campo in CAMPOS_PLANTILLA:
-        valor = (campos.get(campo) or "").strip()
-        if not valor and campo != "pie":
-            errores.append({"field": campo, "message": "Este texto es obligatorio."})
-        elif len(valor) > LIMITES[campo]:
-            errores.append({"field": campo, "message": f"Máximo {LIMITES[campo]} caracteres."})
-        desconocidas = variables_desconocidas(valor, definicion.variables)
-        if desconocidas:
-            disponibles = ", ".join("{" + v + "}" for v in definicion.variables)
-            errores.append({"field": campo, "message": f"Variable desconocida: {', '.join('{' + v + '}' for v in desconocidas)}. Disponibles: {disponibles}."})
-    if "\n" in (campos.get("asunto") or ""):
-        errores.append({"field": "asunto", "message": "El asunto debe ser de una sola línea."})
-    return errores
-
-
-def validar_configuracion(campos: dict[str, str | None]) -> list[dict[str, str]]:
-    errores = []
-    if not (campos.get("nombre_marca") or "").strip():
-        errores.append({"field": "nombre_marca", "message": "El nombre de la empresa es obligatorio."})
-    for campo in CAMPOS_CONFIGURACION:
-        if len((campos.get(campo) or "").strip()) > LIMITES[campo]:
-            errores.append({"field": campo, "message": f"Máximo {LIMITES[campo]} caracteres."})
-    sitio = (campos.get("sitio_web") or "").strip()
-    if sitio and not re.match(r"^https?://[^\s]+$", sitio):
-        errores.append({"field": "sitio_web", "message": "Ingresá una dirección que empiece con http:// o https://."})
-    return errores
 
 
 def rellenar(texto: str, valores: dict[str, str]) -> str:

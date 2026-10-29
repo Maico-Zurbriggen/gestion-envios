@@ -4,7 +4,6 @@ import { PageLoading } from '../shared/components/PageLoading'
 // Páginas que se descargan recién al entrar. Sucursales trae el mapa (Leaflet).
 const UsersPage = lazy(() => import('../features/users/pages/UsersPage').then((m) => ({ default: m.UsersPage })))
 const PickupPage = lazy(() => import('../features/pickup/pages/PickupPage').then((m) => ({ default: m.PickupPage })))
-const EmailTemplatesPage = lazy(() => import('../features/emails/pages/EmailTemplatesPage').then((m) => ({ default: m.EmailTemplatesPage })))
 const BranchesPage = lazy(() => import('../features/shipments/pages/BranchesPage').then((m) => ({ default: m.BranchesPage })))
 const ChooseBranchPage = lazy(() => import('../features/auth/pages/ChooseBranchPage').then((m) => ({ default: m.ChooseBranchPage })))
 const AdminBranchesPage = lazy(() => import('../features/branches/pages/AdminBranchesPage').then((m) => ({ default: m.AdminBranchesPage })))
@@ -20,7 +19,6 @@ function OnDemand({ page: Page }: { page: ComponentType }) {
 
 export const UsersRoute = () => <OnDemand page={UsersPage} />
 export const PickupRoute = () => <OnDemand page={PickupPage} />
-export const EmailTemplatesRoute = () => <OnDemand page={EmailTemplatesPage} />
 export const BranchesRoute = () => <OnDemand page={BranchesPage} />
 export const FaqRoute = () => <OnDemand page={FaqPage} />
 export const ChooseBranchRoute = () => <OnDemand page={ChooseBranchPage} />

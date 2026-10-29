@@ -32,7 +32,6 @@ class ResumenMonitorData(ApiModel):
     por_grupo: dict[str, int]
     por_estado: dict[str, int]
     sin_recorrido: int
-    faltantes: int
     con_reclamo: int
     con_problemas: int
     reclamos_abiertos: int
@@ -77,7 +76,6 @@ class PaqueteMonitorData(ApiModel):
     intentos_fallidos: int
     reclamos_en_curso: int
     sin_recorrido: bool
-    faltante_en_descarga: bool = False
     en_devolucion: bool = False
     retiro_hasta: datetime | None = None
     created_at: datetime

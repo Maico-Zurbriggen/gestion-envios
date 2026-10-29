@@ -94,7 +94,7 @@ El cierre de sesión es local: elimina la sesión persistida, limpia Redux y des
 - Los controles y acciones utilizan `lucide-react` como única librería de iconos.
 - El layout privado tiene un menú lateral colapsable en escritorio, una barra superior con buscador rápido (Ctrl + K) y estado de la API, y en el celular un menú deslizable más una barra inferior.
 - El celular puede usarse como escáner de códigos: `BarcodeDetector` nativo o, si no existe (Safari), ZXing cargado bajo demanda. Requiere HTTPS: en desarrollo, `HTTPS_DEV=true npm run dev`.
-- El monitor de envíos (`features/monitor`) concentra el estado de todos los paquetes, las incidencias, los reclamos y la trazabilidad completa de cada uno. El control de descarga (`features/unload`) compara lo que baja en la sucursal de destino con lo que tenía que llegar (ver [Monitor de envíos y control de descarga](./monitor-y-control-de-descarga.md)).
+- El monitor de envíos (`features/monitor`) muestra los paquetes de la sucursal por etapa, la trazabilidad completa de cada uno y la bandeja de reclamos (ver [Monitor de envíos](./monitor.md)).
 - Las etiquetas se imprimen desde el navegador con perfiles de impresora tomados de Soderia ERP (Zebra, SATO, Brother, 100×150 y A4). La configuración vive en `shared/printing/` y se guarda por puesto en el almacenamiento local.
 - Se mantienen labels asociados, foco visible, estados de carga y mensajes accesibles desde 320 px de ancho.
 - Las funcionalidades de mayor peso se cargan por ruta para no penalizar la entrada inicial.

@@ -1,7 +1,7 @@
 import { useState, type DragEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  ArrowDown, ArrowLeft, ArrowUp, Check, CircleAlert, ClipboardCheck, GripVertical, MapPin, MapPinOff, Package, Play, Plus,
+  ArrowDown, ArrowLeft, ArrowUp, Check, CircleAlert, GripVertical, MapPin, MapPinOff, Package, Play, Plus,
   RotateCcw, Trash2, Undo2, UserRound, LoaderCircle, WandSparkles, X,
 } from 'lucide-react'
 import { TraceLink } from '../../monitor/components/TraceLink'
@@ -136,9 +136,6 @@ export function RouteWorkspace({ id, drivers, busyDriverIds, onBack, onDeleted }
         <ChecklistItem ok icon={UserRound} label="Repartidor asignado" />
         <ChecklistItem ok={total > 0} icon={Package} label={total ? `${total} ${total === 1 ? 'paquete' : 'paquetes'}` : 'Sin paquetes'} />
         <ChecklistItem ok={unlocated === 0} warn icon={MapPin} label={unlocated ? `${unlocated} ${unlocated === 1 ? 'parada sin ubicación' : 'paradas sin ubicación'}` : 'Todas ubicadas en el mapa'} />
-        <ChecklistItem ok={route.loadControl?.status === 'CERRADO'} optional icon={ClipboardCheck}
-          label={route.loadControl ? route.loadControl.status === 'CERRADO' ? `Carga controlada (${route.loadControl.verified} de ${route.loadControl.expected})` : 'Controlando la carga' : 'Carga sin controlar'}
-          link={route.loadControl?.status === 'CERRADO' ? undefined : { label: 'Controlar', to: '/terminal/descarga?modo=carga' }} />
       </div>}
     </header>
 

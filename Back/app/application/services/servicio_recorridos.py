@@ -13,7 +13,6 @@ from app.contracts.recorridos import (
     AlertaRecorridoData,
     AlertaRecorridoResponse,
     CompletarUbicacionPaqueteRequest,
-    ControlCargaResumenData,
     CrearRecorridoRequest,
     EliminarRecorridoResponse,
     EsperaSucursalData,
@@ -1186,12 +1185,6 @@ class ServicioRecorridos(IServicioRecorridos):
         for parada in detalle.paradas:
             for paquete in parada.paquetes:
                 paquete.visitas_previas = visitas.get(paquete.paquete_id, 0)
-        carga = await self.repo.control_de_carga(recorrido.id)
-        if carga is not None:
-            estado, verificados = carga
-            detalle.control_carga = ControlCargaResumenData(
-                estado=estado, verificados=verificados, esperados=len(recorrido.paquetes)
-            )
         detalle.max_visitas = settings.MAX_VISITAS_DOMICILIO
         return detalle
 

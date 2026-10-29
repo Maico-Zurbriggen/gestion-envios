@@ -1,4 +1,4 @@
-"""Monitor de envíos: tablero, listado y trazabilidad de todos los paquetes."""
+"""Monitor de envíos: listado por etapa y trazabilidad de cada paquete."""
 
 import uuid
 from datetime import datetime
@@ -60,26 +60,6 @@ async def listar_paquetes(
 ):
     exigir_sucursal(usuario, filtros["sucursal_id"])
     return await servicio.listar(**filtros, pagina=pagina, por_pagina=por_pagina)
-
-
-@router.get(
-    "/paquetes/exportar",
-    response_class=Response,
-    responses={200: {"content": {"text/csv": {}}}},
-    summary="Exportar el listado filtrado a CSV (hasta 5000 paquetes)",
-)
-async def exportar_paquetes(
-    filtros: dict = Depends(_filtros),
-    usuario=Depends(requerir_roles(PERSONAL)),
-    servicio: ServicioMonitor = Depends(get_servicio_monitor),
-):
-    exigir_sucursal(usuario, filtros["sucursal_id"])
-    contenido = await servicio.exportar_csv(**filtros)
-    return Response(
-        content=contenido.encode("utf-8"),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="paquetes.csv"', "Cache-Control": "no-store"},
-    )
 
 
 @router.get("/paquetes/{numero_paquete}", response_model=TrazaPaqueteResponse, summary="Trazabilidad completa de un paquete")

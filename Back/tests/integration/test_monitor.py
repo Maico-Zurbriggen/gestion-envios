@@ -125,17 +125,6 @@ async def test_trazabilidad_completa_con_reclamo(client: AsyncClient, administra
 
 
 @pytest.mark.asyncio
-async def test_exportar_csv(client: AsyncClient, administrativo_token: str):
-    _, paquetes = await _registrar(client, "Carlos Gómez", "Lucía Morales")
-    resp = await client.get(f"{API}/paquetes/exportar", headers=_auth(administrativo_token), params={"sucursal_id": 1, "grupo": "PENDIENTES"})
-    assert resp.status_code == 200
-    assert resp.headers["content-type"].startswith("text/csv")
-    lineas = resp.content.decode("utf-8-sig").strip().splitlines()
-    assert lineas[0].startswith("Paquete;Código de seguimiento;Estado")
-    assert paquetes[0] in lineas[1] and "Pendiente de ingreso" in lineas[1]
-
-
-@pytest.mark.asyncio
 async def test_firma_inexistente(client: AsyncClient, administrativo_token: str):
     resp = await client.get(
         f"{API}/entregas/7b0b4d55-5f0e-4b55-9b8a-0c1f6d9b2a11/firma", headers=_auth(administrativo_token)

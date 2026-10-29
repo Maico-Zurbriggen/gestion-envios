@@ -5,10 +5,9 @@ import App from '../App'
 import { HomePage } from '../features/home/pages/HomePage'
 import { RoutesRoute } from '../features/routes/components/RoutesRoute'
 import { monitorRoute } from '../features/monitor/monitorRoutes'
-import { UnloadRoute } from '../features/unload/components/UnloadRoute'
 import { UnauthorizedPage } from '../pages/UnauthorizedPage'
 import { ProtectedRoutes } from './ProtectedRoutes'
-import { AdminBranchesRoute, ChooseBranchRoute, EmailTemplatesRoute, PickupRoute, UsersRoute } from './LazyPages'
+import { AdminBranchesRoute, ChooseBranchRoute, PickupRoute, UsersRoute } from './LazyPages'
 
 export const mainRoutes: RouteObject[] = [
   { path: '/elegir-sucursal', element: <ChooseBranchRoute /> },
@@ -47,10 +46,6 @@ export const mainRoutes: RouteObject[] = [
             path: '/recorridos',
             element: <RoutesRoute />,
           },
-          {
-            path: '/admin/correos',
-            element: <EmailTemplatesRoute />,
-          },
           monitorRoute,
         ],
       },
@@ -62,7 +57,6 @@ export const mainRoutes: RouteObject[] = [
         element: <ProtectedRoutes allowedRoles={['VENDEDOR', 'ADMINISTRATIVO', 'SUPERADMIN']} />,
         children: [
           { path: '/terminal/recepcion', element: <TerminalRoute /> },
-          { path: '/terminal/descarga', element: <UnloadRoute /> },
         ],
       },
       {

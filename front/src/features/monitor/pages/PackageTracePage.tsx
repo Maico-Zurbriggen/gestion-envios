@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRightLeft,
-  ClipboardCheck,
   Bell,
   CircleCheckBig,
   Copy,
@@ -46,7 +45,6 @@ const EVENT_ICONS: Record<TraceEventType, LucideIcon> = {
   registro: PackagePlus,
   estado: ArrowRightLeft,
   recorrido: Route,
-  descarga: ClipboardCheck,
   entrega: CircleCheckBig,
   alerta: AlertTriangle,
   reclamo: MessageSquareWarning,
@@ -56,7 +54,7 @@ const EVENT_ICONS: Record<TraceEventType, LucideIcon> = {
 type TimelineFilter = 'todo' | 'movimientos' | 'entregas' | 'reclamos' | 'avisos'
 const TIMELINE_FILTERS: ReadonlyArray<{ id: TimelineFilter; label: string; types: TraceEventType[] }> = [
   { id: 'todo', label: 'Todo', types: [] },
-  { id: 'movimientos', label: 'Movimientos', types: ['registro', 'estado', 'recorrido', 'descarga', 'alerta'] },
+  { id: 'movimientos', label: 'Movimientos', types: ['registro', 'estado', 'recorrido', 'alerta'] },
   { id: 'entregas', label: 'Entregas', types: ['entrega'] },
   { id: 'reclamos', label: 'Reclamos', types: ['reclamo'] },
   { id: 'avisos', label: 'Avisos', types: ['notificacion'] },
@@ -194,14 +192,8 @@ function TraceView({ code }: { code: string }) {
 
       <TraceProgress trace={trace} />
 
-      {item.missingAtUnload || item.withoutRoute || item.failedAttempts || item.activeClaims || item.isReturn || item.group === 'VENCIDOS' ? (
+      {item.withoutRoute || item.failedAttempts || item.activeClaims || item.isReturn || item.group === 'VENCIDOS' ? (
         <div className="trace-alerts" role="status">
-          {item.missingAtUnload ? (
-            <p className="trace-alert tone-danger">
-              <ClipboardCheck size={18} aria-hidden="true" />
-              No apareció al controlar la descarga en la sucursal de destino. Revisá la línea de tiempo.
-            </p>
-          ) : null}
           {item.isReturn ? (
             <p className="trace-alert tone-warning">
               <Undo2 size={18} aria-hidden="true" />

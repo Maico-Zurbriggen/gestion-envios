@@ -20,10 +20,9 @@ GRUPOS_ESTADO: dict[str, tuple[str, ...]] = {
 }
 """Grupos del monitor, en el orden en que avanza un paquete."""
 
-FILTROS_ESPECIALES = ("CON_PROBLEMAS", "SIN_RECORRIDO", "CON_RECLAMO", "FALTANTES")
-"""Filtros que no dependen solo del estado: fallidos, sin recorrido, reclamos en curso o faltantes en la descarga."""
+FILTROS_ESPECIALES = ("CON_PROBLEMAS", "SIN_RECORRIDO", "CON_RECLAMO")
+"""Filtros que no dependen solo del estado: fallidos, sin recorrido o reclamos en curso."""
 
-MOTIVO_FALTANTE = "FALTANTE_EN_DESCARGA"
 
 ETIQUETAS_ESTADO: dict[str, str] = {
     ESTADO_INICIAL_LITERAL: "Pendiente de ingreso",

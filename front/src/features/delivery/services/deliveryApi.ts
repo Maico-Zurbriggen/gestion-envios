@@ -33,13 +33,22 @@ export async function optimizeMyRoute(id: string, position: { latitude: number; 
   return { route: mapRoute(data), message: message ?? 'Recorrido optimizado.' }
 }
 
+/** Llegada a la próxima sucursal de un recorrido entre sucursales, con la posición del celular si la comparte. */
+export async function registerArrival(id: string, branchId: number, position: { latitude: number; longitude: number } | null, token: string) {
+  const body = { sucursal_id: branchId, ...(position ? { latitud: position.latitude, longitud: position.longitude } : {}) }
+  const { data, message } = await operationalRequest<{ data: ApiRouteDetail; message: string | null }>(`${routePath(id)}/llegadas`, token, {
+    method: 'POST', body: JSON.stringify(body),
+  })
+  return { route: mapRoute(data), message: message ?? 'Llegada registrada.' }
+}
+
 export async function getPosition(id: string, token: string, signal?: AbortSignal) {
   const { data } = await operationalRequest<{ data: ApiDriverPosition | null }>(`${routePath(id)}/ubicacion`, token, { signal })
   return mapPosition(data)
 }
 export async function sendPosition(id: string, latitude: number, longitude: number, token: string, signal?: AbortSignal) {
-  const result = await operationalRequest<{ data: ApiDriverPosition; paquetes_actualizados: string[] }>(`${routePath(id)}/ubicacion`, token, { method: 'PUT', body: JSON.stringify({ latitud: latitude, longitud: longitude }), signal })
-  return { position: mapPosition(result.data), updatedPackages: result.paquetes_actualizados }
+  const result = await operationalRequest<{ data: ApiDriverPosition }>(`${routePath(id)}/ubicacion`, token, { method: 'PUT', body: JSON.stringify({ latitud: latitude, longitud: longitude }), signal })
+  return { position: mapPosition(result.data) }
 }
 export async function getContact(id: string, code: string, token: string, signal?: AbortSignal): Promise<RecipientContact> {
   const { data } = await operationalRequest<{ data: { destinatario_nombre: string; telefono: string | null; telefono_disponible: boolean } }>(`${routePath(id)}/paquetes/${encodeURIComponent(code)}/contacto`, token, { signal })

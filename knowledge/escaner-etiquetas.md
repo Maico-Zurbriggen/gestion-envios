@@ -1,25 +1,4 @@
-# Correos personalizables, escáner con el celular e impresión de etiquetas
-
-## Correos a clientes
-
-- Ruta: `/admin/correos`. Acceso: `ADMINISTRATIVO` y `SUPERADMIN`.
-- Plantillas, en el orden en que ocurren: `NUEVO_ENVIO_REMITENTE`, `NUEVO_ENVIO_DESTINATARIO`, `ADMITIDO`, `EN_REPARTO`, `VISITA_FALLIDA`, `LISTO_PARA_RETIRO`, `ENTREGADO`, `DEVOLUCION`, `DEVOLUCION_LISTA` y `VENCIDO`. Cuándo se manda cada una está en [circuito-logistico.md](./circuito-logistico.md).
-- Campos editables de cada plantilla: asunto, título, mensaje, texto del botón y nota final.
-- Datos de la empresa, comunes a todos los correos: nombre, firma, teléfono, email, sitio web y aviso legal.
-- **Variables:** se escriben entre llaves, por ejemplo `{nombre}` o `{token}`. Una variable que la plantilla no admite devuelve un error 400 que indica el campo.
-- **Seguridad:** todo valor se escapa antes de entrar al HTML, así que los textos editados no pueden inyectar código.
-- **Vista previa:** se arma con datos de ejemplo sobre los textos sin guardar y se muestra en un `iframe` con `sandbox` vacío.
-- **Envío de prueba:** usa los textos en edición y antepone «[Prueba]» al asunto. Si el proveedor de correo lo rechaza, responde 400 con un mensaje genérico, sin el detalle interno del proveedor.
-- **Sin personalizar:** si una plantilla no tiene textos guardados, o si leerlos falla, el envío usa los textos de fábrica. Un error de configuración nunca frena una notificación.
-- **Persistencia:** tablas `plantillas_correo` y `configuracion_correo`, creadas por la migración `539e81c168e2`. Restablecer una plantilla borra su fila.
-
-| Acción | Endpoint |
-|---|---|
-| Listar plantillas y datos de la empresa | `GET /api/v1/admin/correos/plantillas` |
-| Guardar o restablecer | `PUT` / `DELETE /api/v1/admin/correos/plantillas/{clave}` |
-| Datos de la empresa | `PUT /api/v1/admin/correos/configuracion` |
-| Vista previa | `POST /api/v1/admin/correos/plantillas/{clave}/vista-previa` |
-| Prueba | `POST /api/v1/admin/correos/plantillas/{clave}/prueba` |
+# Escáner con el celular e impresión de etiquetas
 
 ## El celular como escáner
 

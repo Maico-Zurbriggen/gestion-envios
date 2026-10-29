@@ -67,7 +67,6 @@ async def test_sin_sucursal_habilitada_no_se_opera(
     assert (await client.get("/api/v1/admin/monitor/resumen", headers=headers, params={"sucursal_id": 2})).status_code == 403
     # Sin decir la sucursal, el listado la pide.
     assert (await client.get("/api/v1/admin/monitor/resumen", headers=headers)).status_code == 400
-    assert (await client.get("/api/v1/terminal/descargas/recorridos", headers=headers, params={"sucursal_id": 2})).status_code == 403
 
 
 @pytest.mark.asyncio

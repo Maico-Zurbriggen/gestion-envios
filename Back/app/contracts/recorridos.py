@@ -154,12 +154,6 @@ class RecorridoResumenData(ApiModel):
     updated_at: datetime
 
 
-class ControlCargaResumenData(ApiModel):
-    estado: str
-    verificados: int
-    esperados: int
-
-
 class RecorridoDetalleData(RecorridoResumenData):
     """Recorrido listo para dibujar en un mapa.
 
@@ -176,9 +170,6 @@ class RecorridoDetalleData(RecorridoResumenData):
     trazado: list[PuntoMapaData]
     paquetes_sin_ubicacion: int
     max_visitas: int = 2
-    control_carga: ControlCargaResumenData | None = Field(
-        None, description="Escaneo de lo que subió al vehículo en la sucursal de origen, si se hizo."
-    )
 
 
 class AlertaRecorridoData(ApiModel):

@@ -32,12 +32,10 @@ from app.application.interfaces.servicio_roles import IServicioRoles
 from app.application.interfaces.servicio_seguimiento import IServicioSeguimiento
 from app.application.interfaces.servicio_sucursales import IServicioSucursales
 from app.application.services.servicio_auth import ServicioAuth
-from app.application.services.servicio_descargas import ServicioDescargas
 from app.application.services.servicio_empleados import ServicioEmpleados
 from app.application.services.servicio_envios import ServicioEnvios
 from app.application.services.servicio_monitor import ServicioMonitor
 from app.application.services.servicio_notificaciones import ServicioNotificaciones
-from app.application.services.servicio_plantillas_correo import ServicioPlantillasCorreo
 from app.application.services.servicio_plazos import ServicioPlazos
 from app.application.services.servicio_preguntas_frecuentes import ServicioPreguntasFrecuentes
 from app.application.services.servicio_recepcion_terminal import ServicioRecepcionTerminal
@@ -63,12 +61,10 @@ from app.infrastructure.db.models import UsuarioModel
 from app.infrastructure.db.session import AsyncSessionLocal, obtener_sesion_db
 from app.infrastructure.email.email_provider import obtener_proveedor_email
 from app.infrastructure.mapas.rutas import ServicioRutasOsrm
-from app.infrastructure.repositories.repositorio_descargas import RepositorioDescargas
 from app.infrastructure.repositories.repositorio_entregas import RepositorioEntregas
 from app.infrastructure.repositories.repositorio_envios import RepositorioEnvios
 from app.infrastructure.repositories.repositorio_monitor import RepositorioMonitor
 from app.infrastructure.repositories.repositorio_notificaciones import RepositorioNotificaciones
-from app.infrastructure.repositories.repositorio_plantillas_correo import RepositorioPlantillasCorreo
 from app.infrastructure.repositories.repositorio_plazos import RepositorioPlazos
 from app.infrastructure.repositories.repositorio_preguntas_frecuentes import RepositorioPreguntasFrecuentes
 from app.infrastructure.repositories.repositorio_recepciones import RepositorioRecepciones
@@ -168,12 +164,6 @@ def get_servicio_notificaciones(
         repo_notificaciones=repo_notificaciones,
         whatsapp_provider=obtener_proveedor_whatsapp(),
     )
-
-
-def get_servicio_plantillas_correo(
-    db: AsyncSession = Depends(obtener_sesion_db),
-) -> ServicioPlantillasCorreo:
-    return ServicioPlantillasCorreo(RepositorioPlantillasCorreo(db), obtener_proveedor_email())
 
 
 def get_servicio_monitor(
@@ -298,13 +288,6 @@ def get_servicio_plazos(
     notificaciones: IServicioNotificaciones = Depends(get_servicio_notificaciones),
 ) -> ServicioPlazos:
     return ServicioPlazos(RepositorioPlazos(db), notificaciones)
-
-
-def get_servicio_descargas(
-    db: AsyncSession = Depends(obtener_sesion_db),
-    servicio_recorridos: IServicioRecorridos = Depends(get_servicio_recorridos),
-) -> ServicioDescargas:
-    return ServicioDescargas(RepositorioDescargas(db), servicio_recorridos)
 
 
 # --- Inyección de Autenticación y Autorización ---

@@ -106,10 +106,6 @@ class MotivoAlertaRecorridoEnum(StrEnum):
     SIN_REPARTIDOR_DISPONIBLE = "SIN_REPARTIDOR_DISPONIBLE"
     SIN_UBICACION_DESTINO = "SIN_UBICACION_DESTINO"
     SIN_SUCURSAL_DESTINO = "SIN_SUCURSAL_DESTINO"
-    FALTANTE_EN_DESCARGA = "FALTANTE_EN_DESCARGA"
-    FALTANTE_EN_CARGA = "FALTANTE_EN_CARGA"
-    """Estaba en el recorrido pero no se cargó en el vehículo: se quitó del recorrido."""
-    """Tenía que bajar en la sucursal de destino y no apareció en el control de descarga."""
 
 
 class EstadoRecorridoPaqueteEnum(StrEnum):
@@ -142,10 +138,3 @@ class TipoAvisoEnum(StrEnum):
     VISITA_FALLIDA = "VISITA_FALLIDA"
     DEVOLUCION = "DEVOLUCION"
     VENCIDO = "VENCIDO"
-
-
-class TipoControlEnum(StrEnum):
-    """Escaneo de un recorrido al cargar el vehículo (origen) o al descargarlo (destino)."""
-
-    CARGA = "CARGA"
-    DESCARGA = "DESCARGA"

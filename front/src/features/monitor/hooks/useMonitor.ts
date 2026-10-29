@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useAppSelector } from '../../../app/store'
 import { selectActiveBranchId, selectAuthToken } from '../../auth/redux/authSlice'
 import { listAdminClaims, updateClaimStatus, type ClaimStatus } from '../services/claimsAdminApi'
-import { getMonitorSummary, getPackageTrace, listMonitorPackages, processDeadlines } from '../services/monitorApi'
+import { getMonitorSummary, getPackageTrace, listMonitorPackages } from '../services/monitorApi'
 import type { MonitorFilters } from '../types/monitor.types'
 
 const MONITOR_KEY = ['admin', 'monitor'] as const
@@ -42,18 +42,6 @@ export function usePackageTrace(code: string | undefined) {
     enabled: Boolean(token && code),
     retry: false,
     refetchInterval: AUTO_REFRESH_MS,
-  })
-}
-
-export function useProcessDeadlines() {
-  const token = useAppSelector(selectAuthToken)
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: () => {
-      if (!token) throw new Error('La sesión venció. Volvé a iniciar sesión.')
-      return processDeadlines(token)
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: MONITOR_KEY }),
   })
 }
 

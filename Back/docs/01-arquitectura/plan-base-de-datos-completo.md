@@ -218,7 +218,7 @@ CREATE TABLE historial_estados_paquete (
 CREATE INDEX idx_historial_estados_paquete_id ON historial_estados_paquete(paquete_id, created_at);
 ```
 
-- `usuario_id` es `NULL` cuando el cambio lo genera el sistema (por ejemplo, un evento automático de proximidad de HU11 Escenario 3), y tiene valor cuando lo genera una persona (vendedor que escanea, repartidor que marca entrega).
+- `usuario_id` es `NULL` cuando el cambio lo genera el sistema (por ejemplo, un plazo vencido), y tiene valor cuando lo genera una persona (vendedor que escanea, repartidor que marca la llegada a una sucursal o una entrega).
 - Cada vez que se inserta una fila acá, la aplicación también actualiza `paquetes.estado` (y `paquetes.sucursal_actual_id` si corresponde) para que la consulta pública de HU04 siga siendo una lectura simple sin JOIN — este historial es para trazabilidad interna y reportes, no reemplaza el campo denormalizado.
 
 **Máquina de estados propuesta** (los nombres son constantes de dominio, ver sección 4):
@@ -229,7 +229,7 @@ stateDiagram-v2
     PENDIENTE --> EN_SUCURSAL_ORIGEN: HU06 escaneo en terminal
     EN_SUCURSAL_ORIGEN --> EN_TRANSITO: HU10 recorrido larga distancia asignado
     EN_SUCURSAL_ORIGEN --> EN_REPARTO: HU10 recorrido corta distancia asignado
-    EN_TRANSITO --> EN_SUCURSAL_DESTINO: HU11 proximidad 10km (Esc. 3)
+    EN_TRANSITO --> EN_SUCURSAL_DESTINO: HU11 el repartidor marca la llegada (Esc. 3)
     EN_SUCURSAL_DESTINO --> EN_REPARTO: HU10 recorrido corta distancia (ciudad destino)
     EN_SUCURSAL_DESTINO --> RETIRADO: HU13 retiro en sucursal
     EN_REPARTO --> ENTREGADO: HU12 entrega exitosa
@@ -360,7 +360,7 @@ CREATE TABLE posicion_actual_repartidor (
 
 **Decisión de diseño importante:** esto guarda solo la **última** posición conocida de cada repartidor (`UPSERT` en cada ping de ubicación), no un historial de todos los pings. Ninguna HU pide "ver el recorrido pasado del repartidor", solo su ubicación actual en el mapa (HU11 Escenario 1/2) — guardar cada ping en una tabla de historial sería una tabla de altísimo volumen (un repartidor moviéndose genera un ping cada pocos segundos) sin ningún caso de uso que lo consuma. Si en el futuro se pide un historial de recorridos reales para reportes, se agrega una tabla `historial_posiciones_repartidor` aparte en ese momento — no hace falta anticiparla ahora.
 
-La proximidad de 10km al destino (HU11 Escenario 3, dispara el cambio de estado a `EN_SUCURSAL_DESTINO`) se calcula en la aplicación comparando esta posición contra las coordenadas de la sucursal destino en cada ping, no en SQL.
+La llegada a cada sucursal de un recorrido entre sucursales (HU11 Escenario 3) no se deduce de esta posición: la marca el repartidor desde la app, y la posición del celular, si la comparte, queda en el historial.
 
 ### 3.11 Entregas y retiros — HU12, HU13 (nueva, unificada)
 

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAppSelector } from '../../../app/store'
 import { selectAuthToken } from '../../auth/redux/authSlice'
-import { getContact, getMyRoute, getMyRoutes, getPosition, optimizeMyRoute, registerDelivery, startMyRoute } from '../services/deliveryApi'
+import { getContact, getMyRoute, getMyRoutes, getPosition, optimizeMyRoute, registerArrival, registerDelivery, startMyRoute } from '../services/deliveryApi'
 import type { DeliveryOperation } from '../types/delivery.types'
 
 export function useMyRoutes(date: string, status: string) {
@@ -18,7 +18,16 @@ export function useMyRoute(id: string) {
     mutationFn: async () => optimizeMyRoute(id, await currentPosition(), token!),
     onSuccess: ({ route }) => { client.setQueryData(['delivery', 'detail', id], route); void client.invalidateQueries({ queryKey: ['delivery-routes'] }) },
   })
-  return { detail, position, start, optimize }
+  // Recorridos entre sucursales: el repartidor avisa que llegó y los paquetes de esa parada se actualizan.
+  const arrive = useMutation({
+    mutationFn: async (branchId: number) => registerArrival(id, branchId, await currentPosition(), token!),
+    onSuccess: ({ route }) => {
+      client.setQueryData(['delivery', 'detail', id], route)
+      void client.invalidateQueries({ queryKey: ['delivery', 'list'] })
+      void client.invalidateQueries({ queryKey: ['tracking'] })
+    },
+  })
+  return { detail, position, start, optimize, arrive }
 }
 
 /** Ubicación actual del celular, si el repartidor la permite; si no, se optimiza desde la última conocida. */

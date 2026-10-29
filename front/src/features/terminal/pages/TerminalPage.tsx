@@ -1,6 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { CheckCircle2, CircleAlert, Printer, RefreshCw, ScanBarcode, Search, Weight } from 'lucide-react'
-import { Link } from 'react-router-dom'
 import { TraceLink } from '../../monitor/components/TraceLink'
 import { ActiveBranchNote } from '../../auth/components/ActiveBranchNote'
 import { useActiveBranch } from '../../auth/hooks/useActiveBranch'
@@ -89,7 +88,7 @@ export function TerminalPage() {
 
   const item = scan.data
   return <div className="ops-page">
-    <header className="ops-page__header"><span className="eyebrow"><ScanBarcode size={15} aria-hidden="true" /> Operación de terminal</span><h1>Recepción en terminal</h1><p>Admisión del paquete: leé el código del comprobante del cliente, revisá los datos, pesalo y confirmá. Al confirmar se imprime la etiqueta para pegar en la caja.</p><p className="ops-hint">¿Llega un recorrido de otra sucursal? Controlá lo que baja en <Link to="/terminal/descarga">Carga y descarga</Link>.</p></header>
+    <header className="ops-page__header"><span className="eyebrow"><ScanBarcode size={15} aria-hidden="true" /> Operación de terminal</span><h1>Recepción en terminal</h1><p>Admisión del paquete: leé el código del comprobante del cliente, revisá los datos, pesalo y confirmá. Al confirmar se imprime la etiqueta para pegar en la caja.</p></header>
     <form className="ops-panel ops-scan ops-scan--camera" onSubmit={search}>
       <label className="form-field" htmlFor="terminal-code">Código del paquete<input ref={codeInputRef} id="terminal-code" className="form-control" value={input} onChange={(e) => setInput(e.target.value)} onFocus={(e) => e.target.select()} required maxLength={80} autoComplete="off" autoFocus disabled={receive.isPending} placeholder="PAQ-XXXXXXXXXX" /></label>
       <button className="ops-button ops-button--primary" disabled={scan.isFetching || receive.isPending}><Search size={18} aria-hidden="true" />{scan.isFetching ? 'Consultando…' : 'Identificar paquete'}</button>

@@ -35,7 +35,14 @@ class UbicacionData(UbicacionRequest):
 class UbicacionResponse(ApiModel):
     status: str = "success"
     data: UbicacionData | None = None
-    paquetes_actualizados: list[UUID] = Field(default_factory=list)
+
+
+class RegistrarLlegadaRequest(ApiModel):
+    """El repartidor avisa que llegó a una sucursal de su recorrido entre sucursales."""
+
+    sucursal_id: int = Field(..., ge=1, description="Sucursal a la que llegó: tiene que ser la próxima parada pendiente.")
+    latitud: float | None = Field(None, ge=-90, le=90)
+    longitud: float | None = Field(None, ge=-180, le=180)
 
 
 class RegistrarEntregaRequest(ApiModel):

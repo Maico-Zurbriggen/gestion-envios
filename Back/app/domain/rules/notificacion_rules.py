@@ -53,10 +53,10 @@ def _parametro(valor: str) -> str:
     return limpio[:MAX_LONGITUD_PARAMETRO_WHATSAPP] or "-"
 
 
-def _plantilla(clave: str, plantilla: dict[str, str] | None) -> dict[str, str]:
+def _plantilla(clave: str) -> dict[str, str]:
+    """Textos de la plantilla estándar de ese aviso."""
     definicion = DEFINICIONES[clave]
-    base = {campo: getattr(definicion, campo) for campo in CAMPOS_PLANTILLA}
-    return {**base, **{k: v for k, v in (plantilla or {}).items() if k in CAMPOS_PLANTILLA and v is not None}}
+    return {campo: getattr(definicion, campo) for campo in CAMPOS_PLANTILLA}
 
 
 def armar_email_nuevo_envio(
@@ -69,10 +69,8 @@ def armar_email_nuevo_envio(
     enlace: str,
     destinatario_nombre: str = "",
     plazo: str = "10 días",
-    plantilla: dict[str, str] | None = None,
-    configuracion: dict[str, str] | None = None,
 ) -> MensajeEmail:
-    """Correo de envío registrado, con la plantilla editable (o la de fábrica)."""
+    """Correo de envío registrado, con su plantilla estándar."""
     clave = NUEVO_ENVIO_REMITENTE if es_remitente else NUEVO_ENVIO_DESTINATARIO
     valores = {
         "nombre": nombre,
@@ -85,7 +83,7 @@ def armar_email_nuevo_envio(
         "plazo": plazo,
     }
     asunto, texto, html = renderizar(
-        _plantilla(clave, plantilla), {**CONFIGURACION_DEFECTO, **(configuracion or {})}, valores, paquetes=numeros_paquetes
+        _plantilla(clave), CONFIGURACION_DEFECTO, valores, paquetes=numeros_paquetes
     )
     return MensajeEmail(asunto=asunto, texto=texto, html=html)
 
@@ -111,16 +109,14 @@ def armar_email_visita_fallida(
     enlace: str,
     token: str = "",
     proximo_paso: str = "Consultá el seguimiento para ver los próximos pasos.",
-    plantilla: dict[str, str] | None = None,
-    configuracion: dict[str, str] | None = None,
 ) -> MensajeEmail:
-    """Aviso de visita fallida, con la plantilla editable (o la de fábrica)."""
+    """Aviso de visita fallida, con su plantilla estándar."""
     valores = {
         "nombre": nombre, "paquete": numero_paquete, "fecha": fecha_hora, "enlace": enlace, "token": token,
         "proximo_paso": proximo_paso,
     }
     asunto, texto, html = renderizar(
-        _plantilla(VISITA_FALLIDA, plantilla), {**CONFIGURACION_DEFECTO, **(configuracion or {})}, valores
+        _plantilla(VISITA_FALLIDA), CONFIGURACION_DEFECTO, valores
     )
     return MensajeEmail(asunto=asunto, texto=texto, html=html)
 
@@ -129,12 +125,10 @@ def armar_email_hito(
     *,
     clave: str,
     valores: dict[str, str],
-    plantilla: dict[str, str] | None = None,
-    configuracion: dict[str, str] | None = None,
 ) -> MensajeEmail:
     """Correo de un hito del envío (recibido, en reparto, listo para retirar, entregado...)."""
     asunto, texto, html = renderizar(
-        _plantilla(clave, plantilla), {**CONFIGURACION_DEFECTO, **(configuracion or {})}, valores
+        _plantilla(clave), CONFIGURACION_DEFECTO, valores
     )
     return MensajeEmail(asunto=asunto, texto=texto, html=html)
 

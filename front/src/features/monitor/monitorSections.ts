@@ -1,11 +1,11 @@
-import { AlertTriangle, Boxes } from 'lucide-react'
+import { Boxes } from 'lucide-react'
 import type { PackagesSectionConfig } from './pages/MonitorPackagesPage'
 
 /** Subsecciones de listado del monitor, por ruta relativa a `/monitor`. */
 export const MONITOR_SECTIONS: Record<string, PackagesSectionConfig> = {
   paquetes: {
     title: 'Paquetes',
-    description: 'Todos los paquetes registrados. Elegí una etapa, buscá por paquete, código, persona o destino, y exportá el resultado.',
+    description: 'Todos los paquetes registrados. Elegí una etapa y buscá por paquete, código, persona o destino.',
     icon: Boxes,
     group: 'TODOS',
     tabs: [
@@ -21,28 +21,8 @@ export const MONITOR_SECTIONS: Record<string, PackagesSectionConfig> = {
     ],
     empty: 'No hay paquetes en esta etapa.',
     related: [
-      { label: 'Incidencias', to: '/monitor/incidencias' },
-      { label: 'Reclamos', to: '/monitor/reclamos' },
-    ],
-  },
-  incidencias: {
-    title: 'Incidencias',
-    description: 'Lo que no salió como estaba previsto: visitas fallidas, paquetes que no aparecieron al cargar o descargar, sin recorrido, con reclamos en curso o que vuelven al remitente.',
-    icon: AlertTriangle,
-    group: 'CON_PROBLEMAS',
-    tabs: [
-      { id: 'CON_PROBLEMAS', label: 'Todas' },
-      { id: 'NO_ENTREGADOS', label: 'Visitas fallidas' },
-      { id: 'FALTANTES', label: 'Faltantes en la descarga' },
-      { id: 'SIN_RECORRIDO', label: 'Sin recorrido' },
-      { id: 'CON_RECLAMO', label: 'Con reclamo' },
-      { id: 'DEVOLUCIONES', label: 'Devoluciones' },
-    ],
-    empty: 'No hay incidencias abiertas. Todo en orden.',
-    related: [
-      { label: 'Reclamos', to: '/monitor/reclamos' },
       { label: 'Recorridos', to: '/recorridos' },
-      { label: 'Carga y descarga', to: '/terminal/descarga' },
+      { label: 'Reclamos', to: '/monitor/reclamos' },
     ],
   },
 }

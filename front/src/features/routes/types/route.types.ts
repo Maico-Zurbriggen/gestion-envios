@@ -57,6 +57,7 @@ export interface ApiRouteDetail extends ApiRouteSummary {
   paradas: Array<{
     orden: number
     tipo_parada: 'DOMICILIO' | 'SUCURSAL'
+    sucursal_destino?: { id: number; nombre: string } | null
     destino: string
     latitud: number | null
     longitud: number | null
@@ -78,7 +79,6 @@ export interface ApiRouteDetail extends ApiRouteSummary {
   trazado: Array<{ latitud: number; longitud: number }>
   paquetes_sin_ubicacion: number
   max_visitas?: number
-  control_carga?: { estado: 'EN_CURSO' | 'CERRADO'; verificados: number; esperados: number } | null
 }
 
 export interface ApiRouteAlert {
@@ -210,6 +210,8 @@ export interface RoutePackage {
 export interface RouteStop {
   order: number
   type: 'DOMICILIO' | 'SUCURSAL'
+  /** Sucursal de la parada en un recorrido entre sucursales. */
+  branch: { id: number; name: string } | null
   destination: string
   latitude: number | null
   longitude: number | null
@@ -225,7 +227,6 @@ export interface DeliveryRoute extends DeliveryRouteSummary {
   packagesWithoutLocation: number
   maxVisits: number
   /** Escaneo de lo que subió al vehículo en la sucursal de origen, si se hizo. */
-  loadControl: { status: 'EN_CURSO' | 'CERRADO'; verified: number; expected: number } | null
 }
 
 export interface RouteAlert {

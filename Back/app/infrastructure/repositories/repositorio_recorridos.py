@@ -10,9 +10,7 @@ from app.application.interfaces.repositorio_recorridos import IRepositorioRecorr
 from app.core.exceptions import DuplicateEntryException
 from app.domain.constants.estados_logistica import (
     EstadoRecorridoPaqueteEnum,
-    MotivoAlertaRecorridoEnum,
     ResultadoEventoEntregaEnum,
-    TipoControlEnum,
 )
 from app.domain.rules.circuito_rules import ESTADOS_PRE_REGISTRO
 from app.domain.rules.recorrido_rules import (
@@ -22,10 +20,8 @@ from app.domain.rules.recorrido_rules import (
 )
 from app.infrastructure.db.models import (
     AlertaRecorridoModel,
-    ControlDescargaModel,
     EnvioModel,
     EventoEntregaModel,
-    LecturaDescargaModel,
     PaqueteModel,
     PosicionActualRepartidorModel,
     RecorridoModel,
@@ -55,25 +51,6 @@ class RepositorioRecorridos(IRepositorioRecorridos):
             .group_by(EventoEntregaModel.paquete_id)
         )
         return {paquete_id: int(cantidad) for paquete_id, cantidad in resultado.all()}
-
-    async def control_de_carga(self, recorrido_id: uuid.UUID) -> tuple[str, int] | None:
-        """Estado del control de carga del recorrido y cuántos paquetes se verificaron."""
-        control = (
-            await self.db.execute(
-                select(ControlDescargaModel.id, ControlDescargaModel.estado).where(
-                    ControlDescargaModel.recorrido_id == recorrido_id,
-                    ControlDescargaModel.tipo == TipoControlEnum.CARGA.value,
-                )
-            )
-        ).first()
-        if control is None:
-            return None
-        verificados = await self.db.scalar(
-            select(func.count()).select_from(LecturaDescargaModel).where(
-                LecturaDescargaModel.control_id == control.id, LecturaDescargaModel.resultado == "CORRECTO"
-            )
-        )
-        return control.estado, int(verificados or 0)
 
     async def contar_sin_llegar(self) -> dict[int | None, int]:
         filas = await self.db.execute(
@@ -285,8 +262,6 @@ class RepositorioRecorridos(IRepositorioRecorridos):
             .where(
                 AlertaRecorridoModel.resuelta.is_(False),
                 PaqueteModel.sucursal_actual_id == sucursal_id,
-                # Un faltante en la descarga no lo resuelve generar recorridos: lo revisa una persona.
-                AlertaRecorridoModel.motivo != MotivoAlertaRecorridoEnum.FALTANTE_EN_DESCARGA.value,
             )
         )
         result = await self.db.execute(stmt)

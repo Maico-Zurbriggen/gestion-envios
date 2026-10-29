@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle2, LoaderCircle, LocateFixed, Navigation, Play, RefreshCw, Truck, WandSparkles } from 'lucide-react'
+import { Building2, CheckCircle2, LoaderCircle, LocateFixed, Navigation, Play, RefreshCw, Truck, WandSparkles } from 'lucide-react'
 import { useMyRoute, useMyRoutes } from '../hooks/useDelivery'
 import { useDriverGps } from '../hooks/useDriverGps'
 import { DeliveryAction } from '../components/DeliveryAction'
@@ -15,14 +15,20 @@ import '../../../shared/styles/operations.css'
 import './DriverDeliveryPage.css'
 
 function DriverRoute({ id, onBack }: { id: string; onBack: () => void }) {
-  const { detail, position, start, optimize } = useMyRoute(id)
+  const { detail, position, start, optimize, arrive } = useMyRoute(id)
   const route = detail.data
   const routing = useRoadRoute(route)
   const gps = useDriverGps(id, !detail.isError && route?.status === 'EN_CURSO')
   const [packageCode, setPackageCode] = useState('')
   const [confirmStart, setConfirmStart] = useState(false)
+  const [confirmArrival, setConfirmArrival] = useState(false)
   const pendingPackages = route?.stops.flatMap((stop) => stop.packages).filter((item) => item.routeStatus === 'PENDIENTE').length ?? 0
   const pendingStops = route?.stops.filter((stop) => stop.packages.some((item) => item.routeStatus === 'PENDIENTE')).length ?? 0
+  // Entre sucursales, la llegada se marca en orden: la próxima es la primera sucursal con paquetes pendientes.
+  const nextBranchStop = route?.distanceType === 'LARGA'
+    ? route.stops.find((stop) => stop.branch && stop.packages.some((item) => item.routeStatus === 'PENDIENTE'))
+    : undefined
+  const nextBranchPackages = nextBranchStop?.packages.filter((item) => item.routeStatus === 'PENDIENTE').length ?? 0
 
   // El código leído abre el mismo registro que "Registrar entrega o visita" de ese paquete.
   function openScannedPackage(code: string) {
@@ -59,18 +65,33 @@ function DriverRoute({ id, onBack }: { id: string; onBack: () => void }) {
           <Modal open={confirmStart} onClose={() => { if (!start.isPending) setConfirmStart(false) }} size="narrow" icon={Play} eyebrow="Mi reparto" title="¿Listo para salir?" description="¿Confirmás que estás listo para salir? Los paquetes pasarán a traslado o reparto."
             footer={<><button className="ops-button" type="button" disabled={start.isPending} onClick={() => setConfirmStart(false)}>Cancelar</button><button className="ops-button ops-button--primary" type="button" disabled={start.isPending} onClick={() => start.mutate(undefined, { onSuccess: () => setConfirmStart(false) })}><Play size={18} aria-hidden="true" />{start.isPending ? 'Iniciando…' : 'Confirmar inicio'}</button></>}>
             <p className="ops-hint">El seguimiento público mostrará el cambio de estado de cada paquete{route.distanceType === 'CORTA' ? ' y cada destinatario recibe el aviso de que su paquete llega hoy' : ''}.</p>
-            {route.loadControl?.status === 'CERRADO'
-              ? <p className="ops-success driver-load"><CheckCircle2 size={18} aria-hidden="true" /> Carga controlada en la sucursal: {route.loadControl.verified} de {route.loadControl.expected} paquetes escaneados.</p>
-              : <p className="ops-warning driver-load">La carga de este recorrido {route.loadControl ? 'se está controlando' : 'no se controló'} en la sucursal. Antes de salir, revisá que lleves los {route.packageCount} paquetes.</p>}
+            <p className="ops-warning driver-load">Antes de salir, revisá que lleves los {route.packageCount} paquetes del recorrido.</p>
           </Modal>
         </div>}
         {start.isError && <p className="form-error" role="alert">{start.error.message} Actualizá el recorrido para verificar su estado.</p>}
         {route.status === 'EN_CURSO' && !detail.isError && <div className="ops-stack">
+          {nextBranchStop?.branch && <div className="driver-arrival" aria-live="polite">
+            <span className="driver-arrival__icon" aria-hidden="true"><Building2 size={22} /></span>
+            <div>
+              <p className="driver-arrival__label">Próxima sucursal</p>
+              <p className="driver-arrival__name">{nextBranchStop.branch.name}</p>
+              <p className="ops-hint">Bajan {nextBranchPackages} {nextBranchPackages === 1 ? 'paquete' : 'paquetes'}. Cuando llegues, avisá desde acá: se actualiza el recorrido y el seguimiento.</p>
+            </div>
+            <button className="ops-button ops-button--primary" type="button" aria-haspopup="dialog" disabled={arrive.isPending} onClick={() => setConfirmArrival(true)}>
+              <CheckCircle2 size={18} aria-hidden="true" /> Llegué a {nextBranchStop.branch.name}
+            </button>
+            <Modal open={confirmArrival} onClose={() => { if (!arrive.isPending) setConfirmArrival(false) }} size="narrow" icon={Building2} eyebrow="Mi reparto" title={`¿Llegaste a ${nextBranchStop.branch.name}?`}
+              description={`Los ${nextBranchPackages} paquetes que bajan ahí quedan registrados en esa sucursal y el cliente ve el cambio en el seguimiento.`}
+              footer={<><button className="ops-button" type="button" disabled={arrive.isPending} onClick={() => setConfirmArrival(false)}>Cancelar</button><button className="ops-button ops-button--primary" type="button" disabled={arrive.isPending} onClick={() => arrive.mutate(nextBranchStop.branch!.id, { onSuccess: () => setConfirmArrival(false) })}>{arrive.isPending ? <LoaderCircle size={18} className="loading-icon" aria-hidden="true" /> : <CheckCircle2 size={18} aria-hidden="true" />}{arrive.isPending ? 'Registrando…' : 'Sí, llegué'}</button></>}>
+              <p className="ops-hint">Entregá en la sucursal solo los paquetes de esta parada; el resto sigue viaje.</p>
+            </Modal>
+          </div>}
           <p>Activá la ubicación y mantené esta pantalla abierta durante el reparto. El navegador puede suspender el GPS si bloqueás el teléfono o cambiás de aplicación.</p>
           <button className={`ops-button${gps.enabled ? '' : ' ops-button--primary'}`} type="button" onClick={gps.toggle}><LocateFixed size={18} aria-hidden="true" />{gps.enabled ? 'Dejar de compartir ubicación' : 'Activar ubicación GPS'}</button>
           <p role="status">{gps.sending ? 'Enviando ubicación…' : gps.enabled ? 'GPS activo. Se envía como máximo una posición cada 10 segundos.' : 'GPS desactivado.'}</p>
-          {route.distanceType === 'LARGA' && <p className="ops-hint">La llegada a la siguiente sucursal se registra automáticamente al informar una posición dentro de 10 km. Se respeta el orden de paradas. Al descargar, el personal de la sucursal escanea cada paquete en Carga y descarga: entregá solo los que bajan ahí.</p>}
         </div>}
+        {arrive.isSuccess && <p className="ops-success" role="status"><CheckCircle2 size={18} aria-hidden="true" /> {arrive.data.message}</p>}
+        {arrive.isError && <p className="form-error" role="alert">{arrive.error.message}</p>}
         {gps.error && <p className="form-error" role="alert">{gps.error}</p>}
         {position.data && <p className="ops-hint">Última ubicación recibida: {new Date(position.data.updatedAt).toLocaleString('es-AR')} · {position.data.latitude.toFixed(5)}, {position.data.longitude.toFixed(5)}</p>}
         {position.isError && <p role="alert">{position.error.message}</p>}
@@ -84,6 +105,9 @@ function DriverRoute({ id, onBack }: { id: string; onBack: () => void }) {
             description="Apuntá la cámara trasera a la etiqueta del paquete que vas a entregar. Se abre el registro de esa entrega." />
         </div>}
         <ol className="ops-list">{route.stops.map((stop) => <li key={stop.order} className="ops-panel ops-stop"><h3><span className="ops-stop__number">{stop.order}</span> {stop.destination}</h3>
+          {stop.branch && (stop.packages.every((item) => item.routeStatus !== 'PENDIENTE')
+            ? <p className="badge badge--success driver-badge">Llegada registrada</p>
+            : stop === nextBranchStop && route.status === 'EN_CURSO' ? <p className="badge badge--info driver-badge">Próxima sucursal</p> : null)}
           {stop.latitude != null && stop.longitude != null ? <a className="ops-button" href={`https://www.google.com/maps/dir/?api=1&destination=${stop.latitude},${stop.longitude}`} target="_blank" rel="noopener noreferrer"><Navigation size={18} aria-hidden="true" /> Navegar a esta parada</a> : <p className="ops-hint">Sin coordenadas. Consultá la dirección con logística antes de salir.</p>}
           <ul className="ops-list">{stop.packages.map((item) => <li key={item.id}><strong>{item.code}</strong>{item.isReturn && <span className="badge badge--info driver-badge">Devolución a origen</span>}{route.distanceType === 'CORTA' && <span className={`badge driver-badge ${item.previousVisits + 1 >= route.maxVisits ? 'badge--warning' : 'badge--muted'}`}>{item.previousVisits + 1}.ª de {route.maxVisits} visitas</span>}<p>{item.description} · {item.weightKg} kg</p><p>{item.recipientName} · {getStatusLabel(item.status)} · {stopStatusLabels[item.routeStatus] ?? item.routeStatus}</p>
             {canRegisterDelivery(route, stop, item) && !detail.isError && <button className="ops-button ops-button--primary" type="button" disabled={Boolean(packageCode)} onClick={() => setPackageCode(item.code)}><CheckCircle2 size={18} aria-hidden="true" /> Registrar entrega o visita</button>}
