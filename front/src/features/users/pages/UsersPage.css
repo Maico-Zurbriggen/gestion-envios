@@ -54,6 +54,18 @@
   text-align: right;
 }
 
+/* En el celular cada dato va debajo de su etiqueta: un email largo no se corta en dos. */
+@media (max-width: 560px) {
+  .users-confirm div {
+    display: grid;
+    gap: 0.1rem;
+  }
+
+  .users-confirm dd {
+    text-align: left;
+  }
+}
+
 /* Formulario del modal de alta y edición */
 .user-modal-form {
   display: grid;
@@ -176,26 +188,32 @@
 }
 
 /* ¿A qué sucursal pertenece? (tarjetas seleccionables). */
+/* El recuadro va en un contenedor propio: el legend sobre el borde del fieldset se ve
+   distinto en cada navegador (en Safari quedaba montado sobre la línea). */
 .user-branches {
-  display: grid;
-  gap: var(--space-3);
   min-width: 0;
   margin: 0;
-  padding: var(--space-4);
-  background: var(--color-surface-subtle);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  padding: 0;
+  border: 0;
 }
 
 .user-branches legend {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  float: left;
-  width: 100%;
-  margin: 0;
+  margin: 0 0 var(--space-2);
   padding: 0;
   font-weight: var(--font-weight-semibold);
+}
+
+.user-branches__box {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 }
 
 .user-branches legend svg {

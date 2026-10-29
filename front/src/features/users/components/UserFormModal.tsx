@@ -220,56 +220,58 @@ function UserForm({ employee, roles, rolesLoading, branches, isSelf, pending, er
             <Building2 size={16} aria-hidden="true" />
             ¿A qué sucursal pertenece?
           </legend>
-          {allBranches ? (
-            <p className="user-branches__all">
-              <Building2 size={18} aria-hidden="true" />
-              <span><strong>Todas las sucursales.</strong> El Superadministrador entra en cualquiera, también en las inactivas.</span>
-            </p>
-          ) : (
-            <>
-              {!single && branches.length > 1 && (
-                <div className="user-branches__toolbar">
-                  <span>{form.branchIds.length} de {branches.length} elegidas</span>
-                  <button type="button" onClick={() => update('branchIds', branches.map((branch) => branch.id))}>Todas</button>
-                  <button type="button" onClick={() => update('branchIds', [])} disabled={!form.branchIds.length}>Ninguna</button>
-                </div>
-              )}
-              {branches.length ? (
-                <div className="user-branches__grid">
-                  {branches.map((branch) => {
-                    const checked = form.branchIds.includes(branch.id)
-                    return (
-                      <label key={branch.id} className={`user-branches__option${checked ? ' is-selected' : ''}`}>
-                        <input
-                          type={single ? 'radio' : 'checkbox'}
-                          name={`${prefix}-branch`}
-                          checked={checked}
-                          onChange={() => toggleBranch(branch.id)}
-                        />
-                        <span className="user-branches__mark" aria-hidden="true">{checked && <Check size={13} strokeWidth={3} />}</span>
-                        <span className="user-branches__text">
-                          <strong>{shortName(branch.name)}</strong>
-                          <small>{branch.city}{branch.active ? '' : ' · inactiva'}</small>
-                        </span>
-                      </label>
-                    )
-                  })}
-                </div>
-              ) : (
-                <p className="user-modal-form__hint" role="status"><LoaderCircle className="loading-icon" size={14} aria-hidden="true" /> Cargando sucursales…</p>
-              )}
-            </>
-          )}
-          <span className={`user-modal-form__hint${missingBranch && selectedRole ? ' user-branches__missing' : ''}`} id={`${prefix}-branches-hint`}>
-            <Info size={14} aria-hidden="true" />
-            {allBranches
-              ? 'Al ingresar elige en cuál trabajar.'
-              : single
-                ? 'Es su base: de esa sucursal sale a repartir y solo ve sus recorridos.'
-                : missingBranch
-                  ? 'Elegí al menos una: solo va a poder ingresar a las sucursales que marques.'
-                  : 'Al ingresar elige en cuál trabajar y solo ve y carga lo de esa sucursal.'}
-          </span>
+          <div className="user-branches__box">
+            {allBranches ? (
+              <p className="user-branches__all">
+                <Building2 size={18} aria-hidden="true" />
+                <span><strong>Todas las sucursales.</strong> El Superadministrador entra en cualquiera, también en las inactivas.</span>
+              </p>
+            ) : (
+              <>
+                {!single && branches.length > 1 && (
+                  <div className="user-branches__toolbar">
+                    <span>{form.branchIds.length} de {branches.length} elegidas</span>
+                    <button type="button" onClick={() => update('branchIds', branches.map((branch) => branch.id))}>Todas</button>
+                    <button type="button" onClick={() => update('branchIds', [])} disabled={!form.branchIds.length}>Ninguna</button>
+                  </div>
+                )}
+                {branches.length ? (
+                  <div className="user-branches__grid">
+                    {branches.map((branch) => {
+                      const checked = form.branchIds.includes(branch.id)
+                      return (
+                        <label key={branch.id} className={`user-branches__option${checked ? ' is-selected' : ''}`}>
+                          <input
+                            type={single ? 'radio' : 'checkbox'}
+                            name={`${prefix}-branch`}
+                            checked={checked}
+                            onChange={() => toggleBranch(branch.id)}
+                          />
+                          <span className="user-branches__mark" aria-hidden="true">{checked && <Check size={13} strokeWidth={3} />}</span>
+                          <span className="user-branches__text">
+                            <strong>{shortName(branch.name)}</strong>
+                            <small>{branch.city}{branch.active ? '' : ' · inactiva'}</small>
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="user-modal-form__hint" role="status"><LoaderCircle className="loading-icon" size={14} aria-hidden="true" /> Cargando sucursales…</p>
+                )}
+              </>
+            )}
+            <span className={`user-modal-form__hint${missingBranch && selectedRole ? ' user-branches__missing' : ''}`} id={`${prefix}-branches-hint`}>
+              <Info size={14} aria-hidden="true" />
+              {allBranches
+                ? 'Al ingresar elige en cuál trabajar.'
+                : single
+                  ? 'Es su base: de esa sucursal sale a repartir y solo ve sus recorridos.'
+                  : missingBranch
+                    ? 'Elegí al menos una: solo va a poder ingresar a las sucursales que marques.'
+                    : 'Al ingresar elige en cuál trabajar y solo ve y carga lo de esa sucursal.'}
+            </span>
+          </div>
         </fieldset>
       </div>
 

@@ -166,6 +166,9 @@
   flex-direction: column;
   animation: modal-in var(--transition-base) both;
 }
+.modal:focus {
+  outline: none;
+}
 
 .modal::backdrop {
   background: var(--color-overlay);

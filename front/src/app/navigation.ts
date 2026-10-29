@@ -66,7 +66,7 @@ const NAVIGATION_MODULES: NavigationModule[] = [
   {
     id: 'create-shipment',
     label: 'Registrar envío',
-    shortLabel: 'Nuevo envío',
+    shortLabel: 'Enviar',
     description: 'Prepará un envío y generá sus etiquetas para imprimir.',
     path: '/envios/nuevo',
     section: 'principal',

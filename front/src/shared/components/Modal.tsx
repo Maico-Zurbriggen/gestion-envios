@@ -38,7 +38,14 @@ export function Modal({
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
-    if (open && !dialog.open) dialog.showModal()
+    if (open && !dialog.open) {
+      dialog.showModal()
+      // Sin un campo con autoFocus, el navegador enfoca la X y en el celular se dibuja su anillo
+      // de foco al abrir. El foco queda en la ventana; con Tab se llega a la X como siempre.
+      if (document.activeElement instanceof HTMLElement && document.activeElement.classList.contains('modal__close')) {
+        dialog.focus()
+      }
+    }
     if (!open && dialog.open) dialog.close()
   }, [open])
 
@@ -55,6 +62,7 @@ export function Modal({
     <dialog
       ref={dialogRef}
       className={`modal ${size !== 'default' ? `modal--${size}` : ''} ${className}`.trim()}
+      tabIndex={-1}
       aria-labelledby={titleId}
       aria-describedby={description ? descriptionId : undefined}
       onCancel={(event) => {
