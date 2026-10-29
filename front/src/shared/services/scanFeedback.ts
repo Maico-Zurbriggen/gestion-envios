@@ -1,6 +1,6 @@
 /**
- * Aviso de lectura como en la caja del supermercado: un pitido corto y agudo con una
- * vibración breve cuando el código se aceptó, y dos tonos graves cuando se rechazó.
+ * Aviso de lectura como en la caja del supermercado: un pitido limpio y agudo con una
+ * vibración breve cuando el código se aceptó, y un zumbido grave cuando se rechazó.
  *
  * El sonido es un WAV generado acá y reproducido con `<audio>`: en iPhone, Web Audio
  * queda mudo con la tecla de silencio y `<audio>` no. Los navegadores solo dejan sonar
@@ -11,36 +11,42 @@
  * se usa el toque háptico que hace el sistema al cambiar un interruptor (`switch`).
  */
 
-type Note = [frequency: number, start: number, duration: number]
+type Wave = 'sine' | 'square'
+type Note = [frequency: number, start: number, duration: number, wave: Wave]
 
-const SAMPLE_RATE = 22050
-const ACCEPTED: Note[] = [[2400, 0, 0.11]]
-const REJECTED: Note[] = [[440, 0, 0.12], [330, 0.16, 0.18]]
+const SAMPLE_RATE = 44100
+// Elegidos entre las muestras: «Lector de caja» (tono limpio y agudo) y, para el rechazo, un zumbido grave.
+const ACCEPTED: Note[] = [[2900, 0, 0.09, 'sine']]
+const REJECTED: Note[] = [[180, 0, 0.3, 'square']]
+// La onda cuadrada suena más fuerte a igual amplitud: se baja para que los dos se oigan parejo.
+const LEVEL: Record<Wave, number> = { sine: 0.42, square: 0.22 }
 
 const sounds: { accepted?: HTMLAudioElement; rejected?: HTMLAudioElement } = {}
 
-/** WAV mono de 8 bits con onda cuadrada (el timbre "electrónico" de los lectores de caja). */
-function wav(notes: Note[], volume: number) {
-  const seconds = Math.max(...notes.map(([, start, duration]) => start + duration)) + 0.02
+/** WAV mono de 16 bits con las notas indicadas. */
+function wav(notes: Note[]) {
+  const seconds = Math.max(...notes.map(([, start, duration]) => start + duration)) + 0.03
   const length = Math.ceil(seconds * SAMPLE_RATE)
-  const buffer = new ArrayBuffer(44 + length)
+  const buffer = new ArrayBuffer(44 + length * 2)
   const view = new DataView(buffer)
   const text = (offset: number, value: string) => [...value].forEach((char, i) => view.setUint8(offset + i, char.charCodeAt(0)))
-  text(0, 'RIFF'); view.setUint32(4, 36 + length, true); text(8, 'WAVE')
+  text(0, 'RIFF'); view.setUint32(4, 36 + length * 2, true); text(8, 'WAVE')
   text(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true)
-  view.setUint32(24, SAMPLE_RATE, true); view.setUint32(28, SAMPLE_RATE, true); view.setUint16(32, 1, true); view.setUint16(34, 8, true)
-  text(36, 'data'); view.setUint32(40, length, true)
+  view.setUint32(24, SAMPLE_RATE, true); view.setUint32(28, SAMPLE_RATE * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true)
+  text(36, 'data'); view.setUint32(40, length * 2, true)
   for (let i = 0; i < length; i++) {
     const t = i / SAMPLE_RATE
     let sample = 0
-    for (const [frequency, start, duration] of notes) {
+    for (const [frequency, start, duration, wave] of notes) {
       if (t < start || t >= start + duration) continue
       const local = t - start
-      // Entrada y salida de 5 ms: sin "clics" al empezar y terminar.
-      const envelope = Math.min(1, local / 0.005, (duration - local) / 0.005)
-      sample += (Math.sin(2 * Math.PI * frequency * local) >= 0 ? 1 : -1) * envelope * volume
+      // Entrada y salida suaves: sin "clics" al empezar y terminar.
+      const envelope = Math.min(1, local / 0.004, (duration - local) / 0.006)
+      const phase = frequency * local - Math.floor(frequency * local)
+      const value = wave === 'square' ? (phase < 0.5 ? 1 : -1) : Math.sin(2 * Math.PI * phase)
+      sample += value * envelope * LEVEL[wave]
     }
-    view.setUint8(44 + i, Math.round(128 + Math.max(-1, Math.min(1, sample)) * 127))
+    view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, sample)) * 32767, true)
   }
   return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }))
 }
@@ -59,8 +65,8 @@ function unlock(audio: HTMLAudioElement) {
 export function primeScanFeedback() {
   try {
     if (typeof Audio === 'undefined') return
-    sounds.accepted ??= new Audio(wav(ACCEPTED, 0.35))
-    sounds.rejected ??= new Audio(wav(REJECTED, 0.35))
+    sounds.accepted ??= new Audio(wav(ACCEPTED))
+    sounds.rejected ??= new Audio(wav(REJECTED))
     unlock(sounds.accepted)
     unlock(sounds.rejected)
   } catch {
@@ -118,7 +124,7 @@ export function scanAccepted() {
   play(sounds.accepted)
 }
 
-/** Código rechazado: dos tonos graves y vibración doble. */
+/** Código rechazado: zumbido grave y vibración doble. */
 export function scanRejected() {
   vibrate([40, 60, 40])
   play(sounds.rejected)
