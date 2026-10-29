@@ -687,6 +687,14 @@
   box-shadow: 0 10px 28px rgb(15 42 55 / 0.1);
 }
 
+/* En el celular los filtros se desplazan con la página: fijos ocupan media pantalla. */
+@media (max-width: 968px) {
+  .filter-panel--sticky {
+    position: static;
+    box-shadow: var(--shadow-card);
+  }
+}
+
 .filter-panel > summary {
   min-height: 4rem;
   display: flex;
