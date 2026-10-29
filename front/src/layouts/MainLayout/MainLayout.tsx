@@ -17,7 +17,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '../../app/store'
 import { getAccessibleModules, NAVIGATION_SECTIONS } from '../../app/navigation'
-import { SidebarGroup } from './SidebarGroup'
+import { SidebarNav } from './SidebarNav'
+import { useActiveBranch } from '../../features/auth/hooks/useActiveBranch'
 import { clearCredentials, selectCurrentUser } from '../../features/auth/redux/authSlice'
 import { BranchSwitcher } from './BranchSwitcher'
 import { Toaster } from '../../shared/components/Toaster'
@@ -41,6 +42,9 @@ export function MainLayout() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   // Grupos que la persona abrió o cerró a mano; si no tocó nada, se abre el de la ruta actual.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+  // Al colapsar o expandir, el resaltado activo cambia de forma en su lugar en vez de viajar.
+  const [instantIndicator, setInstantIndicator] = useState(false)
+  const { branch: activeBranch } = useActiveBranch()
   const location = useLocation()
   const user = useAppSelector(selectCurrentUser)
   const dispatch = useAppDispatch()
@@ -82,6 +86,8 @@ export function MainLayout() {
   }, [])
 
   function toggleCollapsed() {
+    setInstantIndicator(true)
+    window.setTimeout(() => setInstantIndicator(false), 350)
     setCollapsed((current) => {
       storeSidebarCollapsed(!current)
       return !current
@@ -176,7 +182,7 @@ export function MainLayout() {
             </span>
             <span className="sidebar-brand__text">
               <strong>Gestión de envíos</strong>
-              <small>y distribución</small>
+              <small>{activeBranch?.name ?? 'Envíos y distribución'}</small>
             </span>
           </NavLink>
           <button className="sidebar-close" type="button" aria-label="Cerrar menú" onClick={() => setDrawerOpen(false)}>
@@ -184,48 +190,15 @@ export function MainLayout() {
           </button>
         </header>
 
-        <nav className="sidebar-nav">
-          {NAVIGATION_SECTIONS.map((section) => {
-            const sectionModules = accessibleModules.filter((module) => module.section === section.id)
-            if (!sectionModules.length) return null
-            return (
-              <div className="sidebar-nav__section" key={section.id}>
-                <span className="sidebar-nav__label">
-                  <span>{section.label}</span>
-                </span>
-                {sectionModules.map((module) => {
-                  const Icon = module.icon
-                  if (module.children?.length) {
-                    return (
-                      <SidebarGroup
-                        key={module.id}
-                        module={module}
-                        collapsed={collapsed}
-                        pathname={location.pathname}
-                        expanded={openGroups[module.id] ?? location.pathname.startsWith(module.path)}
-                        onToggle={(open) => setOpenGroups((current) => ({ ...current, [module.id]: open }))}
-                        onNavigate={() => setDrawerOpen(false)}
-                      />
-                    )
-                  }
-                  return (
-                    <NavLink
-                      className={({ isActive }) => `sidebar-nav__item ${isActive ? 'is-active' : ''}`}
-                      end={module.path === '/'}
-                      key={module.id}
-                      to={module.path}
-                      title={collapsed ? module.label : undefined}
-                      onClick={() => setDrawerOpen(false)}
-                    >
-                      <Icon size={18} aria-hidden="true" />
-                      <span className="sidebar-nav__text">{module.label}</span>
-                    </NavLink>
-                  )
-                })}
-              </div>
-            )
-          })}
-        </nav>
+        <SidebarNav
+          modules={accessibleModules}
+          pathname={location.pathname}
+          collapsed={collapsed && !drawerOpen}
+          instantIndicator={instantIndicator}
+          openGroups={openGroups}
+          onToggleGroup={(id, open) => setOpenGroups((current) => ({ ...current, [id]: open }))}
+          onNavigate={() => setDrawerOpen(false)}
+        />
 
         <footer className="sidebar-footer">
           <button
@@ -235,8 +208,8 @@ export function MainLayout() {
             title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
             onClick={toggleCollapsed}
           >
-            {collapsed ? <ChevronsRight size={18} aria-hidden="true" /> : <ChevronsLeft size={18} aria-hidden="true" />}
-            <span className="sidebar-nav__text">{collapsed ? 'Expandir' : 'Colapsar'}</span>
+            {collapsed ? <ChevronsRight size={16} aria-hidden="true" /> : <ChevronsLeft size={16} aria-hidden="true" />}
+            <span className="sidebar-collapse-label">Colapsar</span>
           </button>
         </footer>
       </aside>

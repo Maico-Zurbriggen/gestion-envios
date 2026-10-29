@@ -55,3 +55,15 @@ Las escalas completas y los tokens están en `front/src/styles/theme.css`. Los c
 - Estados de foco visibles, contraste suficiente y diseño responsive desde 320 px.
 - Los iconos de interfaz provienen de `lucide-react`. Se priorizan en botones y acciones cuando ayuden a reconocer su función, siempre con nombre accesible cuando el icono no esté acompañado por texto.
 - La aplicación admite temas claro y oscuro mediante `data-theme` en el elemento raíz. La preferencia se guarda localmente y los componentes deben utilizar tokens semánticos para funcionar correctamente en ambos temas.
+
+## Barra lateral: la firma de las apps
+
+Es la misma construcción que en Aviso Entrega, TamboApp y Sodería; no se cambia por otra.
+
+- 256 px de ancho; 72 px colapsada. El ancho cambia en 300 ms con la curva `cubic-bezier(0.16, 1, 0.3, 1)`.
+- Marca de 64 px de alto, con la sucursal activa debajo del nombre. Títulos de grupo en mayúscula de 11 px, seguidos de una línea.
+- Ítems de 40 px de alto (36 px las subsecciones), de borde a borde y sin redondeo.
+- La sección activa es un único bloque del color de la marca que se desliza de un ítem a otro: framer-motion con `layoutId="sidebar-active"` y resorte `stiffness: 500, damping: 40`. Colapsada, el bloque queda con 12 px de margen y esquinas redondeadas.
+- Al colapsar, los textos se desvanecen y el resaltado cambia de forma en su lugar, sin viajar.
+- Botón «Colapsar» de 48 px abajo de todo.
+- Código en `layouts/MainLayout/SidebarNav.tsx`. Las animaciones de framer-motion se cargan aparte (`LazyMotion`) para no pesar en la carga inicial.

@@ -10,6 +10,8 @@
   --sidebar-text: var(--color-neutral-300);
   --sidebar-muted: var(--color-neutral-400);
   --sidebar-hover: rgb(255 255 255 / 0.06);
+  --sidebar-strong: var(--color-neutral-0);
+  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   --sidebar-line: rgb(255 255 255 / 0.08);
   --topbar-height: 4rem;
 
@@ -17,7 +19,7 @@
   min-height: 100vh;
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-  transition: grid-template-columns var(--transition-base);
+  transition: grid-template-columns 300ms var(--ease-smooth);
 }
 
 .app-layout.is-collapsed {
@@ -48,19 +50,21 @@
 }
 
 .sidebar-header {
-  min-height: var(--topbar-height);
+  height: 64px;
+  flex: 0 0 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-4);
+  padding: 0 1.25rem;
   border-bottom: 1px solid var(--sidebar-line);
+  transition: padding 300ms var(--ease-smooth);
 }
 
 .sidebar-brand {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: 0.75rem;
   color: var(--color-neutral-0);
   text-decoration: none;
 }
@@ -70,8 +74,8 @@
 }
 
 .sidebar-brand__mark {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 36px;
+  height: 36px;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
@@ -84,22 +88,25 @@
 .sidebar-brand__text {
   min-width: 0;
   display: grid;
-  line-height: 1.15;
+  line-height: 1.25;
   white-space: nowrap;
+  transition: opacity 200ms ease-out;
+}
+
+.sidebar-brand__text strong,
+.sidebar-brand__text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar-brand strong {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: -0.01em;
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-semibold);
 }
 
 .sidebar-brand small {
   color: var(--sidebar-muted);
-  font-size: 0.625rem;
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--letter-spacing-kicker);
-  text-transform: uppercase;
+  font-size: 0.6875rem;
 }
 
 .sidebar-close {
@@ -119,264 +126,315 @@
   background: var(--sidebar-hover);
 }
 
+/*
+ * Navegación con la construcción de Aviso Entrega, TamboApp y Sodería: ítems de
+ * borde a borde y sin redondeo, y un único resaltado que se desliza (framer-motion)
+ * de la sección anterior a la nueva.
+ */
 .sidebar-nav {
   min-height: 0;
-  flex: 1;
-  display: grid;
-  align-content: start;
-  gap: var(--space-5);
-  padding: var(--space-5) var(--space-3);
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1rem 0;
   overflow-x: hidden;
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgb(255 255 255 / 0.15) transparent;
+  scrollbar-width: none;
 }
 
-.sidebar-nav__section {
-  display: grid;
-  gap: 0.15rem;
+.sidebar-nav::-webkit-scrollbar {
+  display: none;
 }
 
-/* Etiqueta de sección con una línea a continuación. */
-.sidebar-nav__label {
-  min-height: 1.25rem;
+.nav-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Título del grupo con una línea a continuación. */
+.nav-group-label {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-1);
-  padding: 0 var(--space-3);
-  color: var(--sidebar-muted);
-  font-size: 0.6875rem;
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  white-space: nowrap;
+  gap: 0.75rem;
+  margin-bottom: 0.375rem;
+  padding: 0 1rem;
+  transition:
+    gap 300ms var(--ease-smooth),
+    padding 300ms var(--ease-smooth);
 }
 
-.sidebar-nav__label::after {
+.nav-group-label p {
+  max-width: 12rem;
+  margin: 0;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--sidebar-muted) 75%, transparent);
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.05em;
+  line-height: 1rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition:
+    max-width 300ms var(--ease-smooth),
+    opacity 200ms ease-out;
+}
+
+.nav-group-label span {
   height: 1px;
   flex: 1;
   background: var(--sidebar-line);
-  content: '';
 }
 
-.sidebar-nav__item,
-.sidebar-collapse {
+.nav-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-section-trigger {
   position: relative;
-  min-height: 2.5rem;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: 0 var(--space-3);
-  color: var(--sidebar-text);
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0 1rem;
+  overflow: hidden;
+  color: var(--sidebar-muted);
   background: transparent;
   border: 0;
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
+  border-radius: 0;
+  font: inherit;
+  font-size: 0.875rem;
   font-weight: var(--font-weight-medium);
   text-align: left;
   text-decoration: none;
-  white-space: nowrap;
+  cursor: pointer;
   transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast),
-    box-shadow var(--transition-fast);
+    padding 300ms var(--ease-smooth),
+    background-color 150ms ease-out,
+    color 150ms ease-out;
 }
 
-.sidebar-nav__item svg,
-.sidebar-collapse svg {
+.nav-section-trigger:hover {
+  color: var(--sidebar-strong);
+  background: var(--sidebar-hover);
+}
+
+.nav-section-trigger.active {
+  color: var(--sidebar-strong);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* El color lo pone el resaltado que se desliza: el ítem queda transparente. */
+.nav-section-trigger.filled,
+.nav-section-trigger.filled:hover {
+  color: var(--color-neutral-0);
+  background: transparent;
+}
+
+.nav-section-trigger:focus-visible,
+.nav-section-children a:focus-visible,
+.sidebar-collapse:focus-visible {
+  outline: 2px solid var(--color-primary-300);
+  outline-offset: -2px;
+}
+
+.nav-active-indicator {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background: var(--color-primary);
+}
+
+.nav-section-title {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: gap 300ms var(--ease-smooth);
+}
+
+.nav-section-title svg {
   flex: 0 0 auto;
 }
 
-.sidebar-nav__text {
-  min-width: 0;
+.nav-label {
+  max-width: 12rem;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: opacity var(--transition-fast);
+  white-space: nowrap;
+  transition:
+    max-width 300ms var(--ease-smooth),
+    opacity 200ms ease-out;
 }
 
-.sidebar-nav__item:hover,
-.sidebar-collapse:hover {
-  color: var(--color-neutral-0);
-  background: var(--sidebar-hover);
-}
-
-/* Sección activa: bloque sólido naranja, como en Aviso Entrega. */
-.sidebar-nav__item.is-active {
-  color: var(--color-neutral-0);
-  background: var(--color-primary-600);
-  box-shadow: 0 6px 16px rgb(184 92 23 / 0.35);
-  font-weight: var(--font-weight-semibold);
-}
-
-.sidebar-nav__item.is-active:hover {
-  background: var(--color-primary-600);
-}
-
-/* Sección con subsecciones (como TamboApp): título + flecha y lista desplegable. */
-.sidebar-group__head {
+.nav-section-chevron {
   position: relative;
-  display: flex;
-  align-items: center;
+  z-index: 1;
+  width: 16px;
+  flex: 0 0 auto;
+  opacity: 0.75;
+  transition:
+    width 300ms var(--ease-smooth),
+    opacity 200ms ease-out,
+    transform 200ms var(--ease-smooth);
 }
 
-.sidebar-group__trigger {
-  flex: 1;
-  min-width: 0;
-  padding-right: 2.5rem;
-}
-
-.sidebar-group__trigger.is-current {
-  color: var(--color-neutral-0);
-  font-weight: var(--font-weight-semibold);
-}
-
-.sidebar-group__toggle {
-  position: absolute;
-  top: 50%;
-  right: 0.35rem;
-  width: 1.85rem;
-  height: 1.85rem;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  color: var(--sidebar-muted);
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-sm);
-  transform: translateY(-50%);
-}
-
-.sidebar-group__toggle:hover {
-  color: var(--color-neutral-0);
-  background: var(--sidebar-hover);
-}
-
-.sidebar-group__toggle svg {
-  transition: transform var(--transition-base);
-}
-
-.sidebar-group.is-expanded .sidebar-group__toggle svg {
+.nav-section.expanded .nav-section-chevron {
   transform: rotate(180deg);
 }
 
-.sidebar-subnav {
-  position: relative;
-  display: grid;
-  gap: 0.1rem;
-  margin: 0.15rem 0 0.35rem;
-  padding: 0 0 0 1.35rem;
+.nav-section-children {
+  margin: 0;
+  padding: 0.125rem 0 0.375rem;
+  overflow: hidden;
   list-style: none;
-  animation: subnav-in var(--transition-base) both;
 }
 
-/* Guía vertical que une las subsecciones con su sección. */
-.sidebar-subnav::before {
-  position: absolute;
-  top: 0.25rem;
-  bottom: 0.25rem;
-  left: 1.2rem;
-  width: 1px;
-  background: var(--sidebar-line);
-  content: '';
-}
-
-@keyframes subnav-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.sidebar-subnav__item {
+.nav-section-children a {
   position: relative;
-  min-height: 2.25rem;
+  min-height: 36px;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  margin-left: 0.6rem;
-  padding: 0 var(--space-3);
+  gap: 0.625rem;
+  padding: 0 1rem 0 2.75rem;
   color: var(--sidebar-muted);
-  border-radius: var(--radius-sm);
   font-size: 0.8125rem;
   font-weight: var(--font-weight-medium);
   text-decoration: none;
-  white-space: nowrap;
   transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast);
+    background-color 150ms ease-out,
+    color 150ms ease-out;
 }
 
-.sidebar-subnav__item span {
-  min-width: 0;
+.nav-section-children a > svg,
+.nav-section-children a > span:not(.nav-active-indicator) {
+  position: relative;
+  z-index: 1;
+}
+
+.nav-section-children a > span:not(.nav-active-indicator) {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.sidebar-subnav__item svg {
+.nav-section-children a > svg {
   flex: 0 0 auto;
   opacity: 0.85;
 }
 
-.sidebar-subnav__item:hover {
-  color: var(--color-neutral-0);
+.nav-section-children a:hover {
+  color: var(--sidebar-strong);
   background: var(--sidebar-hover);
 }
 
-.sidebar-subnav__item.is-active {
+.nav-section-children a.active,
+.nav-section-children a.active:hover {
   color: var(--color-neutral-0);
-  background: var(--color-primary-600);
-  box-shadow: 0 6px 16px rgb(184 92 23 / 0.3);
-  font-weight: var(--font-weight-semibold);
+  background: transparent;
 }
 
 .sidebar-footer {
-  min-height: 3rem;
-  display: flex;
-  align-items: center;
-  padding: 0 var(--space-3);
+  flex: 0 0 auto;
   border-top: 1px solid var(--sidebar-line);
 }
 
 .sidebar-collapse {
   width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
   color: var(--sidebar-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    gap 300ms var(--ease-smooth),
+    background-color 150ms ease-out,
+    color 150ms ease-out;
 }
 
-/* Barra lateral colapsada (solo escritorio): quedan los íconos. */
+.sidebar-collapse:hover {
+  color: var(--sidebar-strong);
+  background: var(--sidebar-hover);
+}
+
+.sidebar-collapse-label {
+  max-width: 8rem;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    max-width 300ms var(--ease-smooth),
+    opacity 200ms ease-out;
+}
+
+/*
+ * Colapsada (solo escritorio): los textos no se quitan, se desvanecen mientras el
+ * ancho se achica y el ícono se desliza hasta quedar centrado en los 72 px.
+ */
 @media (min-width: 969px) {
   .app-layout.is-collapsed .sidebar-header {
-    justify-content: center;
-    padding: 0;
+    padding-left: 18px;
   }
 
-  .app-layout.is-collapsed :is(.sidebar-brand__text, .sidebar-nav__text) {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
+  .app-layout.is-collapsed :is(.sidebar-brand__text, .nav-label, .nav-section-chevron, .sidebar-collapse-label) {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .app-layout.is-collapsed :is(.nav-label, .sidebar-collapse-label) {
+    max-width: 0;
+  }
+
+  .app-layout.is-collapsed .nav-section-chevron {
+    width: 0;
+  }
+
+  .app-layout.is-collapsed .nav-section-title {
+    gap: 0;
+  }
+
+  .app-layout.is-collapsed .nav-section-trigger {
+    padding-left: 27px;
+  }
+
+  .app-layout.is-collapsed .nav-group-label {
+    gap: 0;
+    padding: 0 0.75rem;
+  }
+
+  .app-layout.is-collapsed .nav-group-label p {
+    max-width: 0;
     opacity: 0;
   }
 
-  .app-layout.is-collapsed .sidebar-nav__label {
-    justify-content: center;
-    padding: 0;
-    font-size: 0;
+  .app-layout.is-collapsed .nav-group ul {
+    display: grid;
+    gap: 0.125rem;
   }
 
-  .app-layout.is-collapsed .sidebar-nav__label > span {
-    display: none;
+  .app-layout.is-collapsed .nav-active-indicator {
+    inset: 0 12px;
+    border-radius: 6px;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.12);
   }
 
-  .app-layout.is-collapsed :is(.sidebar-nav__item, .sidebar-collapse) {
-    justify-content: center;
-    padding: 0;
+  .app-layout.is-collapsed .sidebar-collapse {
+    gap: 0;
   }
 }
 
