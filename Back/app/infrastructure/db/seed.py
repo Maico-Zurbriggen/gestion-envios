@@ -19,12 +19,10 @@ ROLES_BASE = [
 ]
 
 SUCURSALES_BASE = [
-    {"nombre": "Sucursal Córdoba Centro", "provincia": "Córdoba", "ciudad": "Córdoba", "direccion": "Av. Colón 1234", "latitud": -31.4167, "longitud": -64.1833},
-    {"nombre": "Sucursal Rosario Sur", "provincia": "Santa Fe", "ciudad": "Rosario", "direccion": "Bv. Oroño 2456", "latitud": -32.9587, "longitud": -60.6931},
-    {"nombre": "Sucursal Mendoza Capital", "provincia": "Mendoza", "ciudad": "Mendoza", "direccion": "San Martín 890", "latitud": -32.8908, "longitud": -68.8272},
-    {"nombre": "Sucursal Buenos Aires Palermo", "provincia": "Buenos Aires", "ciudad": "CABA", "direccion": "Av. Santa Fe 3450", "latitud": -34.5875, "longitud": -58.4205},
-    {"nombre": "Sucursal Salta Norte", "provincia": "Salta", "ciudad": "Salta", "direccion": "Av. Sarmiento 555", "latitud": -24.7859, "longitud": -65.4117},
-    {"nombre": "Sucursal Mar del Plata", "provincia": "Buenos Aires", "ciudad": "Mar del Plata", "direccion": "Av. Colón 3020", "latitud": -38.0055, "longitud": -57.5426},
+    {"nombre": "Sucursal San Francisco", "provincia": "Córdoba", "ciudad": "San Francisco", "direccion": "Bv. 25 de Mayo 1855", "latitud": -31.429311, "longitud": -62.086707},
+    {"nombre": "Sucursal Morteros", "provincia": "Córdoba", "ciudad": "Morteros", "direccion": "Sarmiento 210", "latitud": -30.711297, "longitud": -61.999761},
+    {"nombre": "Sucursal Arroyito", "provincia": "Córdoba", "ciudad": "Arroyito", "direccion": "Rivadavia 456", "latitud": -31.418952, "longitud": -63.050467},
+    {"nombre": "Sucursal Villa María", "provincia": "Córdoba", "ciudad": "Villa María", "direccion": "General Paz 450", "latitud": -32.406853, "longitud": -63.247333},
 ]
 
 VENCIMIENTO = settings.VENCIMIENTO_PRE_REGISTRO_DIAS

@@ -88,7 +88,7 @@ Si algún paquete incumple, la respuesta es `400` con `code: "VALIDATION_ERROR"`
 {
   "status": "success",
   "data": [
-    { "id": 1, "nombre": "Sucursal Córdoba Centro", "provincia": "Córdoba", "ciudad": "Córdoba", "direccion": "Av. Colón 1234", "latitud": -31.4167, "longitud": -64.1833 }
+    { "id": 1, "nombre": "Sucursal San Francisco", "provincia": "Córdoba", "ciudad": "San Francisco", "direccion": "Bv. 25 de Mayo 1855", "latitud": -31.429311, "longitud": -62.086707 }
   ]
 }
 ```
