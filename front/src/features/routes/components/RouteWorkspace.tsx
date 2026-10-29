@@ -14,6 +14,7 @@ import { DeliveryRouteMap } from './DeliveryRouteMap'
 import { PendingPackagesPicker } from './PendingPackagesPicker'
 import { RouteError, RouteLoading } from './RouteFeedback'
 import { RouteLocationEditor } from './RouteLocationEditor'
+import { ReturnToBranchOption } from './ReturnToBranchOption'
 
 type Confirm = 'start' | 'delete' | null
 type Side = 'map' | 'add' | { locate: RouteStop }
@@ -156,6 +157,8 @@ export function RouteWorkspace({ id, drivers, busyDriverIds, onBack, onDeleted }
           </button>}
         </header>
         {showOptimize && <p className={canOptimize ? 'visually-hidden' : 'route-hint route-stops-panel__help'} id="route-optimize-help">{optimizeHelp}</p>}
+        {route.status !== 'FINALIZADO' && <ReturnToBranchOption id="route-return" checked={route.returnsToBranch} disabled={busy}
+          onChange={(returnsToBranch) => run({ id, action: 'return', returnsToBranch, reorder: canOptimize })} />}
         {editable && stops.length > 1 && <p className="route-hint route-stops-panel__help">Arrastrá <GripVertical size={14} aria-label="el asa" /> o usá las flechas para cambiar el orden. Se guarda solo.</p>}
         {stops.length === 0
           ? <p className="route-empty"><Package size={20} aria-hidden="true" /> El recorrido no tiene paquetes. Tocá «Agregar» para sumar los que esperan.</p>

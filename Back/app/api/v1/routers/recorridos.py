@@ -13,6 +13,7 @@ from app.api.dependencies import (
 from app.application.interfaces.servicio_recorridos import IServicioRecorridos
 from app.contracts.recorridos import (
     AlertaRecorridoResponse,
+    CambiarVueltaRequest,
     CompletarUbicacionPaqueteRequest,
     CrearRecorridoRequest,
     EliminarRecorridoResponse,
@@ -279,6 +280,24 @@ async def reasignar_repartidor(
 ):
     await _de_mi_sucursal(id, usuario, servicio)
     return await servicio.reasignar_repartidor(id, datos)
+
+
+@router.put(
+    "/{id}/vuelta",
+    response_model=RecorridoResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Marcar si el recorrido vuelve a la sucursal al terminar",
+    description="Reestima km y minutos con o sin el tramo de vuelta. Se puede cambiar hasta que el "
+    "recorrido termina. El orden no cambia solo: conviene optimizar después.",
+)
+async def cambiar_vuelta(
+    id: uuid.UUID,
+    datos: CambiarVueltaRequest,
+    usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
+):
+    await _de_mi_sucursal(id, usuario, servicio)
+    return await servicio.cambiar_vuelta(id, datos)
 
 
 # --- Salida y descarte ---

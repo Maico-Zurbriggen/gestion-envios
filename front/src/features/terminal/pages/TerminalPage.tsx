@@ -55,6 +55,8 @@ export function TerminalPage() {
   // Se recibe en la sucursal en la que se está trabajando.
   const { branchId } = useActiveBranch()
   const { scan, receive } = useTerminal(code)
+  // Paquetes recibidos en esta visita a la pantalla: leerlos de nuevo no los vuelve a abrir.
+  const received = useRef(new Set<string>())
 
   function focusCode() {
     requestAnimationFrame(() => codeInputRef.current?.focus())
@@ -76,6 +78,9 @@ export function TerminalPage() {
 
   function searchFromCamera(scanned: string) {
     if (receive.isPending) return 'Esperá a que termine la recepción en curso antes de leer otro paquete.'
+    if (received.current.has(scanned)) return `${scanned} ya se recibió. Apuntá a otro paquete.`
+    // Si la consulta anterior falló, leerlo de nuevo sirve para reintentar.
+    if (scanned === code && scan.data && !scan.isError) return `${scanned} ya está escaneado: sus datos están abajo.`
     setInput(scanned)
     searchCode(scanned)
   }
@@ -115,6 +120,7 @@ export function TerminalPage() {
         const weight = Number(scaleWeight.replace(',', '.'))
         receive.mutate({ code: item.code, branchId: branchId!, notes, scaleWeightKg: weight > 0 ? weight : null }, {
           onSuccess: (reception) => {
+            received.current.add(item.code)
             setInput('')
             // Admisión: la etiqueta se imprime y se pega en la caja en el mostrador.
             if (autoPrint) {

@@ -48,6 +48,15 @@
 .map-legend__dot--danger { background: var(--color-danger); }
 .map-legend__origin { width: 0.75rem; height: 0.75rem; background: var(--color-neutral-900); border-radius: 2px; }
 .map-legend__line { width: 1.2rem; height: 0.25rem; background: var(--color-primary); border-radius: var(--radius-full); }
+/* Punteada como en el mapa: se distingue también sin ver el color. */
+/* Opción de volver a la sucursal: título con icono y la explicación debajo. */
+.route-return-option { padding: var(--space-3); background: var(--color-surface-subtle); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.route-return-option > span { display: grid; gap: 0.15rem; min-width: 0; }
+.route-return-option strong { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: var(--font-weight-semibold); }
+.route-return-option strong svg { flex: 0 0 auto; color: var(--color-info); }
+.route-return-option small { color: var(--color-text-muted); font-size: var(--font-size-xs); }
+.route-return-option:focus-within { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.map-legend__line--return { background: repeating-linear-gradient(90deg, var(--color-info) 0 0.3rem, transparent 0.3rem 0.5rem); border-radius: 0; }
 .delivery-map__loading { display: flex; align-items: center; gap: var(--space-2); }
 .delivery-map__loading > svg { flex: 0 0 auto; }
 .route-stop-number { flex: 0 0 auto; display: grid; place-items: center; width: 1.8rem; height: 1.8rem; color: var(--color-primary); background: var(--color-surface-subtle); border: 1px solid var(--color-border); border-radius: var(--radius-full); font-weight: 700; font-size: var(--font-size-sm); }

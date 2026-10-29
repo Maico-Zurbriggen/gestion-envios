@@ -21,6 +21,7 @@ Todos requieren Bearer JWT con rol `ADMINISTRATIVO` o `SUPERADMIN`.
 | `PATCH` | `/api/v1/recorridos/{id}/paquetes/{codigo}/ubicacion` | 2 |
 | `POST` | `/api/v1/recorridos/{id}/optimizar` | 2 |
 | `PATCH` | `/api/v1/recorridos/{id}/repartidor` | 2 |
+| `PUT` | `/api/v1/recorridos/{id}/vuelta` | 2 |
 | `POST` | `/api/v1/recorridos/{id}/iniciar` | puente a HU11 |
 | `DELETE` | `/api/v1/recorridos/{id}` | 2, 3 |
 | `GET` | `/api/v1/recorridos/alertas` | 3 |
@@ -63,7 +64,7 @@ Toda la lógica es pura y vive en [`domain/rules/recorrido_rules.py`](../../app/
 |:---|:---|
 | **Sucursal de partida** | Es el origen de todo recorrido: el reparto barre las paradas por ángulo alrededor de ella y el orden de visita parte de ella. Sin coordenadas de la sucursal no se genera (`400`). |
 | **Orientación de las calles** | Dentro de una ciudad no se viaja en línea recta: la distancia urbana es Manhattan sobre los ejes de la cuadrícula, rotada `orientacion_calles_grados` respecto del norte (`distancia_urbana_km`). Cambiar la orientación cambia qué paradas quedan "cerca" y por lo tanto el orden (hay un test unitario que lo demuestra). Entre ciudades se usa la distancia geodésica × 1,25 de sinuosidad. |
-| **Optimización del tiempo** | Orden de visita por vecino más cercano y mejora 2-opt hasta que ningún intercambio acorte el recorrido. Se estima la duración: viaje a 25 km/h urbano u 80 km/h en ruta, más 5 min por domicilio o 15 por sucursal. |
+| **Optimización del tiempo** | Con hasta 8 paradas se prueban todos los órdenes y se elige el más corto (a igual costo, el que llega antes a los clientes). Con más, vecino más cercano y mejora 2-opt hasta que ningún intercambio acorte el recorrido. El tramo de vuelta a la sucursal cuenta solo si el recorrido vuelve (`vuelve_a_sucursal`, por defecto sí en corta distancia y no en larga). Se estima la duración: viaje a 25 km/h urbano u 80 km/h en ruta, más 5 min por domicilio o 15 por sucursal. |
 | **Distribución aproximadamente equitativa según la cantidad de repartidores** | Las paradas se ordenan por ángulo alrededor de la sucursal empezando después del mayor hueco (barrido) y se parten en tramos contiguos minimizando la carga máxima de **paquetes** por repartidor (partición lineal por programación dinámica). Cada repartidor recibe una zona compacta y una carga pareja. Un test verifica la optimalidad contra fuerza bruta. |
 
 Los paquetes con el mismo destino (mismo domicilio o misma sucursal) comparten parada y viajan juntos: el reparto pondera cada parada por su cantidad de paquetes.
@@ -87,6 +88,7 @@ La edición solo se permite en `GENERADO` o `EN_EDICION`:
 - `PUT /{id}/paquetes`: la lista completa en el orden de visita. Agrega, quita y reordena en una sola operación. Cada paquete se valida (que exista, que esté en la sucursal de partida y listo, que no esté en otro recorrido activo y que necesite un recorrido de este tipo) y los errores se informan por posición (`paquetes[i]`).
 - `DELETE /{id}/paquetes/{codigo}`: atajo para quitar uno. No se puede quitar el último (para eso, eliminar el recorrido).
 - `POST /{id}/optimizar`: recalcula el mejor orden de los paquetes actuales con la misma métrica (útil después de agregar paquetes a mano).
+- `PUT /{id}/vuelta`: marca si el recorrido termina volviendo a la sucursal y reestima km y minutos; se puede cambiar hasta que termina. En reparto, `optimizar` ordena lo pendiente desde el vehículo y, si vuelve, terminando en la sucursal.
 - `PATCH /{id}/repartidor`: reasigna a otro repartidor disponible de la misma sucursal y tipo; `409` si ya tiene otro recorrido activo ese día.
 
 Una edición manual pasa el recorrido a `EN_EDICION` y `generado_automaticamente = false`, y recalcula distancia y duración.
@@ -154,7 +156,7 @@ domain/constants/estados_logistica.py    # MotivoAlertaRecorridoEnum
 
 ## Tests
 
-- [`tests/unit/test_recorrido_rules.py`](../../tests/unit/test_recorrido_rules.py) — 41 casos del algoritmo: tipos de reparto, sucursal de entrega, distancias y orientación, partición óptima, barrido, 2-opt y estimaciones.
+- [`tests/unit/test_recorrido_rules.py`](../../tests/unit/test_recorrido_rules.py) — casos del algoritmo: tipos de reparto, sucursal de entrega, distancias y orientación, partición óptima, barrido, orden exacto, 2-opt, vuelta a la sucursal y estimaciones.
 - [`tests/integration/test_hu10_recorridos.py`](../../tests/integration/test_hu10_recorridos.py) — 25 casos contra la app completa, los cuatro escenarios más regeneración, selección de repartidores, validaciones, edición, inicio (corta y larga), eliminación y alertas.
 - [`tests/integration/test_hu10_repartidores.py`](../../tests/integration/test_hu10_repartidores.py) — 6 casos de los perfiles de repartidor.
 - El flujo de punta a punta ([`test_flujo_punta_a_punta.py`](../../tests/integration/test_flujo_punta_a_punta.py)) genera, edita e inicia un recorrido sobre paquetes registrados y recibidos por HTTP.

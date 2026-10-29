@@ -143,7 +143,7 @@ export async function createRoute(input: NewRouteInput, token: string): Promise<
   const result = await request<ApiRouteDetail>('/recorridos', token, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sucursal_id: input.branchId, fecha: input.date, tipo_distancia: input.distanceType,
-      repartidor_id: input.driverId, paquetes: input.packages }),
+      repartidor_id: input.driverId, paquetes: input.packages, vuelve_a_sucursal: input.returnsToBranch }),
   })
   return mapRoute(result.data)
 }
@@ -153,7 +153,7 @@ export async function generateRoutes(input: GenerateRoutesInput, token: string):
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     // Sin reemplazar: lo ya armado se respeta y se reparte solo lo que espera recorrido.
     body: JSON.stringify({ sucursal_id: input.branchId, fecha: input.date, tipo_distancia: input.distanceType,
-      repartidor_ids: input.driverIds }),
+      repartidor_ids: input.driverIds, vuelve_a_sucursal: input.returnsToBranch }),
   })
   const summary = result.data.resumen
   return { message: result.message || 'Planificación generada.',
@@ -179,10 +179,21 @@ export async function runRouteCommand(command: RouteCommand, token: string): Pro
     path += '/repartidor'
     options.method = 'PATCH'
     options.body = JSON.stringify({ repartidor_id: command.driverId })
+  } else if (command.action === 'return') {
+    path += '/vuelta'
+    options.method = 'PUT'
+    options.body = JSON.stringify({ vuelve_a_sucursal: command.returnsToBranch })
   } else if (command.action === 'delete') options.method = 'DELETE'
   else path += command.action === 'start' ? '/iniciar' : '/optimizar'
   if (options.body) options.headers = { 'Content-Type': 'application/json' }
   const result = await request<ApiRouteDetail>(path, token, options)
+  if (command.action === 'return' && command.reorder) {
+    // El mejor orden depende de si vuelve: se recalcula enseguida.
+    const optimized = await runRouteCommand({ id: command.id, action: 'optimize' }, token)
+    return { ...optimized, message: command.returnsToBranch
+      ? 'Ahora vuelve a la sucursal al terminar. Las paradas se reordenaron teniendo en cuenta la vuelta.'
+      : 'Ahora termina en la última parada. Las paradas se reordenaron sin la vuelta.' }
+  }
   return { route: command.action === 'delete' ? null : mapRoute(result.data),
     message: result.message || 'Recorrido actualizado.', alerts: (result.alertas ?? []).map(mapAlert) }
 }

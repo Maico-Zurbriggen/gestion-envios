@@ -13,12 +13,20 @@ export interface RoadRoute {
 }
 
 export interface RoadRoutePlan {
+  /** La ida: sucursal y paradas en orden. */
   points: RoadPoint[]
+  /** La vuelta a la sucursal desde la última parada (vacío si el recorrido no vuelve). */
+  returnPoints: RoadPoint[]
   missingStops: number
 }
 
+/** Ida y vuelta por calles; distancia y tiempo son los del total. */
+export interface RoadTrip extends RoadRoute {
+  returnPath: Array<[number, number]> | null
+}
+
 export interface RoadRoutingState {
-  data: RoadRoute | undefined
+  data: RoadTrip | undefined
   loading: boolean
   missingStops: number
   /** Puntos en orden, para dibujar algo mientras llega el recorrido por calles. */

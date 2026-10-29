@@ -46,7 +46,7 @@
     - `GET|PUT /api/v1/repartidores...` (Perfiles de Repartidor)
     - `POST /api/v1/recorridos/generar` (Generación Automática)
     - `GET /api/v1/recorridos` y `GET /api/v1/recorridos/{id}` (Visualización)
-    - `PUT|DELETE /api/v1/recorridos/{id}/paquetes...`, `POST .../optimizar`, `PATCH .../repartidor`, `DELETE /api/v1/recorridos/{id}` (Edición)
+    - `PUT|DELETE /api/v1/recorridos/{id}/paquetes...`, `POST .../optimizar`, `PATCH .../repartidor`, `PUT .../vuelta`, `DELETE /api/v1/recorridos/{id}` (Edición)
     - `POST /api/v1/recorridos/{id}/iniciar` (Inicio)
     - `GET /api/v1/recorridos/alertas` y `PATCH .../alertas/{id}/resolver` (Alertas)
 14. [Ejecución de Reparto y Constancias - HU11/HU12](#14-ejecución-de-reparto-y-constancias-hu11hu12)
@@ -1512,7 +1512,7 @@ Detalle (`data`):
 }
 ```
 
-**Cómo dibujarlo:** `trazado` es la polilínea en orden de visita (sucursal, paradas y vuelta a la sucursal si `vuelve_a_sucursal`). En `LARGA`, `tipo_parada` es `SUCURSAL`, `sucursal_destino` viene poblado y no hay vuelta. Una parada con `latitud: null` es un domicilio sin coordenadas agregado a mano: listarla, pero no tiene punto en el mapa.
+**Cómo dibujarlo:** `trazado` es la polilínea en orden de visita (sucursal, paradas y vuelta a la sucursal si `vuelve_a_sucursal`). El front dibuja la ida con el color principal y la vuelta (última parada → sucursal) aparte, en `--color-info` y punteada. `vuelve_a_sucursal` se elige al generar (`POST /generar`) o crear (`POST /recorridos`); si no se manda, es `true` en `CORTA` y `false` en `LARGA`. En `LARGA`, `tipo_parada` es `SUCURSAL`, `sucursal_destino` viene poblado y no hay vuelta. Una parada con `latitud: null` es un domicilio sin coordenadas agregado a mano: listarla, pero no tiene punto en el mapa.
 
 ### 13.4. Editar un Recorrido (solo `GENERADO` o `EN_EDICION`)
 | Método | URL | Body | Detalle |
@@ -1522,6 +1522,7 @@ Detalle (`data`):
 | `PATCH` | `/api/v1/recorridos/{id}/paquetes/{codigo}/ubicacion` | `{ "latitud": -34.58, "longitud": -58.42 }` | Completa un domicilio sin coordenadas en corta distancia. Guarda el punto en el envío y recalcula sus recorridos editables conservando el orden. |
 | `POST` | `/api/v1/recorridos/{id}/optimizar` | — | Recalcula el mejor orden de los paquetes actuales. |
 | `PATCH` | `/api/v1/recorridos/{id}/repartidor` | `{ "repartidor_id": "uuid" }` | Reasigna a otro repartidor disponible de la misma sucursal y tipo. |
+| `PUT` | `/api/v1/recorridos/{id}/vuelta` | `{ "vuelve_a_sucursal": false }` | Marca si al terminar vuelve a la sucursal y reestima km y minutos. Se puede cambiar hasta que el recorrido termina (`400` si está `FINALIZADO`). El orden no cambia solo: el front llama a `optimizar` después. |
 | `DELETE` | `/api/v1/recorridos/{id}` | — | Descarta el recorrido; sus paquetes quedan libres (y se alertan). Responde `{ "status", "message", "alertas" }`. |
 
 Todas salvo eliminar el recorrido devuelven el detalle actualizado (formato 13.3) y `alertas` con los paquetes de la sucursal que siguen sin recorrido de ese tipo. Una edición manual deja el recorrido en `EN_EDICION` con `generado_automaticamente: false`.

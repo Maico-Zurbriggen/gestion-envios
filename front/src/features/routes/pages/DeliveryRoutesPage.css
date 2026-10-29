@@ -565,11 +565,42 @@
   padding-inline: var(--space-3);
 }
 
+/* En el celular el título va arriba y los dos botones debajo, a lo ancho: no se salen del panel. */
+@media (max-width: 560px) {
+  .route-stops-panel__head {
+    flex-wrap: wrap;
+  }
+
+  .route-stops-panel__head h3 {
+    flex-basis: 100%;
+  }
+
+  .route-stops-panel__head .route-button {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+}
+
 .route-stops-panel__help {
   margin: 0;
   padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--color-border);
   font-size: var(--font-size-xs);
+}
+
+/* Dentro del panel la opción de vuelta es una fila más, como la ayuda. El panel recorta lo que
+   sobresale: el foco se dibuja hacia adentro. */
+.route-stops-panel > .route-return-option {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+}
+
+.route-stops-panel > .route-return-option:focus-within {
+  outline-offset: -3px;
 }
 
 .route-stops-panel > .route-empty {

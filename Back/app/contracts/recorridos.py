@@ -45,6 +45,11 @@ class GenerarRecorridosRequest(ApiModel):
         False,
         description="Si ya hay recorridos sin iniciar para esa sucursal, fecha y tipo, los descarta y genera de nuevo.",
     )
+    vuelve_a_sucursal: bool | None = Field(
+        None,
+        description="Si al terminar el repartidor vuelve a la sucursal (el tramo de vuelta cuenta al ordenar). "
+        "Por defecto, sí en corta distancia y no en larga.",
+    )
 
     @field_validator("tipo_distancia")
     @classmethod
@@ -60,6 +65,11 @@ class CrearRecorridoRequest(ApiModel):
     fecha: date | None = Field(None, description="Día de reparto. Por defecto, hoy.")
     repartidor_id: UUID
     paquetes: list[str] = Field(..., min_length=1, max_length=500, description="Códigos de paquete.")
+    vuelve_a_sucursal: bool | None = Field(
+        None,
+        description="Si al terminar el repartidor vuelve a la sucursal (el tramo de vuelta cuenta al ordenar). "
+        "Por defecto, sí en corta distancia y no en larga.",
+    )
 
     @field_validator("tipo_distancia")
     @classmethod
@@ -84,6 +94,12 @@ class ReemplazarPaquetesRecorridoRequest(ApiModel):
 
 class ReasignarRepartidorRequest(ApiModel):
     repartidor_id: UUID
+
+
+class CambiarVueltaRequest(ApiModel):
+    """Si el recorrido termina volviendo a la sucursal."""
+
+    vuelve_a_sucursal: bool
 
 
 class CompletarUbicacionPaqueteRequest(ApiModel):

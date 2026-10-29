@@ -56,6 +56,11 @@ export function PickupPage() {
 
   function searchFromCamera(scanned: string) {
     if (registration.isPending) return 'Esperá a que termine el registro en curso antes de buscar otro paquete.'
+    // Leerlo de nuevo borraría los datos del retiro que se están completando.
+    // Si la consulta anterior falló, leerlo de nuevo sirve para reintentar.
+    if (scanned === searchedCode && (completed || packageInfo)) {
+      return completed ? `El retiro de ${scanned} ya se registró.` : `${scanned} ya está escaneado: completá los datos del retiro abajo.`
+    }
     setCodeInput(scanned)
     searchCode(scanned)
   }

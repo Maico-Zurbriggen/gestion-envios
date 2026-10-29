@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Camera, CircleAlert, CircleCheck, Flashlight, FlashlightOff, LoaderCircle, X } from 'lucide-react'
 import { Modal } from './Modal'
 import { useCameraScanner, type CameraReadResult } from '../hooks/useCameraScanner'
 import type { CameraErrorKind } from '../services/barcodeScanner'
+import { scanAccepted, scanRejected } from '../services/scanFeedback'
 import { checkScannedCode } from '../services/scannedCode'
 import './CameraScannerModal.css'
 
@@ -69,23 +70,18 @@ interface RecentRead {
   time: string
 }
 
-function vibrate(pattern: number | number[]) {
-  try {
-    navigator.vibrate?.(pattern)
-  } catch {
-    /* sin vibración disponible */
-  }
-}
-
 const timeFormatter = new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 
 /**
  * Lector de códigos con la cámara del teléfono. Se monta solo mientras está
  * abierto: al desmontarse apaga la cámara.
  *
- * - Modo único: lee, vibra, entrega el código y se cierra.
+ * - Modo único: lee, suena y vibra, entrega el código y se cierra.
  * - Modo continuo: queda abierto, cada lectura se entrega a la pantalla y se
  *   lista entre los últimos códigos leídos.
+ *
+ * Un código ya aceptado no se vuelve a entregar mientras la cámara siga abierta:
+ * se avisa como lectura rechazada.
  */
 export function CameraScannerModal({
   mode,
@@ -99,24 +95,31 @@ export function CameraScannerModal({
 }: CameraScannerModalProps) {
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [recent, setRecent] = useState<RecentRead[]>([])
+  const accepted = useRef(new Set<string>())
 
   function handleRead(code: string): CameraReadResult {
     const check = checkScannedCode(code, pattern)
     if (!check.valid) {
       if (check.reason === 'pattern') {
-        vibrate([40, 60, 40])
+        scanRejected()
         setFeedback({ tone: 'error', text: patternMessage(check.code) })
       }
       return
     }
+    if (accepted.current.has(check.code)) {
+      scanRejected()
+      setFeedback({ tone: 'error', text: `${check.code} ya se escaneó. Apuntá a otro paquete.` })
+      return
+    }
     const rejection = onScan(check.code)
     if (rejection) {
-      vibrate([40, 60, 40])
+      scanRejected()
       setFeedback({ tone: 'error', text: rejection })
       return
     }
-    // La vibración confirma la lectura sin obligar a mirar la pantalla.
-    vibrate(80)
+    // El pitido y la vibración confirman la lectura sin obligar a mirar la pantalla.
+    accepted.current.add(check.code)
+    scanAccepted()
     if (mode === 'single') {
       onClose()
       return 'stop'

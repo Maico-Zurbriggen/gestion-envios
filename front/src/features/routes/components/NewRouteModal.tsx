@@ -2,10 +2,11 @@ import { useState, type FormEvent } from 'react'
 import { LoaderCircle, Plus, Route, WandSparkles } from 'lucide-react'
 import { Modal } from '../../../shared/components/Modal'
 import { useCreateRoute, usePendingPackages, useRouteCommand } from '../hooks/useRoutes'
-import { dayParts } from '../routePresentation'
+import { dayParts, returnsByDefault } from '../routePresentation'
 import type { DistanceType, Driver } from '../types/route.types'
 import { PendingPackagesPicker } from './PendingPackagesPicker'
 import { RouteError, RouteLoading } from './RouteFeedback'
+import { ReturnToBranchOption } from './ReturnToBranchOption'
 
 /** Alta manual: un repartidor libre ese día y los paquetes que lleva. Después se ordenan en el recorrido. */
 export function NewRouteModal({ branchId, branchName, date, distanceType, drivers, busyDriverIds, onClose, onCreated }: {
@@ -23,6 +24,7 @@ export function NewRouteModal({ branchId, branchName, date, distanceType, driver
   const create = useCreateRoute()
   const optimize = useRouteCommand()
   const [optimizeOnCreate, setOptimizeOnCreate] = useState(true)
+  const [returnsToBranch, setReturnsToBranch] = useState(() => returnsByDefault(distanceType))
   const working = create.isPending || optimize.isPending
   const free = drivers.filter((driver) => !busyDriverIds.has(driver.id))
   const [driverId, setDriverId] = useState(() => (free.length === 1 ? free[0].id : ''))
@@ -33,7 +35,7 @@ export function NewRouteModal({ branchId, branchName, date, distanceType, driver
     event.preventDefault()
     if (!driverId || !selected.size || working) return
     const packages = (pending.data ?? []).filter((item) => selected.has(item.code)).map((item) => item.code)
-    create.mutate({ branchId, date: day, distanceType, driverId, packages }, {
+    create.mutate({ branchId, date: day, distanceType, driverId, packages, returnsToBranch }, {
       onSuccess: (route) => {
         // Sin optimizar se respeta el orden de la lista; igual se puede optimizar después.
         if (!optimizeOnCreate || packages.length < 2) return onCreated(route.id, day)
@@ -73,6 +75,7 @@ export function NewRouteModal({ branchId, branchName, date, distanceType, driver
           {!drivers.length && <small className="route-hint">No hay repartidores activos con base en esta sucursal para este tipo de reparto. Configuralos en «Repartidores».</small>}
         </div>
       </div>
+      <ReturnToBranchOption id="new-route-return" checked={returnsToBranch} onChange={setReturnsToBranch} disabled={working} />
       <fieldset className="route-fieldset">
         <legend className="route-modal-form__legend">Paquetes que esperan recorrido</legend>
         {pending.isPending && <RouteLoading label="Buscando paquetes en espera…" />}

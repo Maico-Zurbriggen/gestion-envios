@@ -58,6 +58,7 @@ ahora el esquema solo cambia por migraciones, así que la lista no crece."""
 
 REVISION_CIRCUITO = "c41a7e9d2b55"
 REVISION_SUCURSALES = "e5b19c3a7d20"
+REVISION_VUELTA = "a7c3e19d4f52"
 TABLAS_SOLO_POR_MIGRACION = {
     "usuario_sucursales": REVISION_SUCURSALES,
 }
@@ -153,6 +154,8 @@ def revision_de_base_heredada(conexion: Connection) -> str | None:
     def columnas(tabla: str) -> set[str]:
         return {columna["name"] for columna in inspector.get_columns(tabla)}
 
+    if "vuelve_a_sucursal" in columnas("recorridos"):
+        return REVISION_VUELTA
     if set(TABLAS_SOLO_POR_MIGRACION) <= tablas:
         return REVISION_SUCURSALES
     if "tipo_aviso" in columnas("notificaciones_envio"):

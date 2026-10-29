@@ -4,6 +4,7 @@ from uuid import UUID
 
 from app.contracts.recorridos import (
     AlertaRecorridoResponse,
+    CambiarVueltaRequest,
     CompletarUbicacionPaqueteRequest,
     CrearRecorridoRequest,
     EliminarRecorridoResponse,
@@ -76,6 +77,10 @@ class IServicioRecorridos(Protocol):
         ...
 
     async def reasignar_repartidor(self, id: UUID, datos: ReasignarRepartidorRequest) -> RecorridoResponse: ...
+
+    async def cambiar_vuelta(self, id: UUID, datos: CambiarVueltaRequest) -> RecorridoResponse:
+        """Marca si el recorrido termina volviendo a la sucursal y reestima km y minutos."""
+        ...
 
     async def iniciar(self, id: UUID, usuario: Any) -> RecorridoResponse:
         """Despacha el recorrido: los paquetes salen de la sucursal."""

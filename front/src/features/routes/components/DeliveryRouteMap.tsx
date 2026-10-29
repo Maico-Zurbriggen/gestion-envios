@@ -38,17 +38,19 @@ export function DeliveryRouteMap({ route, routing, position, className = '' }: {
   }
   // Solo se dibuja el recorrido real por calles y rutas: nunca diagonales entre paradas.
   const path = routing.data && !routing.data.approximate && routing.data.path.length > 1 ? routing.data.path : null
+  const returnPath = path && routing.data?.returnPath && routing.data.returnPath.length > 1 ? routing.data.returnPath : null
   const unavailable = !routing.loading && routing.points.length > 1 && !path
 
   return <div className="delivery-map-panel">
-    <MapView className={`delivery-map ${className}`} label={`Mapa del recorrido de ${route.driver.name}`} markers={markers} route={path}
+    <MapView className={`delivery-map ${className}`} label={`Mapa del recorrido de ${route.driver.name}`} markers={markers} route={path} returnRoute={returnPath}
       fitKey={`${route.id}|${markers.filter((m) => m.kind !== 'vehiculo').map((m) => m.id).join(',')}`} />
     <ul className="map-legend" aria-label="Referencias del mapa">
       <li><span className="map-legend__origin" aria-hidden="true" /> Sucursal</li>
       <li><span className="map-legend__dot" aria-hidden="true" /> {live ? 'Pendiente' : 'Parada'}</li>
       {live && <li><span className="map-legend__dot map-legend__dot--success" aria-hidden="true" /> Entregada</li>}
       {live && <li><span className="map-legend__dot map-legend__dot--danger" aria-hidden="true" /> Sin entregar</li>}
-      {path && <li><span className="map-legend__line" aria-hidden="true" /> Recorrido por calles</li>}
+      {path && <li><span className="map-legend__line" aria-hidden="true" /> {returnPath ? 'Ida por calles' : 'Recorrido por calles'}</li>}
+      {returnPath && <li><span className="map-legend__line map-legend__line--return" aria-hidden="true" /> Vuelta a la sucursal</li>}
     </ul>
     {routing.loading && <p className="route-hint delivery-map__loading" role="status"><LoaderCircle size={15} className="loading-icon" aria-hidden="true" /> Calculando el recorrido por calles…</p>}
     {unavailable && <p className="route-hint" role="status">No se pudo calcular el recorrido por calles en este momento: se muestran las paradas en orden.</p>}

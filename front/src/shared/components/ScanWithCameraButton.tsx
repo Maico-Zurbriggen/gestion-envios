@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Camera } from 'lucide-react'
 import { checkCameraAvailability } from '../services/barcodeScanner'
+import { primeScanFeedback } from '../services/scanFeedback'
 import { CameraScannerModal, type CameraScannerModalProps } from './CameraScannerModal'
 
 interface ScanWithCameraButtonProps extends Omit<CameraScannerModalProps, 'onClose'> {
@@ -31,7 +32,7 @@ export function ScanWithCameraButton({ label = 'Escanear con cámara', className
   }
 
   return <>
-    <button ref={buttonRef} className={`${className} scan-camera-button`} type="button" aria-haspopup="dialog" disabled={disabled} onClick={() => setOpen(true)}>
+    <button ref={buttonRef} className={`${className} scan-camera-button`} type="button" aria-haspopup="dialog" disabled={disabled} onClick={() => { primeScanFeedback(); setOpen(true) }}>
       <Camera size={18} aria-hidden="true" /> {label}
     </button>
     {open && <CameraScannerModal {...scanner} onClose={close} />}

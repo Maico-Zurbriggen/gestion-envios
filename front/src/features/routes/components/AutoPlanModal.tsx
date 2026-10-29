@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { CheckCircle2, CircleAlert, Cpu, LoaderCircle, Package, UserRound } from 'lucide-react'
 import { Modal } from '../../../shared/components/Modal'
 import { useGenerateRoutes, usePendingPackages } from '../hooks/useRoutes'
-import { dayParts, formatRouteDistance, formatRouteDuration } from '../routePresentation'
+import { dayParts, formatRouteDistance, formatRouteDuration, returnsByDefault } from '../routePresentation'
 import type { DistanceType, Driver, GenerationResult } from '../types/route.types'
 import { RouteError, RouteLoading } from './RouteFeedback'
+import { ReturnToBranchOption } from './ReturnToBranchOption'
 
 /**
  * Reparte entre los repartidores elegidos los paquetes que todavía esperan recorrido.
@@ -24,6 +25,7 @@ export function AutoPlanModal({ branchId, branchName, date, distanceType, driver
   const generate = useGenerateRoutes()
   const [chosen, setChosen] = useState<Set<string>>(() => new Set(drivers.filter((d) => !busyDriverIds.has(d.id)).map((d) => d.id)))
   const [result, setResult] = useState<GenerationResult | null>(null)
+  const [returnsToBranch, setReturnsToBranch] = useState(() => returnsByDefault(distanceType))
   const plannable = pending.data?.filter((item) => item.located).length ?? 0
 
   function toggle(id: string) {
@@ -36,7 +38,7 @@ export function AutoPlanModal({ branchId, branchName, date, distanceType, driver
   }
 
   function run() {
-    generate.mutate({ branchId, date, distanceType, driverIds: [...chosen] }, { onSuccess: setResult })
+    generate.mutate({ branchId, date, distanceType, driverIds: [...chosen], returnsToBranch }, { onSuccess: setResult })
   }
 
   const title = `${branchName} · ${dayParts(date).long}`
@@ -101,6 +103,7 @@ export function AutoPlanModal({ branchId, branchName, date, distanceType, driver
             })}
           </ul>}
       </fieldset>
+      <ReturnToBranchOption id="auto-plan-return" checked={returnsToBranch} onChange={setReturnsToBranch} disabled={generate.isPending} />
       <p className="route-hint">Los paquetes sin ubicación en el mapa no se pueden repartir automáticamente: quedan esperando para sumarlos a mano.</p>
       {generate.isError && <RouteError error={generate.error} />}
     </div>

@@ -50,3 +50,8 @@ export function dayParts(day: string) {
   const value = new Date(year, month - 1, date)
   return { weekday: shortWeekday.format(value).replace('.', ''), number: date, long: longDay.format(value) }
 }
+
+/** Por defecto: en la ciudad el repartidor vuelve a la sucursal; entre sucursales, no. */
+export function returnsByDefault(distanceType: DistanceType) {
+  return distanceType === 'CORTA'
+}

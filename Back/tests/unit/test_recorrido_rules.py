@@ -11,6 +11,7 @@ from app.domain.constants.estados_logistica import (
 from app.domain.rules.recorrido_rules import (
     DESCRIPCIONES_MOTIVO_ALERTA,
     FACTOR_SINUOSIDAD_RUTA,
+    MAX_PARADAS_ORDEN_EXACTO,
     MINUTOS_POR_PARADA_DOMICILIO,
     ParadaPlanificable,
     SucursalUbicada,
@@ -158,7 +159,7 @@ def test_funcion_distancia_por_tipo():
 
 def test_la_orientacion_de_las_calles_cambia_el_orden_de_visita():
     """Escenario 1: la orientación de las calles influye en el recorrido generado."""
-    paradas = [_parada("A", 0.010, 0.000), _parada("B", 0.007, 0.007), _parada("C", 0.000, 0.0115)]
+    paradas = [_parada("A", -0.0117, 0.0081), _parada("B", -0.0058, -0.0064), _parada("C", 0.0119, -0.0007)]
     orden_0 = [p.clave for p in ordenar_paradas(ORIGEN, paradas, funcion_distancia(CORTA, 0), vuelve_al_origen=False)]
     orden_45 = [
         p.clave for p in ordenar_paradas(ORIGEN, paradas, funcion_distancia(CORTA, 45), vuelve_al_origen=False)
@@ -268,6 +269,50 @@ def test_2opt_elimina_cruces():
 
 def test_ordenar_sin_paradas():
     assert ordenar_paradas(ORIGEN, [], funcion_distancia(CORTA)) == []
+
+
+@pytest.mark.parametrize("vuelve", [True, False])
+def test_con_pocas_paradas_el_orden_es_el_optimo(vuelve):
+    """Hasta MAX_PARADAS_ORDEN_EXACTO paradas se prueban todos los órdenes: no hay uno mejor."""
+    paradas = [_parada(f"P{i}", 0.012 * math.cos(i * 2.4), 0.009 * math.sin(i * 1.7)) for i in range(7)]
+    distancia = funcion_distancia(CORTA, 0)
+    ruta = ordenar_paradas(ORIGEN, paradas, distancia, vuelve_al_origen=vuelve)
+    optimo = min(
+        costo_recorrido(ORIGEN, list(perm), distancia, vuelve) for perm in itertools.permutations(paradas)
+    )
+    assert costo_recorrido(ORIGEN, ruta, distancia, vuelve) == pytest.approx(optimo)
+
+
+def test_la_vuelta_a_la_sucursal_cambia_el_orden():
+    """Sin vuelta conviene terminar en lo más lejano; con vuelta, el tramo final hasta la sucursal también cuenta."""
+    paradas = [_parada("A", 0.004, 0.008), _parada("B", 0.001, 0.004), _parada("C", 0.009, 0.010)]
+    distancia = funcion_distancia(CORTA, 0)
+    sin_vuelta = [p.clave for p in ordenar_paradas(ORIGEN, paradas, distancia, vuelve_al_origen=False)]
+    con_vuelta = [p.clave for p in ordenar_paradas(ORIGEN, paradas, distancia, vuelve_al_origen=True)]
+    assert sin_vuelta == ["B", "A", "C"]
+    assert con_vuelta == ["B", "C", "A"]
+
+
+def test_la_vuelta_puede_terminar_en_otro_punto():
+    """En reparto se sale desde el vehículo y se termina en la sucursal (`fin`)."""
+    vehiculo = (ORIGEN[0], ORIGEN[1] + 0.020)
+    paradas = [_parada("cerca_sucursal", 0.0, 0.002), _parada("cerca_vehiculo", 0.0, 0.018)]
+    distancia = funcion_distancia(CORTA, 0)
+    ruta = ordenar_paradas(vehiculo, paradas, distancia, vuelve_al_origen=True, fin=ORIGEN)
+    assert [p.clave for p in ruta] == ["cerca_vehiculo", "cerca_sucursal"]
+
+
+def test_a_igual_costo_atiende_primero_lo_cercano():
+    """Ida y vuelta por la misma calle cuesta igual en los dos sentidos: va primero a lo más cercano."""
+    paradas = [_parada("lejos", 0.0, 0.020), _parada("cerca", 0.0, 0.005)]
+    ruta = ordenar_paradas(ORIGEN, paradas, funcion_distancia(CORTA, 0), vuelve_al_origen=True)
+    assert [p.clave for p in ruta] == ["cerca", "lejos"]
+
+
+def test_con_muchas_paradas_usa_la_heuristica_sin_perder_ninguna():
+    paradas = [_parada(f"P{i}", 0.01 * math.cos(i), 0.01 * math.sin(i)) for i in range(MAX_PARADAS_ORDEN_EXACTO + 4)]
+    ruta = ordenar_paradas(ORIGEN, paradas, funcion_distancia(CORTA, 0))
+    assert sorted(p.clave for p in ruta) == sorted(p.clave for p in paradas)
 
 
 def test_estimacion_suma_viaje_y_atencion():

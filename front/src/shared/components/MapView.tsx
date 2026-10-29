@@ -67,6 +67,8 @@ interface MapViewProps {
   markers: MapMarker[]
   /** Recorrido [longitud, latitud]. */
   route?: Array<[number, number]> | null
+  /** Vuelta a la sucursal [longitud, latitud]: otro color y punteada, para no confundirla con la ida. */
+  returnRoute?: Array<[number, number]> | null
   className?: string
   /** Nombre accesible del mapa. */
   label: string
@@ -79,21 +81,27 @@ interface MapViewProps {
   children?: ReactNode
 }
 
-export function MapView({ markers, route, className = '', label, fallbackCenter, fitKey, maxZoom = 15, onMapClick, children }: MapViewProps) {
+export function MapView({ markers, route, returnRoute, className = '', label, fallbackCenter, fitKey, maxZoom = 15, onMapClick, children }: MapViewProps) {
   const ref = useRef<MapRef>(null)
   const box = useRef<HTMLDivElement>(null)
   const { theme } = useTheme()
   const [routeColor, setRouteColor] = useState('#d9701f')
+  const [returnColor, setReturnColor] = useState('#3b6fd8')
   useEffect(() => {
-    // El recorrido toma el color principal de la marca.
-    const value = box.current ? getComputedStyle(box.current).getPropertyValue('--color-primary').trim() : ''
-    if (value) setRouteColor(value)
+    // La ida toma el color principal de la marca; la vuelta, el informativo.
+    if (!box.current) return
+    const styles = getComputedStyle(box.current)
+    const primary = styles.getPropertyValue('--color-primary').trim()
+    const info = styles.getPropertyValue('--color-info').trim()
+    if (primary) setRouteColor(primary)
+    if (info) setReturnColor(info)
   }, [theme])
 
   const key = fitKey ?? markers.map((m) => `${m.id}:${m.lat.toFixed(5)},${m.lon.toFixed(5)}`).join('|')
   const bounds = useMemo(() => {
     const points: Array<[number, number]> = markers.map((m) => [m.lon, m.lat])
     if (route?.length) points.push(...route)
+    if (returnRoute?.length) points.push(...returnRoute)
     if (!points.length) return null
     let [minX, minY, maxX, maxY] = [points[0][0], points[0][1], points[0][0], points[0][1]]
     for (const [x, y] of points) {
@@ -103,7 +111,7 @@ export function MapView({ markers, route, className = '', label, fallbackCenter,
     return [[minX, minY], [maxX, maxY]] as [[number, number], [number, number]]
     // Solo se recalcula al cambiar la clave: mover el vehículo no re-encuadra el mapa.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, route])
+  }, [key, route, returnRoute])
 
   useEffect(() => {
     if (bounds) ref.current?.fitBounds(bounds, { padding: FIT_PADDING, maxZoom, duration: 600 })
@@ -113,6 +121,9 @@ export function MapView({ markers, route, className = '', label, fallbackCenter,
   const routeGeo = useMemo(() => route && route.length > 1
     ? { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: route } }
     : null, [route])
+  const returnGeo = useMemo(() => returnRoute && returnRoute.length > 1
+    ? { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: returnRoute } }
+    : null, [returnRoute])
 
   return <div ref={box} className={`map-view ${className}`} role="region" aria-label={label}>
     <Map
@@ -126,6 +137,12 @@ export function MapView({ markers, route, className = '', label, fallbackCenter,
       onLoad={() => { if (bounds) ref.current?.fitBounds(bounds, { padding: FIT_PADDING, maxZoom, duration: 0 }) }}
     >
       <NavigationControl position="top-right" showCompass={false} />
+      {/* La vuelta va debajo: donde comparte calles con la ida, se ve la ida. */}
+      {returnGeo && <Source id="recorrido-vuelta" type="geojson" data={returnGeo}>
+        <Layer id="recorrido-vuelta-borde" type="line" paint={{ 'line-color': '#ffffff', 'line-width': 7, 'line-opacity': 0.9 }} layout={{ 'line-join': 'round', 'line-cap': 'round' }} />
+        <Layer id="recorrido-vuelta-linea" type="line" layout={{ 'line-join': 'round', 'line-cap': 'butt' }}
+          paint={{ 'line-color': returnColor, 'line-width': 4, 'line-dasharray': [2, 1.5] }} />
+      </Source>}
       {routeGeo && <Source id="recorrido" type="geojson" data={routeGeo}>
         <Layer id="recorrido-borde" type="line" paint={{ 'line-color': '#ffffff', 'line-width': 7, 'line-opacity': 0.9 }} layout={{ 'line-join': 'round', 'line-cap': 'round' }} />
         <Layer id="recorrido-linea" type="line" layout={{ 'line-join': 'round', 'line-cap': 'round' }}

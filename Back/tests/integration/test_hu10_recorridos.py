@@ -228,6 +228,65 @@ async def test_hu10_escenario_1_orden_de_visita_optimizado(
 
 
 @pytest.mark.asyncio
+async def test_hu10_vuelta_a_la_sucursal_se_elige_por_recorrido(
+    client: AsyncClient, db_session: AsyncSession, administrativo_token: str, repartidor_token: str
+):
+    """La vuelta a la sucursal es una opción de cada recorrido: al generarlo, al crearlo y después."""
+    await _domicilio(db_session, 0.01, 0.0)
+    ultima = await _domicilio(db_session, 0.02, 0.0)
+    await _crear_repartidor(db_session, "Ana Repartidora")
+    headers = {"Authorization": f"Bearer {administrativo_token}"}
+
+    recorrido = (await _generar(client, administrativo_token, vuelve_a_sucursal=False))["data"]["recorridos"][0]
+    assert recorrido["vuelve_a_sucursal"] is False
+    assert _numeros(recorrido)[-1] == ultima.numero_paquete, "sin vuelta termina en lo más lejano"
+    fin = recorrido["trazado"][-1]
+    assert (fin["latitud"], fin["longitud"]) != CORDOBA
+    km_sin_vuelta = recorrido["distancia_estimada_km"]
+
+    con_vuelta = await client.put(f"{BASE}/{recorrido['id']}/vuelta", headers=headers, json={"vuelve_a_sucursal": True})
+    assert con_vuelta.status_code == 200, con_vuelta.text
+    data = con_vuelta.json()["data"]
+    assert data["vuelve_a_sucursal"] is True
+    fin = data["trazado"][-1]
+    assert (fin["latitud"], fin["longitud"]) == CORDOBA
+    assert data["distancia_estimada_km"] > km_sin_vuelta
+
+    prohibido = await client.put(
+        f"{BASE}/{recorrido['id']}/vuelta",
+        headers={"Authorization": f"Bearer {repartidor_token}"},
+        json={"vuelve_a_sucursal": False},
+    )
+    assert prohibido.status_code == 403
+
+    fila = await db_session.get(RecorridoModel, uuid.UUID(recorrido["id"]))
+    fila.estado = EstadoRecorridoEnum.FINALIZADO.value
+    await db_session.commit()
+    terminado = await client.put(f"{BASE}/{recorrido['id']}/vuelta", headers=headers, json={"vuelve_a_sucursal": False})
+    assert terminado.status_code == 400, terminado.text
+
+
+@pytest.mark.asyncio
+async def test_hu10_vuelta_en_alta_manual_y_por_defecto_segun_tipo(
+    client: AsyncClient, db_session: AsyncSession, administrativo_token: str
+):
+    paquete = await _domicilio(db_session, 0.01, 0.0)
+    ana = await _crear_repartidor(db_session, "Ana Repartidora")
+    headers = {"Authorization": f"Bearer {administrativo_token}"}
+    cuerpo = {"sucursal_id": 1, "tipo_distancia": "CORTA", "repartidor_id": str(ana.id), "paquetes": [paquete.numero_paquete]}
+
+    por_defecto = await client.post(BASE, headers=headers, json=cuerpo)
+    assert por_defecto.status_code == 201, por_defecto.text
+    assert por_defecto.json()["data"]["vuelve_a_sucursal"] is True  # corta distancia
+    await client.delete(f"{BASE}/{por_defecto.json()['data']['id']}", headers=headers)
+
+    sin_vuelta = await client.post(BASE, headers=headers, json={**cuerpo, "vuelve_a_sucursal": False})
+    assert sin_vuelta.status_code == 201, sin_vuelta.text
+    assert sin_vuelta.json()["data"]["vuelve_a_sucursal"] is False
+    assert len(sin_vuelta.json()["data"]["trazado"]) == 2
+
+
+@pytest.mark.asyncio
 async def test_hu10_paquetes_del_mismo_domicilio_comparten_parada(
     client: AsyncClient, db_session: AsyncSession, administrativo_token: str
 ):

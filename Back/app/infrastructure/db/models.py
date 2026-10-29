@@ -496,6 +496,8 @@ class RecorridoModel(Base):
     fecha: Mapped[date] = mapped_column(Date, nullable=False)
     estado: Mapped[str] = mapped_column(String(15), nullable=False, default=EstadoRecorridoEnum.GENERADO.value)
     generado_automaticamente: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    vuelve_a_sucursal: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    """Si el repartidor vuelve a la sucursal al terminar: se cuenta al optimizar y se dibuja aparte en el mapa."""
     orientacion_calles_grados: Mapped[float] = mapped_column(
         Float, nullable=False, default=0.0, server_default="0"
     )

@@ -188,6 +188,8 @@ export interface NewRouteInput {
   distanceType: DistanceType
   driverId: string
   packages: string[]
+  /** Si al terminar vuelve a la sucursal (cuenta al ordenar las paradas). */
+  returnsToBranch: boolean
 }
 
 export interface RoutePackage {
@@ -259,6 +261,7 @@ export interface RouteRange {
 
 export interface GenerateRoutesInput extends RouteFilters {
   driverIds: string[]
+  returnsToBranch: boolean
 }
 
 export interface GenerationResult {
@@ -285,6 +288,8 @@ export type RouteCommand =
   | { id: string; action: 'save'; packages: string[] }
   | { id: string; action: 'locate'; packageCode: string; latitude: number; longitude: number }
   | { id: string; action: 'assign'; driverId: string }
+  /** Con `reorder`, después de cambiar la vuelta se vuelve a optimizar el orden. */
+  | { id: string; action: 'return'; returnsToBranch: boolean; reorder: boolean }
   | { id: string; action: 'optimize' | 'start' | 'delete' }
 
 export interface DriverProfileInput {
