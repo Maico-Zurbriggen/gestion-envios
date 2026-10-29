@@ -32,7 +32,7 @@ def _payload_domicilio(**overrides):
         "direccion_destino": "Calle 50 N° 1234",
         "latitud_destino": -34.9214,
         "longitud_destino": -57.9544,
-        "terminos_aceptados": True,
+        "sucursal_origen_id": 1, "terminos_aceptados": True,
         "paquetes": [_paquete()],
     }
     base.update(overrides)

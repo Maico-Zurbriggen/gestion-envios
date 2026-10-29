@@ -34,7 +34,9 @@ from app.application.interfaces.servicio_sucursales import IServicioSucursales
 from app.application.services.servicio_auth import ServicioAuth
 from app.application.services.servicio_empleados import ServicioEmpleados
 from app.application.services.servicio_envios import ServicioEnvios
+from app.application.services.servicio_monitor import ServicioMonitor
 from app.application.services.servicio_notificaciones import ServicioNotificaciones
+from app.application.services.servicio_plazos import ServicioPlazos
 from app.application.services.servicio_preguntas_frecuentes import ServicioPreguntasFrecuentes
 from app.application.services.servicio_recepcion_terminal import ServicioRecepcionTerminal
 from app.application.services.servicio_reclamos import ServicioReclamos
@@ -49,16 +51,21 @@ from app.core.exceptions import (
     ForbiddenAccessException,
     ForbiddenScopeException,
     InvalidTokenException,
+    ValidationException,
 )
 from app.domain.constants.roles import RolEnum
 from app.domain.constants.scopes import ScopeEnum
+from app.domain.rules.sucursal_rules import ve_todas_las_sucursales
 from app.infrastructure.auth.jwt_handler import ManejadorJWT
 from app.infrastructure.db.models import UsuarioModel
 from app.infrastructure.db.session import AsyncSessionLocal, obtener_sesion_db
 from app.infrastructure.email.email_provider import obtener_proveedor_email
+from app.infrastructure.mapas.rutas import ServicioRutasOsrm
 from app.infrastructure.repositories.repositorio_entregas import RepositorioEntregas
 from app.infrastructure.repositories.repositorio_envios import RepositorioEnvios
+from app.infrastructure.repositories.repositorio_monitor import RepositorioMonitor
 from app.infrastructure.repositories.repositorio_notificaciones import RepositorioNotificaciones
+from app.infrastructure.repositories.repositorio_plazos import RepositorioPlazos
 from app.infrastructure.repositories.repositorio_preguntas_frecuentes import RepositorioPreguntasFrecuentes
 from app.infrastructure.repositories.repositorio_recepciones import RepositorioRecepciones
 from app.infrastructure.repositories.repositorio_reclamos import RepositorioReclamos
@@ -87,22 +94,6 @@ def get_repositorio_roles(
     return RepositorioRoles(db)
 
 
-def get_servicio_auth(
-    repo_usuarios: IRepositorioUsuarios = Depends(get_repositorio_usuarios),
-) -> IServicioAuth:
-    return ServicioAuth(repositorio_usuarios=repo_usuarios)
-
-
-def get_servicio_empleados(
-    repo_usuarios: IRepositorioUsuarios = Depends(get_repositorio_usuarios),
-    repo_roles: IRepositorioRoles = Depends(get_repositorio_roles),
-) -> IServicioEmpleados:
-    return ServicioEmpleados(
-        repositorio_usuarios=repo_usuarios,
-        repositorio_roles=repo_roles,
-    )
-
-
 def get_repositorio_envios(
     db: AsyncSession = Depends(obtener_sesion_db),
 ) -> IRepositorioEnvios:
@@ -114,6 +105,12 @@ def get_repositorio_sucursales(
 ) -> IRepositorioSucursales:
     return RepositorioSucursales(db)
 
+
+def get_servicio_auth(
+    repo_usuarios: IRepositorioUsuarios = Depends(get_repositorio_usuarios),
+    repo_sucursales: IRepositorioSucursales = Depends(get_repositorio_sucursales),
+) -> IServicioAuth:
+    return ServicioAuth(repositorio_usuarios=repo_usuarios, repositorio_sucursales=repo_sucursales)
 
 def get_servicio_envios(
     repo_envios: IRepositorioEnvios = Depends(get_repositorio_envios),
@@ -167,6 +164,12 @@ def get_servicio_notificaciones(
         repo_notificaciones=repo_notificaciones,
         whatsapp_provider=obtener_proveedor_whatsapp(),
     )
+
+
+def get_servicio_monitor(
+    db: AsyncSession = Depends(obtener_sesion_db),
+) -> ServicioMonitor:
+    return ServicioMonitor(RepositorioMonitor(db))
 
 
 def get_repositorio_entregas(
@@ -233,6 +236,20 @@ def get_repositorio_repartidores(
     return RepositorioRepartidores(db)
 
 
+def get_servicio_empleados(
+    repo_usuarios: IRepositorioUsuarios = Depends(get_repositorio_usuarios),
+    repo_roles: IRepositorioRoles = Depends(get_repositorio_roles),
+    repo_sucursales: IRepositorioSucursales = Depends(get_repositorio_sucursales),
+    repo_repartidores: IRepositorioRepartidores = Depends(get_repositorio_repartidores),
+) -> IServicioEmpleados:
+    return ServicioEmpleados(
+        repositorio_usuarios=repo_usuarios,
+        repositorio_roles=repo_roles,
+        repositorio_sucursales=repo_sucursales,
+        repositorio_repartidores=repo_repartidores,
+    )
+
+
 def get_servicio_repartidores(
     repo_repartidores: IRepositorioRepartidores = Depends(get_repositorio_repartidores),
     repo_sucursales: IRepositorioSucursales = Depends(get_repositorio_sucursales),
@@ -253,7 +270,9 @@ def get_servicio_recorridos(
 ) -> IServicioRecorridos:
     """Generación, visualización y edición de recorridos (HU10). Necesita el
     catálogo de sucursales para ubicar el origen y las paradas de larga distancia."""
-    return ServicioRecorridos(repositorio_recorridos=repo_recorridos, repositorio_sucursales=repo_sucursales)
+    return ServicioRecorridos(
+        repositorio_recorridos=repo_recorridos, repositorio_sucursales=repo_sucursales, rutas=ServicioRutasOsrm()
+    )
 
 
 def get_servicio_reparto(
@@ -262,6 +281,13 @@ def get_servicio_reparto(
     servicio_recorridos: IServicioRecorridos = Depends(get_servicio_recorridos),
 ) -> IServicioReparto:
     return ServicioReparto(repo_recorridos, repo_entregas, servicio_recorridos)
+
+
+def get_servicio_plazos(
+    db: AsyncSession = Depends(obtener_sesion_db),
+    notificaciones: IServicioNotificaciones = Depends(get_servicio_notificaciones),
+) -> ServicioPlazos:
+    return ServicioPlazos(RepositorioPlazos(db), notificaciones)
 
 
 # --- Inyección de Autenticación y Autorización ---
@@ -294,19 +320,6 @@ async def obtener_usuario_actual(
         raise ForbiddenAccessException("La cuenta de usuario se encuentra inactiva o bloqueada.")
 
     return usuario
-
-
-def requerir_scope(scope_requerido: str) -> Callable:
-    """Fabrica una dependencia que restringe el acceso al scope JWT especificado."""
-    async def validador_scope(payload: dict[str, Any] = Depends(obtener_token_payload)) -> dict[str, Any]:
-        scope_actual = payload.get("scope")
-        if scope_actual != scope_requerido:
-            raise ForbiddenScopeException(
-                f"El token no posee el alcance necesario ({scope_requerido})."
-            )
-        return payload
-
-    return validador_scope
 
 
 async def validar_token_para_cambio_password(
@@ -354,6 +367,34 @@ def requerir_rol(rol_requerido: RolEnum) -> Callable:
         return usuario
 
     return validador_rol
+
+
+def sucursales_habilitadas(usuario: Any) -> set[int] | None:
+    """Ids de las sucursales en las que trabaja el usuario; `None` si entra en todas (Superadministrador)."""
+    rol = usuario.rol.nombre if getattr(usuario, "rol", None) else None
+    if ve_todas_las_sucursales(rol):
+        return None
+    return {s.id for s in getattr(usuario, "sucursales", None) or [] if s.activa}
+
+
+def verificar_sucursal(usuario: Any, sucursal_id: int | None) -> None:
+    """403 si el usuario no tiene habilitada esa sucursal."""
+    if sucursal_id is None:
+        return
+    habilitadas = sucursales_habilitadas(usuario)
+    if habilitadas is not None and sucursal_id not in habilitadas:
+        raise ForbiddenAccessException("No tenés acceso a esa sucursal. Elegí una de las habilitadas para tu usuario.")
+
+
+def exigir_sucursal(usuario: Any, sucursal_id: int | None) -> int | None:
+    """Para listados: sin sucursal elegida, quien no entra en todas tiene que elegir una."""
+    if sucursal_id is None and sucursales_habilitadas(usuario) is not None:
+        raise ValidationException(
+            message="Elegí una sucursal.",
+            errors=[{"field": "sucursal_id", "message": "Tu usuario trabaja por sucursal: indicá en cuál."}],
+        )
+    verificar_sucursal(usuario, sucursal_id)
+    return sucursal_id
 
 
 def requerir_roles(roles_permitidos: list[RolEnum]) -> Callable:

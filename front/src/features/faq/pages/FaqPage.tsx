@@ -1,16 +1,15 @@
 import { useState, type FormEvent } from 'react'
 import {
-  ArrowLeft, ArrowRight, ChevronDown, CircleAlert, CircleHelp, ListFilter,
-  LoaderCircle, LogIn, MapPin, Moon, PackageCheck, RefreshCw, Search, Sun, X,
+  ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, CircleAlert, CircleHelp, ListFilter,
+  LoaderCircle, MapPin, RefreshCw, Search, X,
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useAppSelector } from '../../../app/store'
-import { useTheme } from '../../../shared/hooks/useTheme'
 import { useInsidePanel } from '../../../layouts/MainLayout/panelContext'
-import { selectIsAuthenticated } from '../../auth/redux/authSlice'
 import { useFaqs } from '../hooks/useFaqs'
 import type { FaqQuestion } from '../types/faq.types'
+import { Modal } from '../../../shared/components/Modal'
 import './FaqPage.css'
+import { PublicHeader } from '../../../shared/components/PublicHeader'
 
 function normalizeCategory(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-AR').trim()
@@ -55,9 +54,7 @@ export function FaqPage() {
   const search = (searchParams.get('q') ?? '').trim().slice(0, 100)
   const category = (searchParams.get('categoria') ?? '').trim().slice(0, 80)
   const query = useFaqs({ search, category })
-  const isAuthenticated = useAppSelector(selectIsAuthenticated)
   const insidePanel = useInsidePanel()
-  const { theme, toggleTheme } = useTheme()
   const loading = query.isPending || query.isPlaceholderData
   const hasFilters = Boolean(search || category)
   const listing = !query.isPlaceholderData ? query.data : undefined
@@ -68,6 +65,10 @@ export function FaqPage() {
     questions.push(question)
     groups.set(question.category, questions)
   }
+  const ordered = Array.from(groups.values()).flat()
+  const [openId, setOpenId] = useState<FaqQuestion['id'] | null>(null)
+  const openIndex = ordered.findIndex((question) => question.id === openId)
+  const openQuestion = openIndex >= 0 ? ordered[openIndex] : undefined
 
   function updateFilters(nextSearch: string, nextCategory: string) {
     const params = new URLSearchParams()
@@ -78,20 +79,7 @@ export function FaqPage() {
 
   return (
     <main className={`faq-page${insidePanel ? ' is-embedded' : ''}`}>
-      {!insidePanel && <header className="faq-public-header">
-        <Link className="faq-brand" to={isAuthenticated ? '/' : '/login'}>
-          <span aria-hidden="true"><PackageCheck size={22} /></span><strong>Gestión de envíos</strong>
-        </Link>
-        <div className="faq-public-header__actions">
-          <button type="button" onClick={toggleTheme} aria-label="Cambiar tema">
-            {theme === 'light' ? <Moon size={19} aria-hidden="true" /> : <Sun size={19} aria-hidden="true" />}
-          </button>
-          <Link to={isAuthenticated ? '/' : '/login'} aria-label={isAuthenticated ? 'Volver al panel' : 'Iniciar sesión'}>
-            {isAuthenticated ? <ArrowLeft size={18} aria-hidden="true" /> : <LogIn size={18} aria-hidden="true" />}
-            <span>{isAuthenticated ? 'Volver al panel' : 'Ingresar'}</span>
-          </Link>
-        </div>
-      </header>}
+      {!insidePanel && <PublicHeader />}
 
       <div className="faq-page__content">
         <header className="faq-hero">
@@ -147,16 +135,34 @@ export function FaqPage() {
                 <h2>{name}</h2>
                 <div className="faq-group__questions">
                   {questions.map((question) => (
-                    <details className="faq-question" key={`${search}:${category}:${question.id}`} open={Boolean(search)}>
-                      <summary><h3>{question.question}</h3><ChevronDown size={19} aria-hidden="true" /></summary>
-                      <div className="faq-question__answer"><p>{question.answer}</p></div>
-                    </details>
+                    <button className="faq-question" key={`${search}:${category}:${question.id}`} type="button" aria-haspopup="dialog" onClick={() => setOpenId(question.id)}>
+                      <span className="faq-question__text">
+                        <h3>{question.question}</h3>
+                        <span className="faq-question__preview">{question.answer}</span>
+                      </span>
+                      <ArrowUpRight size={19} aria-hidden="true" />
+                    </button>
                   ))}
                 </div>
               </section>
             ))}
           </section>
         </div>
+
+        <Modal
+          open={openQuestion !== undefined}
+          onClose={() => setOpenId(null)}
+          eyebrow={openQuestion?.category}
+          title={openQuestion?.question ?? ''}
+          icon={CircleHelp}
+          footer={<>
+            <span className="faq-modal__position">{openIndex + 1} de {ordered.length}</span>
+            <button className="faq-button" type="button" disabled={openIndex <= 0} onClick={() => setOpenId(ordered[openIndex - 1].id)}><ChevronLeft size={17} aria-hidden="true" /> Anterior</button>
+            <button className="faq-button faq-button--primary" type="button" disabled={openIndex >= ordered.length - 1} onClick={() => setOpenId(ordered[openIndex + 1].id)}>Siguiente <ChevronRight size={17} aria-hidden="true" /></button>
+          </>}
+        >
+          <p className="faq-modal__answer">{openQuestion?.answer}</p>
+        </Modal>
 
         <footer className="faq-next-steps" aria-label="Otras consultas públicas">
           <div><h2>Consultá tu envío</h2><p>Seguí tus paquetes o iniciá un reclamo con tu código de seguimiento.</p></div>

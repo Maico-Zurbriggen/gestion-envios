@@ -26,6 +26,7 @@ ESTADOS_YA_ENTREGADOS: set[str] = {
     EstadoPaqueteEnum.ENTREGADO.value,
     EstadoPaqueteEnum.ENTREGADO_EN_SUCURSAL.value,
     EstadoPaqueteEnum.RETIRADO.value,
+    EstadoPaqueteEnum.DEVUELTO.value,
 }
 
 
@@ -175,23 +176,31 @@ def paquete_disponible_en_sucursal(estado_actual: str) -> bool:
 
 def validar_envio_para_retiro(
     tipo_entrega: str,
-    sucursal_destino_id: int | None,
+    sucursal_retiro_id: int | None,
     sucursal_actual_id: int | None,
     sucursal_operador_id: int | None,
 ) -> list[dict[str, str]]:
-    """HU13: el paquete debe ser de retiro en sucursal y estar en la sucursal elegida,
-    que además tiene que ser la sucursal donde atiende el personal que registra el retiro."""
+    """HU13: el paquete tiene que estar en su sucursal de retiro, que además tiene que
+    ser la sucursal donde atiende el personal que registra el retiro.
+
+    La sucursal de retiro la resuelve `circuito_rules.sucursal_de_retiro`: la elegida
+    por el cliente, la que quedó tras las visitas a domicilio o, en una devolución,
+    la de origen.
+    """
     errores: list[dict[str, str]] = []
-    aplica, motivo = envio_habilita_retiro_en_sucursal(tipo_entrega)
-    if not aplica:
-        errores.append({"field": "tipo_entrega", "message": motivo or "El envío no es para retiro en sucursal."})
+    if sucursal_retiro_id is None:
+        aplica, motivo = envio_habilita_retiro_en_sucursal(tipo_entrega)
+        errores.append({
+            "field": "tipo_entrega",
+            "message": (motivo if not aplica else None) or "El paquete no se retira en sucursal.",
+        })
         return errores
-    if sucursal_destino_id is None or sucursal_actual_id != sucursal_destino_id:
+    if sucursal_actual_id != sucursal_retiro_id:
         errores.append({
             "field": "sucursal_actual",
-            "message": "El paquete todavía no está en la sucursal elegida para el retiro.",
+            "message": "El paquete todavía no está en la sucursal donde se retira.",
         })
-    if sucursal_operador_id is not None and sucursal_operador_id != sucursal_destino_id:
+    if sucursal_operador_id is not None and sucursal_operador_id != sucursal_retiro_id:
         errores.append({
             "field": "sucursal_id",
             "message": "El paquete se retira en otra sucursal: no puede entregarse en esta.",

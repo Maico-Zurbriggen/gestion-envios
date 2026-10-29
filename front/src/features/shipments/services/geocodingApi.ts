@@ -1,107 +1,49 @@
-const nominatimUrl = 'https://nominatim.openstreetmap.org/search'
-const resultCache = new Map<string, NominatimResult | null>()
-
-interface NominatimResult {
-  lat: string
-  lon: string
-  display_name: string
-}
-
-export interface GeocodingInput {
+/** Ubicación de direcciones: el backend consulta Georef (Estado Argentino) y, si no la encuentra, OpenStreetMap. */
+interface GeocodingInput {
   street: string
   streetNumber: string
   city: string
   province: string
 }
 
-export interface GeocodingResult {
+interface GeocodingResult {
   latitude: number
   longitude: number
   label: string
   precision: 'address' | 'city'
 }
 
-async function searchLocation(query: string): Promise<NominatimResult | null> {
-  const cacheKey = query.trim().toLocaleLowerCase('es-AR')
-  if (resultCache.has(cacheKey)) return resultCache.get(cacheKey) ?? null
+interface ApiLocation {
+  data?: { latitud: number; longitud: number; texto: string; precision: 'direccion' | 'calle' | 'ciudad' }
+  message?: string
+}
 
-  const params = new URLSearchParams({
-    q: query,
-    format: 'jsonv2',
-    limit: '1',
-    countrycodes: 'ar',
-  })
+const cache = new Map<string, GeocodingResult>()
+
+export async function geocodeDestination(input: GeocodingInput): Promise<GeocodingResult> {
+  const apiUrl = import.meta.env.VITE_API_URL?.replace(/\/+$/, '')
+  if (!apiUrl) throw new Error('No se configuró la URL de la API.')
+  const params = new URLSearchParams({ calle: input.street.trim(), altura: input.streetNumber.trim(), ciudad: input.city.trim(), provincia: input.province.trim() })
+  const key = params.toString().toLocaleLowerCase('es-AR')
+  const cached = cache.get(key)
+  if (cached) return cached
 
   let response: Response
-
   try {
-    response = await fetch(`${nominatimUrl}?${params.toString()}`, {
-      headers: {
-        Accept: 'application/json',
-        'Accept-Language': 'es-AR,es;q=0.9',
-      },
-    })
+    response = await fetch(`${apiUrl}/mapa/ubicar?${params}`, { headers: { Accept: 'application/json' } })
   } catch {
     throw new Error('No pudimos conectarnos con el servicio de mapas.')
   }
+  const payload = (await response.json().catch(() => null)) as ApiLocation | null
+  if (response.status === 404) throw new Error('No encontramos la dirección ni la ciudad. Revisá cómo están escritas.')
+  if (!response.ok || !payload?.data) throw new Error('No pudimos consultar la ubicación en este momento.')
 
-  if (!response.ok) {
-    if (response.status === 429) {
-      throw new Error(
-        'El servicio de mapas está recibiendo muchas consultas. Esperá unos segundos.',
-      )
-    }
-
-    throw new Error('No pudimos consultar la ubicación en este momento.')
+  const result: GeocodingResult = {
+    latitude: payload.data.latitud,
+    longitude: payload.data.longitud,
+    label: payload.data.texto,
+    precision: payload.data.precision === 'ciudad' ? 'city' : 'address',
   }
-
-  const payload = (await response.json()) as NominatimResult[]
-  const result = Array.isArray(payload) && payload.length ? payload[0] : null
-  resultCache.set(cacheKey, result)
+  cache.set(key, result)
   return result
-}
-
-function waitForNextRequest() {
-  return new Promise<void>((resolve) => {
-    window.setTimeout(resolve, 1100)
-  })
-}
-
-export async function geocodeDestination(
-  input: GeocodingInput,
-): Promise<GeocodingResult> {
-  const fullAddress = [
-    `${input.streetNumber} ${input.street}`,
-    input.city,
-    input.province,
-    'Argentina',
-  ].join(', ')
-
-  const addressResult = await searchLocation(fullAddress)
-  if (addressResult) {
-    return {
-      latitude: Number(addressResult.lat),
-      longitude: Number(addressResult.lon),
-      label: addressResult.display_name,
-      precision: 'address',
-    }
-  }
-
-  await waitForNextRequest()
-  const cityResult = await searchLocation(
-    `${input.city}, ${input.province}, Argentina`,
-  )
-
-  if (!cityResult) {
-    throw new Error(
-      'No encontramos la dirección ni la ciudad. Revisá cómo están escritas.',
-    )
-  }
-
-  return {
-    latitude: Number(cityResult.lat),
-    longitude: Number(cityResult.lon),
-    label: cityResult.display_name,
-    precision: 'city',
-  }
 }

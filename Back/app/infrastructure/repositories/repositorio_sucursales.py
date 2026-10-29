@@ -1,7 +1,7 @@
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.db.models import SucursalModel
+from app.infrastructure.db.models import SucursalModel, usuario_sucursales
 
 
 class RepositorioSucursales:
@@ -40,3 +40,29 @@ class RepositorioSucursales:
         stmt = select(SucursalModel).where(SucursalModel.id == id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def obtener_por_nombre(self, nombre: str) -> SucursalModel | None:
+        stmt = select(SucursalModel).where(func.lower(SucursalModel.nombre) == nombre.strip().lower())
+        return (await self.db.execute(stmt)).scalars().first()
+
+    async def obtener_varias(self, ids: list[int]) -> list[SucursalModel]:
+        if not ids:
+            return []
+        stmt = select(SucursalModel).where(SucursalModel.id.in_(ids)).order_by(SucursalModel.nombre)
+        return list((await self.db.execute(stmt)).scalars().all())
+
+    async def contar_usuarios(self) -> dict[int, int]:
+        """Cuántos usuarios tienen habilitada cada sucursal."""
+        filas = await self.db.execute(
+            select(usuario_sucursales.c.sucursal_id, func.count()).group_by(usuario_sucursales.c.sucursal_id)
+        )
+        return {sucursal: int(cantidad) for sucursal, cantidad in filas.all()}
+
+    def nueva(self, **datos) -> SucursalModel:
+        return SucursalModel(**datos)
+
+    async def guardar(self, sucursal: SucursalModel) -> SucursalModel:
+        self.db.add(sucursal)
+        await self.db.commit()
+        await self.db.refresh(sucursal)
+        return sucursal

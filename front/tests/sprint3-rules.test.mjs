@@ -39,3 +39,13 @@ test('los estados se muestran con texto legible', () => {
   assert.equal(getStatusLabel('Pendiente'), 'Pendiente de ingreso')
   assert.equal(getStatusLabel('OTRO'), 'OTRO')
 })
+
+test('las devoluciones y los vencidos nunca se muestran como entregados', () => {
+  assert.equal(getStatusLabel('EN_DEVOLUCION'), 'Volviendo al remitente')
+  assert.equal(getStatusLabel('DEVUELTO'), 'Devuelto al remitente')
+  assert.equal(getStatusLabel('VENCIDO'), 'Vencido sin despachar')
+  assert.equal(getStatusStep('VENCIDO', 'domicilio'), 0)
+  assert.ok(getStatusStep('EN_DEVOLUCION', 'sucursal') < getStatusStep('ENTREGADO_EN_SUCURSAL', 'sucursal'))
+  // A domicilio, quedar para retirar después de las visitas sigue sin ser una entrega.
+  assert.ok(getStatusStep('LISTO_PARA_RETIRO', 'domicilio') < getStatusStep('ENTREGADO', 'domicilio'))
+})

@@ -1,4 +1,5 @@
 import { CircleAlert, LoaderCircle, RefreshCw } from 'lucide-react'
+import '../routes.css'
 
 export function RouteError({ error, onRetry, pending = false }: { error: Error; onRetry?: () => void; pending?: boolean }) {
   return <div className="route-feedback route-feedback--error" role="alert">

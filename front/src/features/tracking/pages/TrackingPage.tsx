@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import {
-  ArrowLeft,
   Box,
   Building2,
   CalendarClock,
@@ -8,24 +7,20 @@ import {
   CircleAlert,
   CircleHelp,
   Clock3,
+  History,
   House,
   LoaderCircle,
-  LogIn,
   MapPin,
-  Moon,
   PackageCheck,
   PackagePlus,
   RefreshCw,
   Route,
   Search,
-  Sun,
   Truck,
+  Undo2,
   Warehouse,
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useAppSelector } from '../../../app/store'
-import { selectIsAuthenticated } from '../../auth/redux/authSlice'
-import { useTheme } from '../../../shared/hooks/useTheme'
 import { useInsidePanel } from '../../../layouts/MainLayout/panelContext'
 import { ShipmentClaims } from '../../claims/components/ShipmentClaims'
 import { useShipmentTracking } from '../hooks/useShipmentTracking'
@@ -33,17 +28,20 @@ import type { TrackedPackage } from '../types/tracking.types'
 import { getStatusLabel, getStatusStep, type TrackingDeliveryType } from '../trackingStatus'
 import { PickupBranchInfo } from '../components/PickupBranchInfo'
 import { LocationMap, type MapLocation } from '../../../shared/components/LocationMap'
+import { Modal } from '../../../shared/components/Modal'
+import { formatLongDay, parseApiDate } from '../../../shared/utils/dates'
 import './TrackingPage.css'
+import { PublicHeader } from '../../../shared/components/PublicHeader'
 
 const HOME_TRACKING_STEPS = [
-  { label: 'Registrado', description: 'Datos y etiqueta generados', icon: Check },
+  { label: 'Registrado', description: 'Código de seguimiento generado', icon: Check },
   { label: 'En sucursal', description: 'Recibido para despacho', icon: Warehouse },
   { label: 'En viaje', description: 'Traslado hacia el destino', icon: Truck },
   { label: 'Entregado', description: 'Recepción confirmada', icon: House },
 ] as const
 
 const PICKUP_TRACKING_STEPS = [
-  { label: 'Registrado', description: 'Datos y etiqueta generados', icon: Check },
+  { label: 'Registrado', description: 'Código de seguimiento generado', icon: Check },
   { label: 'Recibido', description: 'Ingresó en la terminal', icon: Warehouse },
   { label: 'En viaje', description: 'Traslado a la sucursal', icon: Truck },
   { label: 'Para retirar', description: 'Disponible en sucursal', icon: Building2 },
@@ -58,10 +56,67 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat('es-AR', {
     dateStyle: 'medium',
     timeStyle: 'short',
-  }).format(new Date(value))
+  }).format(parseApiDate(value))
+}
+
+const CLOSED_STATUSES = new Set(['ENTREGADO', 'ENTREGADO_EN_SUCURSAL', 'RETIRADO', 'DEVUELTO'])
+
+/** Lo que el destinatario tiene que saber o hacer ahora con este paquete. */
+function PackageNotices({ shipmentPackage }: { shipmentPackage: TrackedPackage }) {
+  const { status, pickup, failedVisits, maxVisits, isReturn } = shipmentPackage
+  const closed = CLOSED_STATUSES.has(status)
+  return (
+    <>
+      {status === 'VENCIDO' && (
+        <p className="tracking-notice tracking-notice--danger" role="status">
+          <CircleAlert size={18} aria-hidden="true" />
+          <span>El paquete no se llevó a una sucursal dentro de los 10 días del registro y el código venció. Para enviarlo, registrá un envío nuevo.</span>
+        </p>
+      )}
+      {status === 'DEVUELTO' && (
+        <p className="tracking-notice" role="status">
+          <Undo2 size={18} aria-hidden="true" />
+          <span>No se retiró a tiempo y ya se devolvió a quien lo envió.</span>
+        </p>
+      )}
+      {isReturn && !closed && (
+        <p className="tracking-notice tracking-notice--warning" role="status">
+          <Undo2 size={18} aria-hidden="true" />
+          <span>No se retiró dentro del plazo: el paquete vuelve a la sucursal de origen para que lo retire quien lo envió.</span>
+        </p>
+      )}
+      {status === 'ENTREGA_FALLIDA' && <p role="status">La visita no pudo completarse. El paquete aún no fue entregado.</p>}
+      {failedVisits > 0 && !closed && !isReturn && (
+        <p className="tracking-notice tracking-notice--warning" role="status">
+          <House size={18} aria-hidden="true" />
+          <span>
+            {failedVisits >= maxVisits
+              ? `Se hicieron las ${maxVisits} visitas a domicilio sin poder entregarlo. Ahora hay que retirarlo en la sucursal.`
+              : `Visita a domicilio sin entrega: ${failedVisits} de ${maxVisits}. Se vuelve a intentar en el próximo reparto.`}
+          </span>
+        </p>
+      )}
+      {pickup && !closed && (
+        <div className="tracking-pickup-notice" role="status">
+          <Building2 size={20} aria-hidden="true" />
+          <div>
+            <strong>Para retirar en {pickup.branch}</strong>
+            <span>{pickup.address}</span>
+            {pickup.until && <span>Tenés tiempo hasta el <strong>{formatLongDay(pickup.until)}</strong>.</span>}
+            <small>
+              {pickup.pickedUpBy === 'remitente'
+                ? 'Lo retira quien lo envió, con DNI y el código del envío.'
+                : 'Lo retira el destinatario con DNI y el código del envío, o un tercero autorizado.'}
+            </small>
+          </div>
+        </div>
+      )}
+    </>
+  )
 }
 
 function PackageProgress({ shipmentPackage, deliveryType }: { shipmentPackage: TrackedPackage; deliveryType: TrackingDeliveryType }) {
+  const [historyOpen, setHistoryOpen] = useState(false)
   const currentStep = getStatusStep(shipmentPackage.status, deliveryType)
   const steps = deliveryType === 'sucursal' ? PICKUP_TRACKING_STEPS : HOME_TRACKING_STEPS
 
@@ -116,8 +171,15 @@ function PackageProgress({ shipmentPackage, deliveryType }: { shipmentPackage: T
           })}
         </ol>
 
-        {shipmentPackage.status === 'ENTREGA_FALLIDA' && <p role="status">La visita no pudo completarse. El paquete aún no fue entregado.</p>}
-        {shipmentPackage.history.length > 0 && <details><summary>Historial real del paquete</summary><ol>{shipmentPackage.history.map((event, index) => <li key={`${event.occurredAt}-${index}`}><time dateTime={event.occurredAt}>{formatDate(event.occurredAt)}</time> · {event.description} ({getStatusLabel(event.status)})</li>)}</ol></details>}
+        <PackageNotices shipmentPackage={shipmentPackage} />
+        {shipmentPackage.history.length > 0 && <>
+          <button className="tracked-package__history-button" type="button" aria-haspopup="dialog" onClick={() => setHistoryOpen(true)}>
+            <History size={17} aria-hidden="true" /> Ver historial real del paquete <span className="badge badge--muted">{shipmentPackage.history.length}</span>
+          </button>
+          <Modal open={historyOpen} onClose={() => setHistoryOpen(false)} eyebrow="Seguimiento" title="Historial real del paquete" description={shipmentPackage.packageNumber} icon={History}>
+            <ol className="tracking-history">{shipmentPackage.history.map((event, index) => <li key={`${event.occurredAt}-${index}`}><time dateTime={event.occurredAt}>{formatDate(event.occurredAt)}</time><strong>{event.description}</strong><span className="badge badge--muted">{getStatusLabel(event.status)}</span></li>)}</ol>
+          </Modal>
+        </>}
         <footer className="tracked-package__dates">
           <span>
             <CalendarClock size={15} aria-hidden="true" />
@@ -138,9 +200,7 @@ export function TrackingPage() {
   const initialToken = normalizeToken(searchParams.get('token') ?? '')
   const [tokenInput, setTokenInput] = useState(initialToken)
   const [submittedToken, setSubmittedToken] = useState(initialToken)
-  const isAuthenticated = useAppSelector(selectIsAuthenticated)
   const insidePanel = useInsidePanel()
-  const { theme, toggleTheme } = useTheme()
   const trackingQuery = useShipmentTracking(submittedToken)
   const locations: MapLocation[] = []
   const tracking = trackingQuery.data
@@ -152,7 +212,7 @@ export function TrackingPage() {
     const key = `${position.latitude}-${position.longitude}-${position.updatedAt}`
     if (seenPositions.has(key)) continue
     seenPositions.add(key)
-    locations.push({ latitude: position.latitude, longitude: position.longitude, label: `Última posición del reparto · ${formatDate(position.updatedAt)}` })
+    locations.push({ latitude: position.latitude, longitude: position.longitude, label: `Última posición del reparto · ${formatDate(position.updatedAt)}`, kind: 'vehiculo' })
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -179,21 +239,7 @@ export function TrackingPage() {
 
   return (
     <main className={`tracking-page${insidePanel ? ' is-embedded' : ''}`}>
-      {!insidePanel && <header className="tracking-public-header">
-        <Link className="tracking-brand" to={isAuthenticated ? '/' : '/login'}>
-          <span aria-hidden="true"><PackageCheck size={22} /></span>
-          <strong>Gestión de envíos</strong>
-        </Link>
-        <div className="tracking-public-header__actions">
-          <button type="button" onClick={toggleTheme} aria-label="Cambiar tema">
-            {theme === 'light' ? <Moon size={19} aria-hidden="true" /> : <Sun size={19} aria-hidden="true" />}
-          </button>
-          <Link to={isAuthenticated ? '/' : '/login'} aria-label={isAuthenticated ? 'Volver al panel' : 'Iniciar sesión'}>
-            {isAuthenticated ? <ArrowLeft size={18} aria-hidden="true" /> : <LogIn size={18} aria-hidden="true" />}
-            <span>{isAuthenticated ? 'Volver al panel' : 'Ingresar'}</span>
-          </Link>
-        </div>
-      </header>}
+      {!insidePanel && <PublicHeader />}
 
       <div className="tracking-page__content">
         <section className="tracking-hero" aria-labelledby="tracking-title">

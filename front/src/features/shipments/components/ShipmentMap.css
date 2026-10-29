@@ -1,13 +1,9 @@
-.shipment-map {
-  z-index: 0;
-  width: 100%;
+.shipment-map.map-view {
   height: 320px;
-  background: var(--color-surface-subtle);
+  border-radius: 0;
+  border: 0;
 }
 
-.shipment-map--picker { cursor: crosshair; }
-
-.shipment-map__point {
-  fill: var(--color-primary);
-  stroke: var(--color-neutral-0);
+.shipment-map--picker .maplibregl-canvas {
+  cursor: crosshair;
 }

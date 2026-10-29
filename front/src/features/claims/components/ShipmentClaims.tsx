@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import { CheckCircle2, ChevronDown, ChevronUp, CircleAlert, LoaderCircle, MessageSquareWarning, RefreshCw } from 'lucide-react'
+import { CheckCircle2, CircleAlert, LoaderCircle, MessageSquareWarning, RefreshCw } from 'lucide-react'
+import { Modal } from '../../../shared/components/Modal'
 import { useCreateClaim, useShipmentClaims } from '../hooks/useShipmentClaims'
 import type { ClaimFormValues, ClaimStatus, ClaimType } from '../types/claim.types'
 import { ClaimForm } from './ClaimForm'
@@ -26,19 +27,26 @@ export function ShipmentClaims({ token }: { token: string }) {
   return (
     <section className="shipment-claims" aria-labelledby="shipment-claims-title">
       <header className="shipment-claims__header">
-        <MessageSquareWarning size={23} aria-hidden="true" />
+        <span className="shipment-claims__icon" aria-hidden="true"><MessageSquareWarning size={22} /></span>
         <div>
           <h2 id="shipment-claims-title">¿Tenés un inconveniente con este envío?</h2>
           <p>Iniciá un reclamo o consultá la respuesta a uno anterior.</p>
         </div>
-        <button className="claim-button" type="button" aria-expanded={expanded} aria-controls="shipment-claims-content" disabled={mutation.isPending} onClick={() => setExpanded(!expanded)}>
-          {expanded ? <ChevronUp size={18} aria-hidden="true" /> : <ChevronDown size={18} aria-hidden="true" />}
-          {expanded ? 'Ocultar reclamos' : 'Iniciar reclamo'}
+        <button className="claim-button claim-button--primary" type="button" aria-haspopup="dialog" disabled={mutation.isPending} onClick={() => setExpanded(true)}>
+          <MessageSquareWarning size={18} aria-hidden="true" />
+          Iniciar reclamo
         </button>
       </header>
-      <div id="shipment-claims-content" hidden={!expanded}>
-        {expanded && <div className="shipment-claims__body">
-          <p className="shipment-claims__context">Reclamos del envío <strong>{token}</strong></p>
+      <Modal
+        open={expanded}
+        onClose={() => { if (!mutation.isPending) setExpanded(false) }}
+        eyebrow="Atención al cliente"
+        title="Reclamos del envío"
+        description={<>Código de seguimiento <strong>{token}</strong></>}
+        icon={MessageSquareWarning}
+        size="wide"
+      >
+        <div className="shipment-claims__body">
           {registered && <div className="shipment-claims__success" role="status" tabIndex={-1} ref={successRef}>
             <CheckCircle2 size={23} aria-hidden="true" />
             <div><strong>Reclamo registrado</strong><p>Podés consultar su estado y la respuesta desde este mismo código de seguimiento.</p></div>
@@ -63,8 +71,8 @@ export function ShipmentClaims({ token }: { token: string }) {
               </ul>}
             </section>
           </>}
-        </div>}
-      </div>
+        </div>
+      </Modal>
     </section>
   )
 }

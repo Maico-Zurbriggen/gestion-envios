@@ -7,18 +7,24 @@ from typing import Any
 from app.application.interfaces.repositorio_recorridos import IRepositorioRecorridos
 from app.application.interfaces.repositorio_sucursales import IRepositorioSucursales
 from app.application.interfaces.servicio_recorridos import IServicioRecorridos
+from app.application.interfaces.servicio_rutas import IServicioRutas
 from app.contracts.recorridos import (
     TIPOS_DISTANCIA_VALIDOS,
     AlertaRecorridoData,
     AlertaRecorridoResponse,
+    CambiarVueltaRequest,
     CompletarUbicacionPaqueteRequest,
+    CrearRecorridoRequest,
     EliminarRecorridoResponse,
+    EsperaSucursalData,
     GeneracionRecorridosData,
     GenerarRecorridosRequest,
     GenerarRecorridosResponse,
     ListarAlertasRecorridoResponse,
     ListarRecorridosResponse,
+    PaquetePendienteData,
     PaqueteRecorridoData,
+    PaquetesPendientesResponse,
     ParadaRecorridoData,
     PuntoMapaData,
     ReasignarRepartidorRequest,
@@ -27,12 +33,16 @@ from app.contracts.recorridos import (
     RecorridoResumenData,
     ReemplazarPaquetesRecorridoRequest,
     RepartidorRecorridoData,
+    ResumenEsperaData,
+    ResumenEsperaResponse,
     ResumenGeneracionData,
 )
 from app.contracts.sucursales import SucursalData
+from app.core.config import settings
 from app.core.exceptions import DuplicateEntryException, NotFoundException, ValidationException
 from app.domain.constants.estados_logistica import (
     EstadoRecorridoEnum,
+    EstadoRecorridoPaqueteEnum,
     MotivoAlertaRecorridoEnum,
     TipoDistanciaEnum,
 )
@@ -41,6 +51,8 @@ from app.domain.rules.recepcion_rules import normalizar_codigo_escaneado
 from app.domain.rules.recorrido_rules import (
     DESCRIPCIONES_MOTIVO_ALERTA,
     ESTADOS_RECORRIDO_EDITABLES,
+    MINUTOS_POR_PARADA_DOMICILIO,
+    MINUTOS_POR_PARADA_SUCURSAL,
     ParadaPlanificable,
     Punto,
     SucursalUbicada,
@@ -52,7 +64,7 @@ from app.domain.rules.recorrido_rules import (
     misma_ciudad,
     ordenar_paradas,
     paquete_listo_para_despacho,
-    planificar_recorridos,
+    repartir_paradas_equitativamente,
     vuelve_a_la_sucursal,
 )
 from app.domain.rules.retiro_rules import TIPO_ENTREGA_DOMICILIO, TIPO_ENTREGA_SUCURSAL
@@ -134,7 +146,10 @@ class ServicioRecorridos(IServicioRecorridos):
         self,
         repositorio_recorridos: IRepositorioRecorridos,
         repositorio_sucursales: IRepositorioSucursales,
+        rutas: IServicioRutas | None = None,
     ):
+        self.rutas = rutas
+        """Tiempos reales de manejo por calles (OSRM). Sin él, se estima por distancia."""
         self.repo = repositorio_recorridos
         self.repo_sucursales = repositorio_sucursales
 
@@ -146,18 +161,15 @@ class ServicioRecorridos(IServicioRecorridos):
         fecha = datos.fecha or date.today()
         tipo = datos.tipo_distancia
         orientacion = datos.orientacion_calles_grados
+        vuelve = vuelve_a_la_sucursal(tipo) if datos.vuelve_a_sucursal is None else datos.vuelve_a_sucursal
         sucursal = await self._obtener_sucursal_origen(datos.sucursal_id)
         origen = self._punto_sucursal(sucursal)
 
-        existentes = await self.repo.listar_recorridos_editables(sucursal.id, fecha, tipo)
-        if existentes and not datos.reemplazar_existentes:
-            raise DuplicateEntryException(
-                message=(
-                    f"Ya hay {len(existentes)} recorrido(s) de {tipo.lower()} distancia sin iniciar para esta "
-                    "sucursal y fecha. Enviá `reemplazar_existentes: true` para generarlos de nuevo."
-                ),
-                errors=[{"field": "reemplazar_existentes", "message": "Existen recorridos sin iniciar."}],
-            )
+        # Sin `reemplazar_existentes`, lo ya armado se respeta: se reparte solo lo que no tiene
+        # recorrido, entre los repartidores que todavía están libres ese día.
+        existentes = (
+            await self.repo.listar_recorridos_editables(sucursal.id, fecha, tipo) if datos.reemplazar_existentes else []
+        )
         ids_reemplazo = {r.id for r in existentes}
 
         repartidores = await self._repartidores_para_generar(
@@ -175,7 +187,10 @@ class ServicioRecorridos(IServicioRecorridos):
 
         ids_generados: list[uuid.UUID] = []
         if paradas and repartidores:
-            grupos = planificar_recorridos(origen, paradas, len(repartidores), tipo, orientacion)
+            grupos = [
+                await self._ordenar(origen, grupo, tipo, orientacion, vuelve=vuelve) if grupo else []
+                for grupo in repartir_paradas_equitativamente(origen, paradas, len(repartidores))
+            ]
             for repartidor, grupo in zip(repartidores, grupos, strict=True):
                 if not grupo:
                     continue
@@ -188,12 +203,13 @@ class ServicioRecorridos(IServicioRecorridos):
                     estado=EstadoRecorridoEnum.GENERADO.value,
                     generado_automaticamente=True,
                     orientacion_calles_grados=orientacion,
+                    vuelve_a_sucursal=vuelve,
                 )
                 paquetes = [p for parada in grupo for p in paquetes_por_clave[parada.clave]]
                 for orden, paquete in enumerate(paquetes, start=1):
                     recorrido.paquetes.append(RecorridoPaqueteModel(paquete_id=paquete.id, orden=orden))
-                recorrido.distancia_estimada_km, recorrido.duracion_estimada_min = estimar_recorrido(
-                    origen, grupo, tipo, orientacion
+                recorrido.distancia_estimada_km, recorrido.duracion_estimada_min = await self._estimar_paradas(
+                    origen, grupo, tipo, orientacion, vuelve=vuelve
                 )
                 await self.repo.agregar(recorrido)
                 ids_generados.append(recorrido.id)
@@ -214,7 +230,9 @@ class ServicioRecorridos(IServicioRecorridos):
 
         mensaje = f"Se generaron {len(recorridos)} recorrido(s) con {asignados} paquete(s)."
         if not candidatos:
-            mensaje = "No hay paquetes pendientes de un recorrido de este tipo en la sucursal."
+            mensaje = "No hay paquetes esperando un recorrido de este tipo en la sucursal."
+        elif not repartidores:
+            mensaje = "No hay repartidores libres para ese día: todos ya tienen recorrido o no están activos."
         if sin_asignar:
             mensaje += f" {len(sin_asignar)} paquete(s) quedaron sin recorrido: revisá las alertas."
 
@@ -249,6 +267,8 @@ class ServicioRecorridos(IServicioRecorridos):
         tipo_distancia: str | None = None,
         estado: str | None = None,
         repartidor_id: uuid.UUID | None = None,
+        desde: date | None = None,
+        hasta: date | None = None,
     ) -> ListarRecorridosResponse:
         tipo = tipo_distancia.strip().upper() if tipo_distancia and tipo_distancia.strip() else None
         estado_filtro = estado.strip().upper() if estado and estado.strip() else None
@@ -266,6 +286,8 @@ class ServicioRecorridos(IServicioRecorridos):
             tipo_distancia=tipo,
             estado=estado_filtro,
             repartidor_id=repartidor_id,
+            desde=desde,
+            hasta=hasta,
         )
         sucursales = await self.repo_sucursales.listar_todas()
         return ListarRecorridosResponse(
@@ -282,14 +304,106 @@ class ServicioRecorridos(IServicioRecorridos):
     # Escenario 2: edición manual
     # ------------------------------------------------------------------
 
+    async def crear(self, datos: CrearRecorridoRequest) -> RecorridoResponse:
+        fecha = datos.fecha or date.today()
+        sucursal = await self._obtener_sucursal_origen(datos.sucursal_id)
+        # Valida que el repartidor sea de esta sucursal y tipo, y que esté libre ese día.
+        await self._repartidores_para_generar(sucursal.id, datos.tipo_distancia, fecha, [datos.repartidor_id], set())
+        sucursales = await self.repo_sucursales.listar_todas()
+        recorrido = RecorridoModel(
+            id=uuid.uuid4(),
+            repartidor_id=datos.repartidor_id,
+            sucursal_origen_id=sucursal.id,
+            tipo_distancia=datos.tipo_distancia,
+            fecha=fecha,
+            estado=EstadoRecorridoEnum.EN_EDICION.value,
+            generado_automaticamente=False,
+            orientacion_calles_grados=0.0,
+            vuelve_a_sucursal=(
+                vuelve_a_la_sucursal(datos.tipo_distancia) if datos.vuelve_a_sucursal is None else datos.vuelve_a_sucursal
+            ),
+        )
+        recorrido.sucursal_origen = sucursal
+        recorrido.paquetes = []  # colección ya cargada: así no se consulta en diferido después de guardar
+        ordenados = await self._paquetes_validos(recorrido, sucursal, sucursales, datos.paquetes)
+        await self.repo.agregar(recorrido)
+        await self.repo.sincronizar()
+        alertas = await self._aplicar_composicion(recorrido, ordenados, sucursales, edicion_manual=True)
+        return RecorridoResponse(
+            message=f"Recorrido creado con {len(ordenados)} paquete(s).",
+            data=await self._detalle(recorrido.id, sucursales),
+            alertas=alertas,
+        )
+
+    async def resumen_espera(self) -> ResumenEsperaResponse:
+        sucursales = await self.repo_sucursales.listar_todas()
+        sin_llegar = await self.repo.contar_sin_llegar()
+        por_sucursal = []
+        for sucursal in sucursales:
+            clasificacion = await self._clasificar(sucursal, sucursales)
+            corta = len(clasificacion.pendientes[TipoDistanciaEnum.CORTA.value])
+            larga = len(clasificacion.pendientes[TipoDistanciaEnum.LARGA.value])
+            por_llegar = sin_llegar.get(sucursal.id, 0)
+            if corta or larga or por_llegar:
+                por_sucursal.append(EsperaSucursalData(
+                    sucursal_id=sucursal.id, nombre=sucursal.nombre, a_domicilio=corta, entre_sucursales=larga,
+                    sin_llegar=por_llegar,
+                ))
+        por_sucursal.sort(key=lambda s: -(s.a_domicilio + s.entre_sucursales))
+        return ResumenEsperaResponse(data=ResumenEsperaData(
+            sin_llegar=sum(sin_llegar.values()), sucursales=por_sucursal,
+        ))
+
+    async def pendientes(self, sucursal_id: int, tipo_distancia: str) -> PaquetesPendientesResponse:
+        tipo = tipo_distancia.strip().upper()
+        if tipo not in TIPOS_DISTANCIA_VALIDOS:
+            raise ValidationException(
+                message="El tipo de distancia no es válido.",
+                errors=[{"field": "tipo_distancia", "message": "Usá CORTA o LARGA."}],
+            )
+        sucursal = await self._obtener_sucursal_origen(sucursal_id)
+        sucursales = await self.repo_sucursales.listar_todas()
+        clasificacion = await self._clasificar(sucursal, sucursales)
+        paquetes = clasificacion.pendientes[tipo]
+        visitas = await self.repo.visitas_fallidas_de([p.id for p in paquetes])
+        datos = []
+        for paquete in paquetes:
+            destino = self._destino(paquete, tipo, sucursal, sucursales)
+            motivo = destino.motivo_no_planificable
+            datos.append(PaquetePendienteData(
+                paquete_id=paquete.id,
+                numero_paquete=paquete.numero_paquete,
+                descripcion=paquete.descripcion,
+                peso_kg=paquete.peso_kg,
+                destinatario_nombre=paquete.envio.destinatario_nombre,
+                destino=destino.texto,
+                token_seguimiento=paquete.envio.token_seguimiento,
+                tiene_ubicacion=destino.punto is not None,
+                motivo=DESCRIPCIONES_MOTIVO_ALERTA.get(motivo, motivo) if motivo else None,
+                visitas_previas=visitas.get(paquete.id, 0),
+                en_devolucion=bool(paquete.en_devolucion),
+            ))
+        return PaquetesPendientesResponse(total=len(datos), data=datos)
+
     async def reemplazar_paquetes(
         self, id: uuid.UUID, datos: ReemplazarPaquetesRecorridoRequest
     ) -> RecorridoResponse:
         recorrido = await self._obtener_editable(id)
         sucursal = recorrido.sucursal_origen
         sucursales = await self.repo_sucursales.listar_todas()
+        ordenados = await self._paquetes_validos(recorrido, sucursal, sucursales, datos.paquetes)
+        alertas = await self._aplicar_composicion(recorrido, ordenados, sucursales, edicion_manual=True)
+        return RecorridoResponse(
+            message="Recorrido actualizado manualmente.",
+            data=await self._detalle(recorrido.id, sucursales),
+            alertas=alertas,
+        )
 
-        codigos = [normalizar_codigo_escaneado(c) for c in datos.paquetes]
+    async def _paquetes_validos(
+        self, recorrido: RecorridoModel, sucursal: SucursalModel, sucursales: list[SucursalModel], codigos_pedidos: list[str]
+    ) -> list[PaqueteModel]:
+        """Paquetes pedidos, en ese orden, si todos existen, no se repiten y pueden ir en este recorrido."""
+        codigos = [normalizar_codigo_escaneado(c) for c in codigos_pedidos]
         paquetes_encontrados = await self.repo.buscar_paquetes_por_codigos(codigos)
         por_codigo: dict[str, PaqueteModel] = {}
         for paquete in paquetes_encontrados:
@@ -326,13 +440,7 @@ class ServicioRecorridos(IServicioRecorridos):
                 message="Hay paquetes que no se pueden incluir en este recorrido.",
                 errors=errores,
             )
-
-        alertas = await self._aplicar_composicion(recorrido, ordenados, sucursales, edicion_manual=True)
-        return RecorridoResponse(
-            message="Recorrido actualizado manualmente.",
-            data=await self._detalle(recorrido.id, sucursales),
-            alertas=alertas,
-        )
+        return ordenados
 
     async def quitar_paquete(self, id: uuid.UUID, codigo: str) -> RecorridoResponse:
         recorrido = await self._obtener_editable(id)
@@ -395,7 +503,7 @@ class ServicioRecorridos(IServicioRecorridos):
                 )
         for actual in afectados:
             paquetes = [rp.paquete for rp in sorted(actual.paquetes, key=lambda rp: rp.orden)]
-            actual.distancia_estimada_km, actual.duracion_estimada_min = self._estimar(
+            actual.distancia_estimada_km, actual.duracion_estimada_min = await self._estimar(
                 actual, paquetes, actual.sucursal_origen, sucursales
             )
             actual.estado = EstadoRecorridoEnum.EN_EDICION.value
@@ -418,9 +526,15 @@ class ServicioRecorridos(IServicioRecorridos):
             alertas=await self._alertas_de_paquetes(list(pendientes)),
         )
 
-    async def optimizar(self, id: uuid.UUID) -> RecorridoResponse:
-        """Recalcula el mejor orden de los paquetes actuales con la misma métrica
-        de la generación (útil después de agregar paquetes a mano)."""
+    async def optimizar(self, id: uuid.UUID, desde: Punto | None = None) -> RecorridoResponse:
+        """Recalcula el orden de visita más rápido por calles (tiempos reales de OSRM).
+
+        Antes de salir ordena todo desde la sucursal. En reparto reordena solo lo
+        pendiente, desde `desde` (la ubicación del repartidor) o su última posición.
+        """
+        recorrido = await self._obtener_recorrido(id)
+        if recorrido.estado == EstadoRecorridoEnum.EN_CURSO.value:
+            return await self._optimizar_en_reparto(recorrido, desde)
         recorrido = await self._obtener_editable(id)
         sucursal = recorrido.sucursal_origen
         sucursales = await self.repo_sucursales.listar_todas()
@@ -439,11 +553,9 @@ class ServicioRecorridos(IServicioRecorridos):
                 destino.clave, destino.punto[0], destino.punto[1], len(paquetes_por_clave[destino.clave])
             )
 
-        ordenadas = ordenar_paradas(
-            self._punto_sucursal(sucursal),
-            list(planificables.values()),
-            funcion_distancia(tipo, recorrido.orientacion_calles_grados),
-            vuelve_a_la_sucursal(tipo),
+        ordenadas = await self._ordenar(
+            self._punto_sucursal(sucursal), list(planificables.values()), tipo, recorrido.orientacion_calles_grados,
+            vuelve=recorrido.vuelve_a_sucursal,
         )
         nuevo_orden = [p for parada in ordenadas for p in paquetes_por_clave[parada.clave]] + sin_ubicacion
 
@@ -452,6 +564,58 @@ class ServicioRecorridos(IServicioRecorridos):
             message="Orden de visita optimizado.",
             data=await self._detalle(recorrido.id, sucursales),
             alertas=alertas,
+        )
+
+    async def _optimizar_en_reparto(self, recorrido: RecorridoModel, desde: Punto | None) -> RecorridoResponse:
+        """Lo entregado o visitado queda como está; lo pendiente se ordena desde donde está el vehículo."""
+        sucursal = recorrido.sucursal_origen
+        sucursales = await self.repo_sucursales.listar_todas()
+        tipo = recorrido.tipo_distancia
+        if desde is None:
+            posicion = await self.repo.obtener_posicion(recorrido.repartidor_id)
+            if posicion is not None and posicion.recorrido_id == recorrido.id:
+                desde = (posicion.latitud, posicion.longitud)
+        desde = desde or self._punto_sucursal(sucursal)
+
+        hechos: list[RecorridoPaqueteModel] = []
+        por_clave: dict[str, list[RecorridoPaqueteModel]] = {}
+        planificables: dict[str, ParadaPlanificable] = {}
+        sin_ubicacion: list[RecorridoPaqueteModel] = []
+        for rp in sorted(recorrido.paquetes, key=lambda rp: rp.orden):
+            if rp.estado_en_recorrido != EstadoRecorridoPaqueteEnum.PENDIENTE.value:
+                hechos.append(rp)
+                continue
+            destino = self._destino(rp.paquete, tipo, sucursal, sucursales)
+            if destino.punto is None:
+                sin_ubicacion.append(rp)
+                continue
+            por_clave.setdefault(destino.clave, []).append(rp)
+            planificables[destino.clave] = ParadaPlanificable(
+                destino.clave, destino.punto[0], destino.punto[1], len(por_clave[destino.clave])
+            )
+        if len(planificables) < 2:
+            return RecorridoResponse(
+                message="Queda una sola parada: no hay nada que reordenar.",
+                data=await self._detalle(recorrido.id, sucursales),
+            )
+
+        # Desde el vehículo hacia lo que falta y, si el recorrido vuelve, terminando en la sucursal.
+        ordenadas = await self._ordenar(
+            desde, list(planificables.values()), tipo, recorrido.orientacion_calles_grados,
+            vuelve=recorrido.vuelve_a_sucursal, fin=self._punto_sucursal(sucursal),
+        )
+        nuevo = hechos + [rp for parada in ordenadas for rp in por_clave[parada.clave]] + sin_ubicacion
+        # Dos pasos para no chocar con la restricción única (recorrido, orden).
+        for indice, rp in enumerate(nuevo, start=1):
+            rp.orden = 10_000 + indice
+        await self.repo.sincronizar()
+        for indice, rp in enumerate(nuevo, start=1):
+            rp.orden = indice
+        await self.repo.sincronizar()
+        await self.repo.confirmar()
+        return RecorridoResponse(
+            message="Recorrido optimizado: las paradas pendientes quedaron en el orden más rápido desde la ubicación actual.",
+            data=await self._detalle(recorrido.id, sucursales),
         )
 
     async def reasignar_repartidor(self, id: uuid.UUID, datos: ReasignarRepartidorRequest) -> RecorridoResponse:
@@ -484,6 +648,35 @@ class ServicioRecorridos(IServicioRecorridos):
 
         return RecorridoResponse(
             message="Repartidor reasignado.",
+            data=await self._detalle(recorrido.id, sucursales),
+        )
+
+    async def cambiar_vuelta(self, id: uuid.UUID, datos: CambiarVueltaRequest) -> RecorridoResponse:
+        """Marca si el recorrido termina volviendo a la sucursal y reestima km y minutos.
+
+        También en reparto: la vuelta la puede decidir el repartidor en la calle. El orden
+        no cambia solo; el mensaje sugiere optimizar, porque el mejor orden depende de la vuelta.
+        """
+        recorrido = await self._obtener_recorrido(id)
+        if recorrido.estado == EstadoRecorridoEnum.FINALIZADO.value:
+            raise ValidationException(
+                message="El recorrido ya terminó.",
+                errors=[{"field": "estado", "message": "No se cambia la vuelta de un recorrido finalizado."}],
+            )
+        sucursales = await self.repo_sucursales.listar_todas()
+        if recorrido.vuelve_a_sucursal != datos.vuelve_a_sucursal:
+            recorrido.vuelve_a_sucursal = datos.vuelve_a_sucursal
+            paquetes = [rp.paquete for rp in sorted(recorrido.paquetes, key=lambda rp: rp.orden)]
+            recorrido.distancia_estimada_km, recorrido.duracion_estimada_min = await self._estimar(
+                recorrido, paquetes, recorrido.sucursal_origen, sucursales
+            )
+            await self.repo.confirmar()
+        mensaje = (
+            "El recorrido vuelve a la sucursal al terminar." if datos.vuelve_a_sucursal
+            else "El recorrido termina en la última parada."
+        )
+        return RecorridoResponse(
+            message=f"{mensaje} Optimizá el orden para tenerlo en cuenta.",
             data=await self._detalle(recorrido.id, sucursales),
         )
 
@@ -701,7 +894,12 @@ class ServicioRecorridos(IServicioRecorridos):
                 clasificacion.pendientes[tipo].append(paquete)
         return clasificacion
 
-    def _sucursal_entrega_id(self, envio: Any, sucursal_actual_id: int, sucursales: list[SucursalModel]) -> int | None:
+    def _sucursal_entrega_id(
+        self, envio: Any, sucursal_actual_id: int, sucursales: list[SucursalModel], paquete: Any | None = None
+    ) -> int | None:
+        # Una devolución vuelve a la sucursal donde se admitió el paquete.
+        if paquete is not None and getattr(paquete, "en_devolucion", False):
+            return paquete.sucursal_origen_id
         if (envio.tipo_entrega or "").strip().lower() == TIPO_ENTREGA_SUCURSAL:
             return envio.sucursal_destino_id
         punto = None
@@ -717,6 +915,9 @@ class ServicioRecorridos(IServicioRecorridos):
 
     def _tipo_reparto(self, paquete: PaqueteModel, sucursal: SucursalModel, sucursales: list[SucursalModel]) -> str | None:
         envio = paquete.envio
+        if paquete.en_devolucion:
+            origen = paquete.sucursal_origen_id
+            return TipoDistanciaEnum.LARGA.value if origen and origen != sucursal.id else None
         return determinar_tipo_reparto(
             envio.tipo_entrega,
             self._sucursal_entrega_id(envio, sucursal.id, sucursales),
@@ -755,7 +956,7 @@ class ServicioRecorridos(IServicioRecorridos):
                 motivo_no_planificable=MotivoAlertaRecorridoEnum.SIN_UBICACION_DESTINO.value,
             )
 
-        entrega_id = self._sucursal_entrega_id(envio, sucursal.id, sucursales)
+        entrega_id = self._sucursal_entrega_id(envio, sucursal.id, sucursales, paquete)
         destino_sucursal = next((s for s in sucursales if s.id == entrega_id), None)
         if not destino_sucursal:
             return _DestinoReparto(
@@ -855,7 +1056,7 @@ class ServicioRecorridos(IServicioRecorridos):
         for orden, paquete in enumerate(paquetes, start=1):
             recorrido.paquetes.append(RecorridoPaqueteModel(paquete_id=paquete.id, orden=orden))
 
-        recorrido.distancia_estimada_km, recorrido.duracion_estimada_min = self._estimar(
+        recorrido.distancia_estimada_km, recorrido.duracion_estimada_min = await self._estimar(
             recorrido, paquetes, sucursal, sucursales
         )
         if edicion_manual:
@@ -875,7 +1076,43 @@ class ServicioRecorridos(IServicioRecorridos):
         await self.repo.confirmar()
         return await self._alertas_de_paquetes(list(sin_asignar))
 
-    def _estimar(
+    async def _ordenar(
+        self, origen: Punto | None, paradas: list[ParadaPlanificable], tipo: str, orientacion: float,
+        vuelve: bool | None = None, fin: Punto | None = None,
+    ) -> list[ParadaPlanificable]:
+        """El orden de visita que menos tarda sobre los tiempos reales de manejo por calles
+        (OSRM); sin OSRM, sobre la distancia estimada. Si `vuelve`, cuenta el tramo final
+        hasta `fin` (por defecto, el origen)."""
+        vuelve = vuelve_a_la_sucursal(tipo) if vuelve is None else vuelve
+        respaldo = funcion_distancia(tipo, orientacion)
+        if origen is None or len(paradas) < 2 or self.rutas is None:
+            return ordenar_paradas(origen, paradas, respaldo, vuelve, fin) if origen else list(paradas)
+        puntos = list(dict.fromkeys([origen, *(p.punto for p in paradas), *([fin] if fin else [])]))
+        matriz = await self.rutas.matriz(puntos)
+        if matriz is None:
+            return ordenar_paradas(origen, paradas, respaldo, vuelve, fin)
+        indice = {punto: i for i, punto in enumerate(puntos)}
+        return ordenar_paradas(origen, paradas, lambda a, b: matriz[indice[a]][indice[b]], vuelve, fin)
+
+    async def _estimar_paradas(
+        self, origen: Punto | None, paradas: list[ParadaPlanificable], tipo: str, orientacion: float,
+        paradas_sin_ubicacion: int = 0, vuelve: bool | None = None,
+    ) -> tuple[float, int]:
+        """Kilómetros y minutos del recorrido en ese orden: por calles (OSRM) más la atención en cada parada."""
+        if origen is not None and paradas and self.rutas is not None:
+            vuelve = vuelve_a_la_sucursal(tipo) if vuelve is None else vuelve
+            puntos = [origen, *(p.punto for p in paradas), *([origen] if vuelve else [])]
+            real = await self.rutas.recorrido(puntos)
+            if real is not None:
+                metros, segundos = real
+                por_parada = MINUTOS_POR_PARADA_DOMICILIO if tipo == TipoDistanciaEnum.CORTA.value else MINUTOS_POR_PARADA_SUCURSAL
+                minutos = segundos / 60 + (len(paradas) + paradas_sin_ubicacion) * por_parada
+                return round(metros / 1000, 2), int(round(minutos))
+        if origen is None:
+            return 0.0, 0
+        return estimar_recorrido(origen, paradas, tipo, orientacion, paradas_sin_ubicacion=paradas_sin_ubicacion, vuelve=vuelve)
+
+    async def _estimar(
         self,
         recorrido: RecorridoModel,
         paquetes: list[PaqueteModel],
@@ -890,12 +1127,10 @@ class ServicioRecorridos(IServicioRecorridos):
             if grupo[0].punto is not None
         ]
         sin_ubicacion = sum(1 for grupo in grupos if grupo[0].punto is None)
-        return estimar_recorrido(
-            self._punto_sucursal(sucursal),
-            planificables,
-            recorrido.tipo_distancia,
-            recorrido.orientacion_calles_grados,
-            paradas_sin_ubicacion=sin_ubicacion,
+        return await self._estimar_paradas(
+            self._punto_sucursal(sucursal), planificables, recorrido.tipo_distancia,
+            recorrido.orientacion_calles_grados, paradas_sin_ubicacion=sin_ubicacion,
+            vuelve=recorrido.vuelve_a_sucursal,
         )
 
     async def _pendientes_sin_recorrido(
@@ -987,7 +1222,13 @@ class ServicioRecorridos(IServicioRecorridos):
 
     async def _detalle(self, id: uuid.UUID, sucursales: list[SucursalModel]) -> RecorridoDetalleData:
         recorrido = await self._obtener_recorrido(id)
-        return self._mapear_detalle(recorrido, sucursales)
+        detalle = self._mapear_detalle(recorrido, sucursales)
+        visitas = await self.repo.visitas_fallidas_de([rp.paquete_id for rp in recorrido.paquetes])
+        for parada in detalle.paradas:
+            for paquete in parada.paquetes:
+                paquete.visitas_previas = visitas.get(paquete.paquete_id, 0)
+        detalle.max_visitas = settings.MAX_VISITAS_DOMICILIO
+        return detalle
 
     def _punto_sucursal(self, sucursal: SucursalModel) -> Punto | None:
         if sucursal.latitud is None or sucursal.longitud is None:
@@ -1022,6 +1263,30 @@ class ServicioRecorridos(IServicioRecorridos):
             longitud=sucursal.longitud,
         )
 
+    async def paradas_en_sucursales(
+        self, recorrido: RecorridoModel
+    ) -> list[tuple[SucursalModel, list[RecorridoPaqueteModel]]]:
+        sucursales = await self.repo_sucursales.listar_todas()
+        return [
+            (destino.sucursal, grupo)
+            for destino, grupo in self._paradas(recorrido, sucursales)
+            if destino.sucursal is not None
+        ]
+
+    async def paquetes_que_bajan_en(
+        self, recorridos: list[RecorridoModel], sucursal_id: int
+    ) -> dict[uuid.UUID, list[RecorridoPaqueteModel]]:
+        sucursales = await self.repo_sucursales.listar_todas()
+        return {
+            recorrido.id: [
+                rp
+                for destino, grupo in self._paradas(recorrido, sucursales)
+                if destino.sucursal is not None and destino.sucursal.id == sucursal_id
+                for rp in grupo
+            ]
+            for recorrido in recorridos
+        }
+
     def _paradas(
         self, recorrido: RecorridoModel, sucursales: list[SucursalModel]
     ) -> list[tuple[_DestinoReparto, list[RecorridoPaqueteModel]]]:
@@ -1046,6 +1311,12 @@ class ServicioRecorridos(IServicioRecorridos):
             repartidor=RepartidorRecorridoData(usuario_id=usuario.id, nombre=usuario.nombre, telefono=usuario.telefono),
             cantidad_paradas=len(self._paradas(recorrido, sucursales)),
             cantidad_paquetes=len(recorrido.paquetes),
+            paquetes_entregados=sum(
+                1 for rp in recorrido.paquetes if rp.estado_en_recorrido == EstadoRecorridoPaqueteEnum.ENTREGADO.value
+            ),
+            paquetes_no_entregados=sum(
+                1 for rp in recorrido.paquetes if rp.estado_en_recorrido == EstadoRecorridoPaqueteEnum.FALLIDO.value
+            ),
             distancia_estimada_km=recorrido.distancia_estimada_km,
             duracion_estimada_min=recorrido.duracion_estimada_min,
             created_at=recorrido.created_at,
@@ -1055,7 +1326,7 @@ class ServicioRecorridos(IServicioRecorridos):
     def _mapear_detalle(self, recorrido: RecorridoModel, sucursales: list[SucursalModel]) -> RecorridoDetalleData:
         paradas = self._paradas(recorrido, sucursales)
         origen = self._punto_sucursal(recorrido.sucursal_origen)
-        vuelve = vuelve_a_la_sucursal(recorrido.tipo_distancia)
+        vuelve = recorrido.vuelve_a_sucursal
 
         trazado: list[PuntoMapaData] = []
         if origen:
@@ -1094,6 +1365,7 @@ class ServicioRecorridos(IServicioRecorridos):
                             token_seguimiento=rp.paquete.envio.token_seguimiento,
                             destinatario_nombre=rp.paquete.envio.destinatario_nombre,
                             destinatario_telefono=rp.paquete.envio.destinatario_telefono,
+                            en_devolucion=rp.paquete.en_devolucion,
                         )
                         for rp in items
                     ],

@@ -1,11 +1,20 @@
+import { operationalRequest } from '../../../shared/services/operationalApi'
 import type {
   ApiCreatedUser,
+  ApiEmployee,
+  ApiEmployeeList,
   ApiRole,
   CreatedUser,
   CreateUserInput,
   CreateUserSuccessResponse,
+  Employee,
+  EmployeeFilters,
+  EmployeeList,
+  EmployeeStatus,
+  ResetPasswordResult,
   Role,
   RolesSuccessResponse,
+  UpdateEmployeeInput,
 } from '../types/user.types'
 
 const apiUrl = import.meta.env.VITE_API_URL?.replace(/\/+$/, '')
@@ -141,6 +150,7 @@ export async function createUser(
         email: input.email,
         telefono: input.phone,
         rol_id: input.roleId,
+        sucursal_ids: input.branchIds,
       }),
     })
   } catch {
@@ -160,4 +170,72 @@ export async function createUser(
   }
 
   return mapCreatedUser(createUserResponse.data)
+}
+
+// --- Gestión del personal (listado, edición, estado y blanqueo) -----------
+
+function mapEmployee(employee: ApiEmployee): Employee {
+  return {
+    id: employee.id,
+    name: employee.nombre,
+    dni: employee.dni,
+    email: employee.email,
+    phone: employee.telefono,
+    status: employee.estado,
+    role: employee.rol,
+    roleId: employee.rol_id,
+    requiresPasswordChange: employee.requiere_cambio_password,
+    createdAt: employee.created_at,
+    updatedAt: employee.updated_at,
+    branches: (employee.sucursales ?? []).map((branch) => ({ id: branch.id, name: branch.nombre })),
+  }
+}
+
+const NOT_FOUND = { notFound: 'El usuario ya no existe. Actualizá el listado.' }
+
+export async function listEmployees(filters: EmployeeFilters, token: string): Promise<EmployeeList> {
+  const params = new URLSearchParams()
+  if (filters.search?.trim()) params.set('buscar', filters.search.trim())
+  if (filters.roleId) params.set('rol_id', String(filters.roleId))
+  if (filters.status) params.set('estado', filters.status)
+  const query = params.size ? `?${params}` : ''
+  const { data } = await operationalRequest<{ data: ApiEmployeeList }>(`/admin/empleados${query}`, token)
+  return {
+    employees: data.empleados.map(mapEmployee),
+    total: data.total,
+    summary: {
+      total: data.resumen.total,
+      active: data.resumen.activos,
+      inactive: data.resumen.inactivos,
+      byRole: data.resumen.por_rol,
+    },
+  }
+}
+
+export async function updateEmployee(id: string, input: UpdateEmployeeInput, token: string): Promise<Employee> {
+  const body: Record<string, string | number | number[]> = {}
+  if (input.name !== undefined) body.nombre = input.name
+  if (input.dni !== undefined) body.dni = input.dni
+  if (input.email !== undefined) body.email = input.email
+  if (input.phone !== undefined) body.telefono = input.phone
+  if (input.roleId !== undefined) body.rol_id = input.roleId
+  if (input.branchIds !== undefined) body.sucursal_ids = input.branchIds
+  const { data } = await operationalRequest<{ data: ApiEmployee }>(
+    `/admin/empleados/${id}`, token, { method: 'PATCH', body: JSON.stringify(body) }, NOT_FOUND,
+  )
+  return mapEmployee(data)
+}
+
+export async function changeEmployeeStatus(id: string, status: EmployeeStatus, token: string): Promise<{ employee: Employee; message: string }> {
+  const payload = await operationalRequest<{ data: ApiEmployee; message: string }>(
+    `/admin/empleados/${id}/estado`, token, { method: 'PATCH', body: JSON.stringify({ estado: status }) }, NOT_FOUND,
+  )
+  return { employee: mapEmployee(payload.data), message: payload.message }
+}
+
+export async function resetEmployeePassword(id: string, token: string): Promise<ResetPasswordResult> {
+  const { data } = await operationalRequest<{ data: { id: string; nombre: string; password_temporal: string } }>(
+    `/admin/empleados/${id}/restablecer-password`, token, { method: 'POST' }, NOT_FOUND,
+  )
+  return { id: data.id, name: data.nombre, temporaryPassword: data.password_temporal }
 }

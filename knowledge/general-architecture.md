@@ -89,9 +89,13 @@ El cierre de sesión es local: elimina la sesión persistida, limpia Redux y des
 
 ### 3.5. Experiencia visual
 
-- La identidad se centraliza en `src/styles/theme.css`, con variantes clara y oscura.
+- La identidad se centraliza en `src/styles/theme.css`, con variantes clara y oscura, y es la misma de las presentaciones y los informes: Montserrat, azul petróleo, naranja de marca y verde azulado (ver [Identidad visual](./visual-identity.md)).
+- `src/styles/base.css` y `src/styles/ui.css` reúnen los estilos base y los componentes compartidos; `src/shared/components/Modal.tsx` reemplaza a los paneles desplegables para detalles, formularios secundarios y confirmaciones.
 - Los controles y acciones utilizan `lucide-react` como única librería de iconos.
-- El layout privado dispone de navegación lateral permanente en escritorio, colapsable por debajo de 968 px y de pantalla completa en móviles pequeños.
+- El layout privado tiene un menú lateral colapsable en escritorio, una barra superior con buscador rápido (Ctrl + K) y estado de la API, y en el celular un menú deslizable más una barra inferior.
+- El celular puede usarse como escáner de códigos: `BarcodeDetector` nativo o, si no existe (Safari), ZXing cargado bajo demanda. Requiere HTTPS: en desarrollo, `HTTPS_DEV=true npm run dev`.
+- El monitor de envíos (`features/monitor`) muestra los paquetes de la sucursal por etapa, la trazabilidad completa de cada uno y la bandeja de reclamos (ver [Monitor de envíos](./monitor.md)).
+- Las etiquetas se imprimen desde el navegador con perfiles de impresora tomados de Soderia ERP (Zebra, SATO, Brother, 100×150 y A4). La configuración vive en `shared/printing/` y se guarda por puesto en el almacenamiento local.
 - Se mantienen labels asociados, foco visible, estados de carga y mensajes accesibles desde 320 px de ancho.
 - Las funcionalidades de mayor peso se cargan por ruta para no penalizar la entrada inicial.
 
@@ -100,7 +104,7 @@ El cierre de sesión es local: elimina la sesión persistida, limpia Redux y des
 El registro y el seguimiento de envíos no requieren sesión:
 
 - El registro separa los datos del remitente y destinatario, permite elegir entrega a domicilio o sucursal y admite varios paquetes.
-- Leaflet presenta mapas basados en OpenStreetMap.
+- MapLibre presenta los mapas con OpenFreeMap; OSRM calcula recorridos por calles y Georef ubica direcciones ([mapas.md](./mapas.md)).
 - Nominatim geocodifica una dirección ingresada explícitamente y utiliza la ciudad como alternativa cuando no encuentra la calle y altura.
 - Las sucursales se consultan desde la API y se representan en el mapa.
 - La etiqueta se genera en el navegador con código de barras Code 128 y puede imprimirse o descargarse como PDF.
@@ -193,7 +197,7 @@ Las validaciones que representan decisiones del negocio —política de contrase
 5. **Validación de sesión en el arranque:** un token almacenado no se considera válido sin confirmación del backend.
 6. **Contratos API aislados:** `snake_case` queda en la frontera HTTP y la aplicación trabaja en `camelCase`.
 7. **Diseño basado en tokens:** colores, espacios, superficies y temas se definen una vez y se reutilizan.
-8. **Mapas abiertos:** Leaflet y OpenStreetMap evitan depender inicialmente de una plataforma propietaria; Nominatim se usa sólo ante una acción explícita.
+8. **Mapas abiertos:** MapLibre, OpenFreeMap, OSRM y Georef evitan depender de una plataforma propietaria y no requieren claves (el mismo esquema que Rumbo); la ubicación de direcciones se pide sólo ante una acción explícita.
 9. **Documentos en el cliente:** código de barras, impresión y PDF no requieren un endpoint adicional durante el primer sprint.
 10. **Seguimiento público por URL:** el token puede ingresarse o compartirse como parámetro, manteniendo fuera de la respuesta los datos personales.
 

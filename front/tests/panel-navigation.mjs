@@ -29,13 +29,13 @@ async function screenshot(name) {
 }
 function mockApi() {
   const ok = (data) => new Response(JSON.stringify({ status: 'success', data }), { status: 200, headers: { 'Content-Type': 'application/json' } })
-  localStorage.setItem('gestion-envios.auth-session', JSON.stringify({ token: 'test-session', user: { id: 'u1', name: 'Admin General', dni: '00000000', email: 'a@example.test', role: 'SUPERADMIN', requiresPasswordChange: false } }))
+  localStorage.setItem('gestion-envios.auth-session', JSON.stringify({ token: 'test-session', user: { id: 'u1', name: 'Admin General', dni: '00000000', email: 'a@example.test', role: 'SUPERADMIN', requiresPasswordChange: false, branches: [{ id: 1, name: 'Sucursal Centro', city: 'Córdoba', province: 'Córdoba', address: 'Centro 123', active: true }] } }))
   const originalFetch = window.fetch.bind(window)
   window.fetch = async (input, init = {}) => {
     const url = typeof input === 'string' ? input : input.url
     if (!url.includes('/api/v1/')) return originalFetch(input, init)
     const path = new URL(url, location.origin).pathname.replace('/api/v1', '')
-    if (path === '/auth/login-token' || path === '/auth/me') return ok({ token: 'test-session', user: { id: 'u1', nombre: 'Admin General', dni: '00000000', email: 'a@example.test', rol: 'SUPERADMIN', requiere_cambio_password: false } })
+    if (path === '/auth/login-token' || path === '/auth/me') return ok({ token: 'test-session', user: { id: 'u1', nombre: 'Admin General', dni: '00000000', email: 'a@example.test', rol: 'SUPERADMIN', requiere_cambio_password: false, sucursales: [{ id: 1, nombre: 'Sucursal Centro', ciudad: 'Córdoba', provincia: 'Córdoba', direccion: 'Centro 123', activa: true }] } })
     if (path === '/sucursales') return ok([{ id: 1, nombre: 'Sucursal Centro', provincia: 'Córdoba', ciudad: 'Córdoba', direccion: 'Av. Colón 1', latitud: -31.4, longitud: -64.18 }])
     if (path.startsWith('/preguntas-frecuentes')) return ok([])
     return ok({})
@@ -50,7 +50,7 @@ for (const [path, name] of [['/', 'inicio'], ['/envios/nuevo', 'registrar-envio'
   await waitFor('Boolean(document.querySelector("main, .app-content__body > *"))')
   await new Promise((r) => setTimeout(r, 600))
   assert.equal(await evaluate(hasSidebar), true, `${path}: debería mostrar el menú lateral con sesión`)
-  assert.equal(await evaluate('Boolean(document.querySelector(".shipment-public-header, .tracking-public-header, .faq-public-header"))'), false, `${path}: sin encabezado público duplicado`)
+  assert.equal(await evaluate('Boolean(document.querySelector(".public-header"))'), false, `${path}: sin encabezado público duplicado`)
   await screenshot(`panel-${name}`)
 }
 // Navegar con clics del menú, como un usuario.

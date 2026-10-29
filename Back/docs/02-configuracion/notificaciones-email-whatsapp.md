@@ -1,6 +1,6 @@
 # Notificaciones por email (Gmail) y WhatsApp
 
-HU05 envía el código de seguimiento por **email y WhatsApp** al remitente y al destinatario cuando se registra un envío. La visita fallida de HU12 avisa al destinatario por los mismos dos canales. Cada intento queda en `notificaciones_envio` y el personal lo ve (y lo reenvía) desde **Recepción en terminal → Avisos al cliente**.
+HU05 envía el código de seguimiento por **email y WhatsApp** al remitente y al destinatario cuando se registra un envío. HU14 avisa cada etapa del envío, y la visita fallida de HU12 avisa al destinatario, por los mismos dos canales. Cada intento queda en `notificaciones_envio` y el personal lo ve (y lo reenvía) desde **Recepción en terminal → Avisos al cliente**.
 
 Por defecto los dos canales usan proveedores **mock**: no envían nada, solo registran el mensaje en el log. Para enviar de verdad hay que completar `Back/.env` como se explica abajo. Ningún valor de esta guía va al repositorio.
 
@@ -29,6 +29,8 @@ Otros proveedores SMTP (Outlook, Mailtrap, un servidor propio) usan `EMAIL_PROVI
 
 WhatsApp solo deja que una empresa **inicie** una conversación con una **plantilla aprobada**. El texto libre se entrega únicamente si la persona escribió al número de la empresa en las últimas 24 horas (o, en Twilio, si se unió al sandbox). Hay dos proveedores implementados; elegir uno.
 
+**El equipo usa Meta (opción B)** con el número de prueba de la app compartida. Twilio queda como alternativa, pero una cuenta Trial no envía los avisos de este proyecto.
+
 ### Opción A — Twilio (la más rápida para probar)
 
 **Cuentas Trial nuevas:** el flujo **Try out WhatsApp** permite únicamente plantillas predefinidas de Twilio, sin texto ni variables personalizados. Guardar SID y token no alcanza para enviar los avisos de este proyecto: puede responder `21654 ContentSid Required` y la API de plantillas rechaza el acceso en Trial. Para la demo con el texto real se puede usar el número de prueba de Meta de la opción B. El sandbox clásico descrito a continuación depende de la disponibilidad y las restricciones de la cuenta.
@@ -52,12 +54,13 @@ WhatsApp solo deja que una empresa **inicie** una conversación con una **planti
 1. En <https://developers.facebook.com> crear una app de tipo **Business** y agregarle el producto **WhatsApp**.
 2. En **WhatsApp → API Setup** copiar el **Phone number ID** del número de prueba y agregar los teléfonos destinatarios permitidos (el número de prueba solo entrega a esa lista).
 3. El token temporal de esa pantalla tiene vencimiento: comprobar su vigencia en Meta antes de la demo. Se puede intercambiar por un token de usuario de larga duración (aproximadamente 60 días). Para algo estable, crear un **usuario del sistema** en la configuración del negocio con el permiso `whatsapp_business_messaging` y generar su token.
-4. En **WhatsApp Manager → Plantillas de mensajes** crear dos plantillas de categoría **Utilidad**, idioma **Spanish (ARG)**:
+4. En **WhatsApp Manager → Plantillas de mensajes** crear tres plantillas de categoría **Utilidad**, idioma **Spanish (ARG)**:
 
    | Plantilla | Cuerpo sugerido | Parámetros que envía el sistema |
    |---|---|---|
    | `token_seguimiento` | `Hola {{1}}, se registró un envío en Gestión de Envíos. Tu código de seguimiento es {{2}}. Consultá su estado en {{3}}` | nombre, código `ENV-…`, enlace |
    | `aviso_visita` | `Hola {{1}}, visitamos tu domicilio pero no pudimos entregar el paquete {{2}}. Consultá el estado del envío en {{3}}` | nombre, número `PAQ-…`, enlace |
+   | `aviso_estado` | `Hola {{1}}, {{2}} Seguí tu envío en: {{3}}` | nombre, novedad del envío (HU14), enlace |
 
 5. En `Back/.env`:
 
@@ -67,6 +70,7 @@ WhatsApp solo deja que una empresa **inicie** una conversación con una **planti
    WHATSAPP_META_PHONE_NUMBER_ID=123456789012345
    WHATSAPP_META_PLANTILLA_NUEVO_ENVIO=token_seguimiento
    WHATSAPP_META_PLANTILLA_VISITA_FALLIDA=aviso_visita
+   WHATSAPP_META_PLANTILLA_AVISO_ESTADO=aviso_estado
    WHATSAPP_META_IDIOMA_PLANTILLA=es_AR
    ```
 

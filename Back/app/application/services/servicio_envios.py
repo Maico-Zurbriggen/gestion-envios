@@ -1,3 +1,5 @@
+from datetime import UTC, datetime, timedelta
+
 from app.application.interfaces.repositorio_envios import IRepositorioEnvios
 from app.application.interfaces.repositorio_sucursales import IRepositorioSucursales
 from app.contracts.envios import (
@@ -7,6 +9,7 @@ from app.contracts.envios import (
     PaqueteCreadoData,
 )
 from app.contracts.sucursales import SucursalData
+from app.core.config import settings
 from app.core.exceptions import AppException, ValidationException
 from app.domain.constants.error_codes import ErrorCodes
 from app.domain.rules.codigos_rules import generar_numero_paquete, generar_token_seguimiento
@@ -29,6 +32,13 @@ class ServicioEnvios:
 
     async def crear_envio(self, datos: CrearEnvioRequest) -> CrearEnvioResponse:
         """Registra un Envío con sus Paquetes asociados (HU03 - Escenarios 1 y 2)."""
+        origen = await self.repo_sucursales.obtener_por_id(datos.sucursal_origen_id)
+        if not origen or not getattr(origen, "activa", True):
+            raise ValidationException(
+                message="Elegí la sucursal donde vas a llevar los paquetes.",
+                errors=[{"field": "sucursal_origen_id", "message": "La sucursal de origen no existe o no está habilitada."}],
+            )
+
         sucursal = None
         if datos.tipo_entrega == "sucursal":
             sucursal = await self.repo_sucursales.obtener_por_id(datos.sucursal_destino_id)
@@ -66,7 +76,10 @@ class ServicioEnvios:
 
         paquetes_modelo = []
         numeros_asignados: set[str] = set()
-        for paquete in datos.paquetes:
+        # Un microsegundo entre paquetes fija el orden de los bultos («1 de 3», «2 de 3»…)
+        # igual en el comprobante, las etiquetas y el monitor.
+        registrado = datetime.now(UTC)
+        for indice, paquete in enumerate(datos.paquetes):
             numero_paquete = await self._generar_numero_paquete_unico(numeros_asignados)
             numeros_asignados.add(numero_paquete)
             paquetes_modelo.append(
@@ -79,6 +92,8 @@ class ServicioEnvios:
                     alto_cm=paquete.alto_cm,
                     observaciones=paquete.observaciones.strip() if paquete.observaciones else None,
                     estado="Pendiente",
+                    sucursal_origen_id=origen.id,
+                    created_at=registrado + timedelta(microseconds=indice),
                 )
             )
 
@@ -121,6 +136,10 @@ class ServicioEnvios:
                 direccion_destino=envio_creado.direccion_destino,
                 latitud_destino=envio_creado.latitud_destino,
                 longitud_destino=envio_creado.longitud_destino,
+                sucursal_origen=SucursalData(
+                    id=origen.id, nombre=origen.nombre, provincia=origen.provincia, ciudad=origen.ciudad,
+                    direccion=origen.direccion, latitud=origen.latitud, longitud=origen.longitud,
+                ),
                 sucursal_destino=(
                     SucursalData(
                         id=envio_creado.sucursal_destino.id,
@@ -149,6 +168,7 @@ class ServicioEnvios:
                     for p in envio_creado.paquetes
                 ],
                 created_at=envio_creado.created_at,
+                admitir_hasta=registrado + timedelta(days=settings.VENCIMIENTO_PRE_REGISTRO_DIAS),
             )
         )
 

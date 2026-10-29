@@ -34,7 +34,7 @@ from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from alembic.util.exc import CommandError
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection, make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -55,6 +55,15 @@ REVISION_HU10 = "b7d41e9a2c63"
 REVISION_HU11_HU12 = "d2a6f81112ac"
 """Revisiones que pudo haber dejado `create_all` antes de este cambio. Desde
 ahora el esquema solo cambia por migraciones, así que la lista no crece."""
+
+REVISION_CIRCUITO = "c41a7e9d2b55"
+REVISION_SUCURSALES = "e5b19c3a7d20"
+REVISION_VUELTA = "a7c3e19d4f52"
+TABLAS_SOLO_POR_MIGRACION = {
+    "usuario_sucursales": REVISION_SUCURSALES,
+}
+"""Tablas nacidas después de `create_all`: una base heredada no las tiene (las
+crea la migración). Solo una base armada con los modelos actuales (pruebas) las trae."""
 
 
 class EsquemaNoAdoptableError(RuntimeError):
@@ -99,6 +108,30 @@ def configuracion_alembic(database_url: str | None = None) -> Config:
     return config
 
 
+REVISIONES_RETIRADAS = {"539e81c168e2", "7f3c2a91d4b8"}
+"""Revisiones que salieron del alcance antes de llegar a Neon: solo pueden estar en
+bases locales que corrieron esa versión."""
+TABLAS_RETIRADAS = ("lecturas_descarga", "controles_descarga", "plantillas_correo", "configuracion_correo")
+
+
+def retirar_alcance_quitado(conexion: Connection) -> bool:
+    """Borra las tablas retiradas y, si la base quedó marcada en una revisión retirada,
+    la vuelve a HU11/HU12 para que siga la cadena actual. Devuelve si cambió algo."""
+    inspector = inspect(conexion)
+    tablas = set(inspector.get_table_names())
+    cambio = False
+    for tabla in TABLAS_RETIRADAS:
+        if tabla in tablas:
+            conexion.execute(text(f"DROP TABLE {tabla}"))
+            cambio = True
+    if "alembic_version" in tablas:
+        actual = conexion.execute(text("SELECT version_num FROM alembic_version")).scalar()
+        if actual in REVISIONES_RETIRADAS:
+            conexion.execute(text("UPDATE alembic_version SET version_num = :rev"), {"rev": REVISION_HU11_HU12})
+            cambio = True
+    return cambio
+
+
 def revision_de_base_heredada(conexion: Connection) -> str | None:
     """Revisión equivalente a una base creada con `create_all`, o `None` si no hay que adoptarla.
 
@@ -110,7 +143,7 @@ def revision_de_base_heredada(conexion: Connection) -> str | None:
     if "alembic_version" in tablas or "usuarios" not in tablas:
         return None
 
-    faltantes = sorted(set(Base.metadata.tables) - tablas)
+    faltantes = sorted(set(Base.metadata.tables) - tablas - set(TABLAS_SOLO_POR_MIGRACION))
     if faltantes:
         raise EsquemaNoAdoptableError(
             "La base tiene tablas creadas sin Alembic y le faltan: "
@@ -121,6 +154,12 @@ def revision_de_base_heredada(conexion: Connection) -> str | None:
     def columnas(tabla: str) -> set[str]:
         return {columna["name"] for columna in inspector.get_columns(tabla)}
 
+    if "vuelve_a_sucursal" in columnas("recorridos"):
+        return REVISION_VUELTA
+    if set(TABLAS_SOLO_POR_MIGRACION) <= tablas:
+        return REVISION_SUCURSALES
+    if "tipo_aviso" in columnas("notificaciones_envio"):
+        return REVISION_CIRCUITO
     if "procesando_at" in columnas("notificaciones_envio"):
         return REVISION_HU11_HU12
     if "distancia_estimada_km" in columnas("recorridos"):
@@ -148,6 +187,8 @@ def _diferencias(conexion: Connection) -> list[str]:
 
 def _pendientes(script: ScriptDirectory, actual: str | None) -> list[str]:
     head = script.get_current_head()
+    if actual in REVISIONES_RETIRADAS:
+        actual = REVISION_HU11_HU12
     if actual == head:
         return []
     try:

@@ -1,15 +1,16 @@
-import type { RouteObject } from 'react-router-dom'
+import { Navigate, type RouteObject } from 'react-router-dom'
 import { DriverDeliveryRoute } from '../features/delivery/components/DriverDeliveryRoute'
 import { TerminalRoute } from '../features/terminal/components/TerminalRoute'
 import App from '../App'
 import { HomePage } from '../features/home/pages/HomePage'
-import { PickupPage } from '../features/pickup/pages/PickupPage'
 import { RoutesRoute } from '../features/routes/components/RoutesRoute'
-import { CreateUserPage } from '../features/users/pages/CreateUserPage'
+import { monitorRoute } from '../features/monitor/monitorRoutes'
 import { UnauthorizedPage } from '../pages/UnauthorizedPage'
 import { ProtectedRoutes } from './ProtectedRoutes'
+import { AdminBranchesRoute, ChooseBranchRoute, PickupRoute, UsersRoute } from './LazyPages'
 
 export const mainRoutes: RouteObject[] = [
+  { path: '/elegir-sucursal', element: <ChooseBranchRoute /> },
   {
     element: <App />,
     children: [
@@ -21,8 +22,16 @@ export const mainRoutes: RouteObject[] = [
         element: <ProtectedRoutes allowedRoles={['SUPERADMIN']} />,
         children: [
           {
+            path: '/admin/usuarios',
+            element: <UsersRoute />,
+          },
+          {
             path: '/admin/usuarios/nuevo',
-            element: <CreateUserPage />,
+            element: <Navigate to="/admin/usuarios?nuevo=1" replace />,
+          },
+          {
+            path: '/admin/sucursales',
+            element: <AdminBranchesRoute />,
           },
         ],
       },
@@ -31,12 +40,13 @@ export const mainRoutes: RouteObject[] = [
         children: [
           {
             path: '/sucursal/retiros',
-            element: <PickupPage />,
+            element: <PickupRoute />,
           },
           {
             path: '/recorridos',
             element: <RoutesRoute />,
           },
+          monitorRoute,
         ],
       },
       {
@@ -45,7 +55,9 @@ export const mainRoutes: RouteObject[] = [
       },
       {
         element: <ProtectedRoutes allowedRoles={['VENDEDOR', 'ADMINISTRATIVO', 'SUPERADMIN']} />,
-        children: [{ path: '/terminal/recepcion', element: <TerminalRoute /> }],
+        children: [
+          { path: '/terminal/recepcion', element: <TerminalRoute /> },
+        ],
       },
       {
         path: '/unauthorized',

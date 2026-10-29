@@ -16,7 +16,7 @@ Resumen de los contratos del backend. El detalle completo (requests, respuestas 
 - La feature `front/src/features/claims/` mantiene componentes, tipos, servicios y hooks de TanStack Query. El formulario permite elegir el envío completo o uno de sus paquetes, y valida descripción, nombre y al menos un medio de contacto.
 - El panel muestra confirmación, reclamos anteriores, estado y resolución pública. Actualiza el historial después de crear, ante un duplicado y por acción del usuario; respeta `puede_iniciar` y el motivo de inhabilitación del servidor.
 - Cambiar el envío consultado reinicia el panel y su formulario. Los datos de contacto no se conservan después de un alta exitosa ni se agregan al historial público.
-- Este alcance cubre el inicio público previsto en la pila del Sprint 3. La bandeja de gestión interna todavía no tiene interfaz en el frontend.
+- Este alcance cubre el inicio público previsto en la pila del Sprint 3. La bandeja de gestión interna es la HU17, en Monitor › Reclamos (ver [monitor.md](./monitor.md)).
 
 ## Preguntas frecuentes (HU08)
 
@@ -37,11 +37,15 @@ Resumen de los contratos del backend. El detalle completo (requests, respuestas 
 Todo requiere `ADMINISTRATIVO` o `SUPERADMIN`.
 
 1. **Perfil de repartidor** (una vez por repartidor): `PUT /api/v1/repartidores/{usuario_id}/perfil` con `sucursal_base_id`, `tipo_reparto` (`CORTA` | `LARGA`) y `activo`. Sin perfil, un usuario REPARTIDOR no recibe recorridos.
-2. **Generar**: `POST /api/v1/recorridos/generar` con `sucursal_id`, `tipo_distancia`, y opcionales `fecha`, `orientacion_calles_grados` (0 a <90), `repartidor_ids`, `reemplazar_existentes`. Reparte de forma equitativa por zonas y optimiza el orden. Devuelve `resumen`, `recorridos` y `alertas`.
-3. **Visualizar**: `GET /api/v1/recorridos/{id}` trae `paradas` en orden (con coordenadas y paquetes) y `trazado` (polilínea lista para Leaflet).
-4. **Editar** (solo `GENERADO`/`EN_EDICION`): `PUT /{id}/paquetes` con la lista completa en orden, `DELETE /{id}/paquetes/{codigo}`, `POST /{id}/optimizar`, `PATCH /{id}/repartidor`, `DELETE /{id}`. Cada respuesta trae las `alertas` vigentes.
-5. **Iniciar**: `POST /{id}/iniciar`. Los paquetes pasan a `EN_REPARTO` (corta) o `EN_TRANSITO` (larga) y el seguimiento público lo refleja.
-6. **Alertas** de paquetes sin recorrido: `GET /api/v1/recorridos/alertas?sucursal_id=`; mostrar `descripcion_motivo`.
+2. **Qué espera recorrido**:
+   - `GET /api/v1/recorridos/pendientes/resumen`: registrados que todavía no llegaron a una sucursal (`sin_llegar`) y, por sucursal, cuántos esperan un recorrido `a_domicilio` o `entre_sucursales`.
+   - `GET /api/v1/recorridos/pendientes?sucursal_id=&tipo_distancia=`: los paquetes de una sucursal, con destino, si tienen ubicación y el `motivo` si no se pueden planificar.
+3. **Armar a mano**: `POST /api/v1/recorridos` con `sucursal_id`, `tipo_distancia`, `fecha`, `repartidor_id` (libre ese día) y `paquetes` (códigos en orden). Queda `EN_EDICION`.
+4. **Armar automáticamente**: `POST /api/v1/recorridos/generar` con `sucursal_id`, `tipo_distancia` y opcionales `fecha` y `repartidor_ids`. Reparte por zonas solo lo que espera recorrido, entre los repartidores libres, y optimiza el orden. **Lo ya armado se respeta.** Con `reemplazar_existentes: true` descarta los recorridos sin iniciar y vuelve a repartir todo. `orientacion_calles_grados` es opcional (0 por defecto). Devuelve `resumen`, `recorridos` y `alertas`.
+5. **Visualizar**: `GET /api/v1/recorridos?desde=&hasta=` (una semana) y `GET /api/v1/recorridos/{id}` trae `paradas` en orden (con coordenadas y paquetes) y `trazado` (puntos de las paradas en orden; el recorrido por calles lo da `POST /api/v1/mapa/trayecto`).
+6. **Editar** (solo `GENERADO`/`EN_EDICION`): `PUT /{id}/paquetes` con la lista completa en orden, `DELETE /{id}/paquetes/{codigo}`, `POST /{id}/optimizar`, `PATCH /{id}/repartidor`, `DELETE /{id}`. `PUT /{id}/vuelta` (`vuelve_a_sucursal`) se puede cambiar también en reparto; la vuelta se dibuja aparte, en azul punteado. Cada respuesta trae las `alertas` vigentes.
+7. **Iniciar**: `POST /{id}/iniciar` (desde `GENERADO` o `EN_EDICION`; normalmente lo hace el repartidor desde su app). Los paquetes pasan a `EN_REPARTO` (corta) o `EN_TRANSITO` (larga) y el seguimiento público lo refleja.
+8. **Alertas** de paquetes sin recorrido: `GET /api/v1/recorridos/alertas?sucursal_id=`. Se resuelven solas cuando el paquete entra en un recorrido; la trazabilidad del monitor las muestra.
 
 **Corta / larga distancia:** corta = entregas a domicilio que atiende la propia sucursal (paradas `DOMICILIO`, vuelve a la sucursal); larga = traslados a otra sucursal (paradas `SUCURSAL`, termina en la última).
 
@@ -53,11 +57,26 @@ Los paquetes solo entran en un recorrido después de recibirse en la terminal (H
 
 ### Frontend de HU10
 
-- `/recorridos` está bajo las rutas privadas de `MainRoutes.tsx`, con roles `ADMINISTRATIVO` y `SUPERADMIN`. La navegación y el Home muestran el acceso desde `app/navigation.ts`.
-- La feature `front/src/features/routes/` mantiene contratos, modelos camelCase, servicios, hooks y componentes. TanStack Query conserva las consultas y actualiza recorridos y alertas después de las operaciones; Redux solo aporta la sesión.
-- Permite configurar perfiles de repartidor, filtrar por sucursal/fecha/tipo, generar con orientación y selección opcional de repartidores, y reemplazar planificaciones sin iniciar con confirmación explícita. El listado admite filtros adicionales por estado y repartidor.
-- El detalle usa Leaflet y [Mapbox Directions](./mapbox-routing.md) para dibujar los trayectos siguiendo calles y carreteras, numerar paradas y señalar la sucursal inicial. Mapbox conserva el orden de las paradas; el backend sigue asignando paquetes y optimizando su orden. Las paradas sin coordenadas se listan y se advierten, sin inventar su ubicación.
-- La edición permite reordenar con botones de teclado, agregar y quitar paquetes, optimizar y reasignar repartidor. El borrador se conserva ante errores y bloquea los cambios de contexto hasta guardarlo o cancelarlo. Para mover paquetes entre recorridos se quitan y guardan en el origen y se agregan por código al destino.
-- Las paradas de domicilio sin coordenadas ofrecen **Ubicar domicilio** antes de iniciar. Permite seleccionar el punto en un mapa centrado inicialmente en la sucursal (sin asumir que ese sea el destino) o ingresar latitud y longitud por teclado. Guardar persiste la ubicación, actualiza las consultas de recorridos y solicita el trayecto por calles con las nuevas coordenadas. Cancelar no modifica los datos y un error conserva el punto ingresado.
-- Iniciar y eliminar requieren confirmación. Un recorrido en curso o finalizado es de consulta. Si su estado cambia durante una edición, se ofrece salir del borrador sin intentar guardar sobre un recorrido bloqueado.
-- Las alertas muestran el motivo del servidor, permiten copiar el código, consultar el seguimiento y marcar un caso atendido por fuera del sistema. Su alcance es la sucursal seleccionada para ambos tipos de reparto, independiente de la fecha del listado.
+Pantalla `/recorridos` (módulo «Recorridos»), al estilo de las hojas de ruta de Aviso Entrega:
+
+- **Circuito en tres pasos**, con números reales:
+  1. registrados sin llegar, con acceso a «Recibir paquetes»;
+  2. en sucursal esperando recorrido, por sucursal y tipo (un clic elige esa sucursal y pestaña);
+  3. en recorrido ese día.
+
+  Si en el equipo nunca se eligió una sucursal, se propone la que tiene más paquetes esperando.
+- **Sucursal** (se recuerda en el equipo, `recorridos-sucursal`), **tipo** («A domicilio» o «Entre sucursales») y **semana** con el resumen de cada día. El día es el de salida de los recorridos: los paquetes en espera no tienen fecha. El día, el tipo y el recorrido abierto quedan en la URL.
+- **Indicadores del día** y una **tarjeta por recorrido** con su avance (entregados, sin entregar y pendientes).
+- **Nuevo recorrido:** día de salida, repartidor libre y paquetes en espera para elegir con un clic (búsqueda y filtro por ubicación).
+- **Armar automáticamente:** muestra cuántos esperan, deja elegir los repartidores (los ocupados ese día aparecen deshabilitados) y al terminar lista los recorridos armados y lo que quedó esperando, con el motivo.
+- **Repartidores:** botón del encabezado que abre la configuración de perfiles.
+- **Espacio de trabajo de un recorrido:**
+  - encabezado con métricas e «Iniciar recorrido», «Cambiar repartidor» y «Eliminar»;
+  - lista «Antes de salir»: repartidor, paquetes y ubicaciones;
+  - paradas que se reordenan arrastrando o con flechas, y se guardan solas;
+  - quitar un paquete lo devuelve a la espera; «Optimizar» ordena el recorrido;
+  - a la derecha, el mapa, el panel «Agregar» con los paquetes en espera, o «Ubicar domicilio» para paradas sin coordenadas.
+
+  Un recorrido en reparto o finalizado es de consulta y se actualiza cada 30 segundos.
+- El trayecto por calles usa [OSRM](./mapas.md) por calles y rutas, sin diagonales; el orden de las paradas sale de los tiempos reales de manejo.
+- Los estilos base (botones, avisos, mapa) están en `features/routes/routes.css` y los importa cada componente; la app del repartidor reutiliza el mapa sin cargar la página de recorridos.

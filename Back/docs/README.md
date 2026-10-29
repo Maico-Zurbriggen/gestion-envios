@@ -21,6 +21,7 @@ Esta carpeta (`Back/docs/`) es el "cómo y por qué" del lado del backend: arqui
 - [Variables de entorno](./02-configuracion/variables-de-entorno.md)
 - [Mantener Neon actualizada (migraciones automáticas)](./02-configuracion/base-de-datos-neon.md)
 - [Notificaciones por email (Gmail) y WhatsApp](./02-configuracion/notificaciones-email-whatsapp.md)
+- [Despliegue en el VPS](./02-configuracion/despliegue-vps.md)
 
 ### 3. Seguridad
 - [Autenticación y autorización (JWT, scopes, roles)](./03-seguridad/autenticacion-jwt.md)
@@ -31,12 +32,18 @@ Esta carpeta (`Back/docs/`) es el "cómo y por qué" del lado del backend: arqui
 - [HU02 — Primer acceso y cambio obligatorio de contraseña](./04-historias-de-usuario/hu02-primer-acceso.md)
 - [HU03 — Registro de envíos](./04-historias-de-usuario/hu03-registro-envios.md)
 - [HU04 — Seguimiento público por token](./04-historias-de-usuario/hu04-seguimiento-publico.md)
+- [HU05 — Avisos al cliente por email y WhatsApp](./04-historias-de-usuario/hu05-notificaciones.md)
 - [HU06 — Recepción de paquetes en terminal por escaneo del código de barras](./04-historias-de-usuario/hu06-recepcion-terminal.md)
 - [HU07 — Reclamos desde la vista pública del token](./04-historias-de-usuario/hu07-reclamos.md)
 - [HU08 — Sección de preguntas frecuentes](./04-historias-de-usuario/hu08-preguntas-frecuentes.md)
 - [HU09 — Sucursales disponibles para retiro](./04-historias-de-usuario/hu09-sucursales-retiro.md)
 - [HU10 — Generación, visualización y edición de recorridos](./04-historias-de-usuario/hu10-recorridos.md)
 - [HU11 y HU12 — Ejecución del reparto y constancias de entrega](./04-historias-de-usuario/hu11-hu12-reparto.md)
+- [HU13 — Retiro verificado en sucursal](./04-historias-de-usuario/hu13-retiro-sucursal.md)
+- [HU14 — Plazos y avisos del envío](./04-historias-de-usuario/hu14-plazos-y-avisos.md)
+- [HU15 — Admisión y control en la sucursal](./04-historias-de-usuario/hu15-admision-y-control.md)
+- [HU16 — Sucursales y acceso por sucursal](./04-historias-de-usuario/hu16-sucursales-y-acceso.md)
+- [HU17 — Bandeja interna de reclamos](./04-historias-de-usuario/hu17-bandeja-reclamos.md)
 
 ### 5. Testing
 - [Estrategia de pruebas](./05-testing/estrategia-de-pruebas.md)

@@ -20,6 +20,17 @@ class LoginRequest(ApiModel):
         return v
 
 
+class SucursalAccesoData(ApiModel):
+    """Sucursal en la que el usuario puede trabajar."""
+
+    id: int
+    nombre: str
+    ciudad: str
+    provincia: str
+    direccion: str
+    activa: bool = True
+
+
 class UserInfoResponse(ApiModel):
     id: UUID
     nombre: str
@@ -27,6 +38,9 @@ class UserInfoResponse(ApiModel):
     email: str
     rol: str
     requiere_cambio_password: bool
+    sucursales: list[SucursalAccesoData] = Field(
+        default_factory=list, description="Sucursales habilitadas (el Superadministrador: todas)."
+    )
 
 
 class LoginNormalData(ApiModel):
@@ -78,14 +92,5 @@ class CambiarPasswordResponse(ApiModel):
 
 class LoginTokenRequest(ApiModel):
     token: str | None = Field(None, description="Token JWT de autenticación (opcional si se envía en el header Authorization: Bearer)")
-
-
-class MeData(ApiModel):
-    user: UserInfoResponse
-
-
-class MeResponse(ApiModel):
-    status: str = "success"
-    data: MeData
 
 

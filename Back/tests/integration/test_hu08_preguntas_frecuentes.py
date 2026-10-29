@@ -16,7 +16,11 @@ from app.domain.constants.scopes import ScopeEnum
 from app.domain.rules.paquete_rules import PESO_MAX_KG
 from app.infrastructure.auth.jwt_handler import ManejadorJWT
 from app.infrastructure.db.models import PreguntaFrecuenteModel
-from app.infrastructure.db.seed import PREGUNTAS_FRECUENTES_BASE, sembrar_preguntas_frecuentes
+from app.infrastructure.db.seed import (
+    PREGUNTAS_FRECUENTES_BASE,
+    RESPUESTAS_ANTERIORES,
+    sembrar_preguntas_frecuentes,
+)
 
 PUBLICO = "/api/v1/preguntas-frecuentes"
 ADMIN = "/api/v1/admin/preguntas-frecuentes"
@@ -153,6 +157,28 @@ async def test_hu08_siembra_inicial_es_idempotente_y_respeta_lo_editado(
     await sembrar_preguntas_frecuentes(db_session)
     total_despues = (await db_session.execute(select(func.count(PreguntaFrecuenteModel.id)))).scalar_one()
     assert total_despues == len(PREGUNTAS_FRECUENTES_BASE) - 1
+
+
+@pytest.mark.asyncio
+async def test_hu08_actualiza_solo_las_respuestas_viejas_sin_editar(client: AsyncClient, db_session: AsyncSession):
+    """Una base sembrada antes del circuito nuevo recibe los textos actuales,
+    salvo las respuestas que un administrador ya cambió."""
+    base = {datos["pregunta"]: datos for datos in PREGUNTAS_FRECUENTES_BASE}
+    preguntas = list(RESPUESTAS_ANTERIORES)
+    sin_editar, editada = preguntas[0], preguntas[1]
+    db_session.add(PreguntaFrecuenteModel(**{**base[sin_editar], "respuesta": RESPUESTAS_ANTERIORES[sin_editar]}, publicada=True))
+    db_session.add(PreguntaFrecuenteModel(**{**base[editada], "respuesta": "Texto propio del administrador."}, publicada=True))
+    await db_session.commit()
+
+    await sembrar_preguntas_frecuentes(db_session)
+
+    filas = {
+        p.pregunta: p.respuesta
+        for p in (await db_session.execute(select(PreguntaFrecuenteModel))).scalars()
+    }
+    assert filas[sin_editar] == base[sin_editar]["respuesta"]
+    assert filas[editada] == "Texto propio del administrador."
+    assert len(filas) == 2, "Con contenido cargado no se agregan preguntas"
 
 
 @pytest.mark.asyncio

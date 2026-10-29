@@ -32,12 +32,15 @@ ESTADOS_YA_RECEPCIONADOS: set[str] = {
     EstadoPaqueteEnum.LISTO_PARA_RETIRO.value,
     EstadoPaqueteEnum.EN_SUCURSAL.value,
     EstadoPaqueteEnum.EN_REPARTO.value,
+    EstadoPaqueteEnum.ENTREGA_FALLIDA.value,
+    EstadoPaqueteEnum.EN_DEVOLUCION.value,
 }
 
 ESTADOS_CICLO_CERRADO: set[str] = {
     EstadoPaqueteEnum.ENTREGADO.value,
     EstadoPaqueteEnum.ENTREGADO_EN_SUCURSAL.value,
     EstadoPaqueteEnum.RETIRADO.value,
+    EstadoPaqueteEnum.DEVUELTO.value,
 }
 
 
@@ -109,6 +112,12 @@ def evaluar_disponibilidad_recepcion(estado_actual: str) -> tuple[bool, str | No
     """
     estado_normalizado = (estado_actual or "").strip()
 
+    if estado_normalizado == EstadoPaqueteEnum.VENCIDO.value:
+        return False, (
+            "El registro de este envío venció porque no se trajo a una sucursal a tiempo. "
+            "El cliente tiene que registrar el envío de nuevo."
+        )
+
     if estado_normalizado in ESTADOS_CICLO_CERRADO:
         return False, "El paquete ya completó su ciclo de entrega y no puede volver a recibirse en la terminal."
 
@@ -137,3 +146,21 @@ def estado_tras_recepcion(tipo_entrega: str | None, sucursal_destino_id: int | N
     if (tipo_entrega or "").strip().lower() == "sucursal" and sucursal_destino_id == sucursal_recepcion_id:
         return EstadoPaqueteEnum.LISTO_PARA_RETIRO.value
     return EstadoPaqueteEnum.EN_SUCURSAL_ORIGEN.value
+
+
+DIFERENCIA_PESO_TOLERADA = 0.10
+"""Diferencia entre el peso declarado y el de la balanza que se informa al personal."""
+
+
+def aviso_diferencia_peso(peso_declarado: float, peso_balanza: float | None) -> str | None:
+    """Aviso si la balanza difiere más de un 10 % de lo que declaró el cliente."""
+    if not peso_balanza or peso_declarado <= 0:
+        return None
+    diferencia = (peso_balanza - peso_declarado) / peso_declarado
+    if abs(diferencia) <= DIFERENCIA_PESO_TOLERADA:
+        return None
+    sentido = "más" if diferencia > 0 else "menos"
+    return (
+        f"La balanza marca {peso_balanza:g} kg: {abs(diferencia) * 100:.0f} % {sentido} que los "
+        f"{peso_declarado:g} kg declarados. Quedó registrado el peso real."
+    )

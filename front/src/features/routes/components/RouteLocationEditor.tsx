@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { CircleAlert, LoaderCircle, MapPin, Save, X } from 'lucide-react'
 import { ShipmentMap } from '../../shipments/components/ShipmentMap'
 import type { DeliveryRoute, RouteStop } from '../types/route.types'
+import '../routes.css'
 
 function coordinate(value: string, limit: number): number | null {
   if (!value.trim()) return null

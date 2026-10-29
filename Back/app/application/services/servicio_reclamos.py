@@ -165,6 +165,7 @@ class ServicioReclamos(IServicioReclamos):
         estado: str | None = None,
         tipo: str | None = None,
         token_seguimiento: str | None = None,
+        sucursal_id: int | None = None,
     ) -> ListarReclamosAdminResponse:
         errores = []
         estado_filtro = estado.strip().upper() if estado and estado.strip() else None
@@ -182,6 +183,7 @@ class ServicioReclamos(IServicioReclamos):
             estado=estado_filtro,
             tipo=tipo_filtro,
             token_seguimiento=token_filtro,
+            sucursal_id=sucursal_id,
         )
         return ListarReclamosAdminResponse(
             total=len(reclamos),

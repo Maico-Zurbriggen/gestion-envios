@@ -1,0 +1,148 @@
+/* Lector con cámara: vista en vivo con recuadro guía y lista de lecturas. */
+.camera-scanner__content {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.camera-scanner__viewport {
+  position: relative;
+  overflow: hidden;
+  /* Reserva el lugar desde el primer cuadro: sin esto el modal salta al cargar el video. */
+  aspect-ratio: 4 / 3;
+  background: var(--color-neutral-950);
+  border-radius: var(--radius-lg);
+}
+
+.camera-scanner__video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.camera-scanner__guide {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+/* Ancho y bajo, como un Code 128. La sombra oscurece el resto del cuadro. */
+.camera-scanner__guide span {
+  position: relative;
+  width: 84%;
+  height: 30%;
+  border: 2px solid var(--color-neutral-0);
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 100vmax color-mix(in srgb, var(--color-neutral-950) 45%, transparent);
+}
+
+.camera-scanner__guide span::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: var(--space-3);
+  left: var(--space-3);
+  height: 2px;
+  background: color-mix(in srgb, var(--color-primary-400) 85%, transparent);
+}
+
+.camera-scanner__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--color-neutral-0);
+  background: color-mix(in srgb, var(--color-neutral-950) 72%, transparent);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.camera-scanner__error strong {
+  display: block;
+  margin-bottom: var(--space-1);
+}
+
+.camera-scanner__feedback {
+  min-height: 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.camera-scanner__feedback svg {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+.camera-scanner__feedback--success {
+  color: var(--color-success-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.camera-scanner__feedback--error {
+  color: var(--color-danger-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.camera-scanner__recent {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.camera-scanner__recent h3 {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.camera-scanner__recent ol {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.camera-scanner__recent li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-md);
+}
+
+.camera-scanner__recent li:first-child {
+  background: var(--color-success-subtle);
+}
+
+.camera-scanner__recent li strong {
+  font-family: var(--font-family-mono);
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+
+.camera-scanner__recent li span,
+.camera-scanner__empty,
+.camera-scanner__hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* Botón que abre el lector: se suma a los botones existentes de cada pantalla. */
+.scan-camera-button {
+  white-space: nowrap;
+}

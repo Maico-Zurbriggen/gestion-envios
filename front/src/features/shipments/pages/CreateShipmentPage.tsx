@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import {
-  ArrowLeft,
   Building2,
   CircleAlert,
   CircleHelp,
@@ -8,25 +7,20 @@ import {
   House,
   LoaderCircle,
   LocateFixed,
-  LogIn,
   MapPin,
   MapPinned,
   MousePointerClick,
-  Moon,
   Package,
-  PackageCheck,
   Plus,
   RefreshCw,
   Send,
-  Sun,
   Trash2,
   UserRound,
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useAppSelector } from '../../../app/store'
-import { selectIsAuthenticated } from '../../auth/redux/authSlice'
-import { useTheme } from '../../../shared/hooks/useTheme'
 import { useInsidePanel } from '../../../layouts/MainLayout/panelContext'
+import { useAppSelector } from '../../../app/store'
+import { selectActiveBranchId } from '../../auth/redux/authSlice'
 import { useBranches } from '../hooks/useBranches'
 import { useCreateShipment } from '../hooks/useCreateShipment'
 import { useGeocodeDestination } from '../hooks/useGeocodeDestination'
@@ -34,6 +28,7 @@ import type { DeliveryType } from '../types/shipment.types'
 import { ShipmentResult } from '../components/ShipmentResult'
 import { ShipmentMap } from '../components/ShipmentMap'
 import './CreateShipmentPage.css'
+import { PublicHeader } from '../../../shared/components/PublicHeader'
 
 interface ShipmentForm {
   senderName: string
@@ -51,6 +46,7 @@ interface ShipmentForm {
   destinationLatitude: number | null
   destinationLongitude: number | null
   destinationBranchId: number | ''
+  originBranchId: number | ''
   termsAccepted: boolean
 }
 
@@ -80,6 +76,7 @@ const INITIAL_FORM: ShipmentForm = {
   destinationLatitude: null,
   destinationLongitude: null,
   destinationBranchId: '',
+  originBranchId: '',
   termsAccepted: false,
 }
 
@@ -97,29 +94,31 @@ function createEmptyPackage(): PackageForm {
 
 export function CreateShipmentPage() {
   const [searchParams] = useSearchParams()
+  // En el mostrador, el envío sale de la sucursal en la que se está trabajando.
+  const activeBranchId = useAppSelector(selectActiveBranchId)
   const [form, setForm] = useState<ShipmentForm>(() => {
     const branchId = Number(searchParams.get('sucursal'))
+    const initial = { ...INITIAL_FORM, originBranchId: activeBranchId ?? ('' as const) }
     return searchParams.get('modalidad') === 'sucursal'
       ? {
-          ...INITIAL_FORM,
+          ...initial,
           deliveryType: 'sucursal',
           destinationBranchId: Number.isInteger(branchId) && branchId > 0 ? branchId : '',
         }
-      : INITIAL_FORM
+      : initial
   })
   const [packages, setPackages] = useState<PackageForm[]>(() => [
     createEmptyPackage(),
   ])
   const [clientError, setClientError] = useState<string | null>(null)
-  const isAuthenticated = useAppSelector(selectIsAuthenticated)
   const insidePanel = useInsidePanel()
-  const { theme, toggleTheme } = useTheme()
   const branchesQuery = useBranches()
   const createShipmentMutation = useCreateShipment()
   const geocodeMutation = useGeocodeDestination()
   const selectedBranch = branchesQuery.data?.find(
     (branch) => branch.id === form.destinationBranchId,
   )
+  const originBranch = branchesQuery.data?.find((branch) => branch.id === form.originBranchId)
 
   function updateForm<Key extends keyof ShipmentForm>(
     field: Key,
@@ -210,6 +209,11 @@ export function CreateShipmentPage() {
     event.preventDefault()
     setClientError(null)
 
+    if (form.originBranchId === '') {
+      setClientError('Elegí a qué sucursal vas a llevar los paquetes.')
+      return
+    }
+
     if (
       form.deliveryType === 'sucursal' &&
       form.destinationBranchId === ''
@@ -264,6 +268,7 @@ export function CreateShipmentPage() {
         form.deliveryType === 'sucursal'
           ? Number(form.destinationBranchId)
           : null,
+      originBranchId: Number(form.originBranchId),
       termsAccepted: form.termsAccepted,
       packages: packages.map((shipmentPackage) => ({
         description: shipmentPackage.description.trim(),
@@ -292,42 +297,15 @@ export function CreateShipmentPage() {
 
   return (
     <main className={`shipment-page${insidePanel ? ' is-embedded' : ''}`}>
-      {!insidePanel && <header className="shipment-public-header">
-        <Link className="shipment-brand" to={isAuthenticated ? '/' : '/login'}>
-          <span aria-hidden="true">
-            <PackageCheck size={22} />
-          </span>
-          <strong>Gestión de envíos</strong>
-        </Link>
-        <div className="shipment-public-header__actions">
-          <button type="button" onClick={toggleTheme} aria-label="Cambiar tema">
-            {theme === 'light' ? (
-              <Moon size={19} aria-hidden="true" />
-            ) : (
-              <Sun size={19} aria-hidden="true" />
-            )}
-          </button>
-          <Link
-            to={isAuthenticated ? '/' : '/login'}
-            aria-label={isAuthenticated ? 'Volver al panel' : 'Iniciar sesión'}
-          >
-            {isAuthenticated ? (
-              <ArrowLeft size={18} aria-hidden="true" />
-            ) : (
-              <LogIn size={18} aria-hidden="true" />
-            )}
-            <span>{isAuthenticated ? 'Volver al panel' : 'Ingresar'}</span>
-          </Link>
-        </div>
-      </header>}
+      {!insidePanel && <PublicHeader />}
 
       <div className="shipment-page__content">
         <header className="shipment-page__intro">
           <span className="eyebrow">Registro público</span>
           <h1>Prepará tu envío</h1>
           <p>
-            Cargá los datos, imprimí la etiqueta y acercá cada paquete a una
-            sucursal. No necesitás iniciar sesión.
+            Cargá los datos, recibí el comprobante y llevá el paquete a una
+            sucursal dentro de los 10 días. No necesitás iniciar sesión.
           </p>
           <Link className="shipment-inline-action" to="/preguntas-frecuentes" target="_blank" rel="noopener noreferrer"><CircleHelp size={17} aria-hidden="true" /> Preguntas frecuentes</Link>
         </header>
@@ -385,6 +363,26 @@ export function CreateShipmentPage() {
                 </div>
               </div>
             </section>
+          </fieldset>
+
+          <fieldset className="shipment-form__section">
+            <legend className="shipment-form__sr-only">Origen</legend>
+            <div className="shipment-form__section-header">
+              <span aria-hidden="true"><Building2 size={20} /></span>
+              <span><strong>Origen</strong><small>Dónde vas a entregar los paquetes</small></span>
+            </div>
+            <div className="form-field">
+              <label htmlFor="origin-branch">¿A qué sucursal lo vas a llevar?</label>
+              <select className="form-control" id="origin-branch" value={form.originBranchId} onChange={(event) => updateForm('originBranchId', event.target.value ? Number(event.target.value) : '')} disabled={branchesQuery.isPending || branchesQuery.isError} required>
+                <option value="" disabled>
+                  {branchesQuery.isPending ? 'Cargando sucursales…' : branchesQuery.isError ? 'No se pudieron cargar las sucursales' : 'Seleccioná una sucursal'}
+                </option>
+                {branchesQuery.data?.map((branch) => <option key={branch.id} value={branch.id}>{branch.name} — {branch.city}, {branch.province}</option>)}
+              </select>
+              {originBranch
+                ? <span className="shipment-field-note"><MapPin size={14} aria-hidden="true" />{originBranch.address}, {originBranch.city}</span>
+                : <span className="shipment-field-note">Desde esa sucursal sale tu envío.</span>}
+            </div>
           </fieldset>
 
           <fieldset className="shipment-form__section">
@@ -457,7 +455,7 @@ export function CreateShipmentPage() {
                 )}
                 <section className="shipment-map-block shipment-form__full" aria-labelledby="home-map-title">
                   <header>
-                    <div><MapPinned size={19} aria-hidden="true" /><span><strong id="home-map-title">Ubicación en el mapa</strong><small>Opcional: hacé clic para marcar el punto exacto.</small></span></div>
+                    <div><MapPinned size={19} aria-hidden="true" /><span><strong id="home-map-title">Ubicación en el mapa</strong><small>Opcional: tocá el mapa para marcar el punto exacto; después podés arrastrarlo.</small></span></div>
                     {form.destinationLatitude !== null && (
                       <button type="button" onClick={clearDestinationLocation}>Quitar ubicación</button>
                     )}

@@ -16,7 +16,10 @@ export interface ApiScannedPackage {
     remitente_documento: string
     destinatario_nombre: string
     destino: string
+    tipo_entrega?: string
   }
+  bulto?: number
+  total_bultos?: number
 }
 
 export interface ScannedPackage {
@@ -34,7 +37,22 @@ export interface ScannedPackage {
   senderDocument: string
   recipientName: string
   destination: string
+  deliveryType: 'domicilio' | 'sucursal' | null
+  /** Posición del paquete en el envío, para la etiqueta «1 de 3». */
+  packageIndex: number
+  packageTotal: number
 }
 
-export interface ReceptionInput { code: string; branchId: number; notes: string }
-export interface Reception { code: string; status: string; branchName: string; receivedAt: string; trackingToken: string }
+export interface ReceptionInput { code: string; branchId: number; notes: string; scaleWeightKg: number | null }
+export interface Reception {
+  code: string
+  status: string
+  branchName: string
+  receivedAt: string
+  trackingToken: string
+  scaleWeightKg: number | null
+  /** Aviso si la balanza difiere más de un 10 % del peso declarado. */
+  weightWarning: string | null
+  /** Si queda para retirar en esta sucursal, hasta cuándo. */
+  pickupUntil: string | null
+}

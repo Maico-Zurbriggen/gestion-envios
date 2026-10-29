@@ -36,6 +36,9 @@ class CrearEnvioRequest(ApiModel):
     destinatario_telefono: str = Field(..., min_length=6, max_length=30)
     destinatario_email: EmailStr
 
+    # Origen: la sucursal donde el remitente entrega los paquetes. Divide todo el circuito por sucursal.
+    sucursal_origen_id: int = Field(..., ge=1, description="Sucursal donde el remitente lleva los paquetes.")
+
     # Entrega
     tipo_entrega: str = Field(..., description="'domicilio' o 'sucursal'")
     provincia_destino: str | None = None
@@ -118,8 +121,12 @@ class EnvioCreadoData(ApiModel):
     latitud_destino: float | None
     longitud_destino: float | None
     sucursal_destino: SucursalData | None = None
+    sucursal_origen: SucursalData | None = None
+    """Dónde tiene que llevar los paquetes el remitente."""
     paquetes: list[PaqueteCreadoData]
     created_at: datetime
+    admitir_hasta: datetime | None = None
+    """Último día para llevar el paquete a una sucursal; después el registro vence."""
 
 
 class CrearEnvioResponse(ApiModel):

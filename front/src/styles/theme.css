@@ -1,75 +1,105 @@
+/*
+ * Identidad visual de Gestión de Envíos: la misma de las presentaciones y los
+ * informes del proyecto. Montserrat, azul petróleo para el texto, naranja para
+ * las acciones y acentos, y verde azulado para los estados completados.
+ * Los nombres de las variables se conservan para que todas las pantallas
+ * tomen la paleta sin cambios en sus componentes.
+ */
 :root {
-  /* Paleta primaria: índigo */
-  --color-primary-50: #eef2ff;
-  --color-primary-100: #e0e7ff;
-  --color-primary-200: #c7d2fe;
-  --color-primary-300: #a5b4fc;
-  --color-primary-400: #818cf8;
-  --color-primary-500: #6366f1;
-  --color-primary-600: #4f46e5;
-  --color-primary-700: #4338ca;
-  --color-primary-800: #3730a3;
-  --color-primary-900: #312e81;
-  --color-primary-950: #1e1b4b;
+  /* Naranja de marca: acciones principales, acentos y foco. */
+  --color-primary-50: #fdf5ee;
+  --color-primary-100: #fbe8d6;
+  --color-primary-200: #f6cfaa;
+  --color-primary-300: #efae74;
+  --color-primary-400: #e58a42;
+  --color-primary-500: #d9701f;
+  --color-primary-600: #b85c17;
+  --color-primary-700: #9a4a10;
+  --color-primary-800: #7c3b0f;
+  --color-primary-900: #5f2d0c;
+  --color-primary-950: #3a1a06;
 
-  /* Paleta de acento: ámbar */
-  --color-accent-50: #fffbeb;
-  --color-accent-100: #fef3c7;
-  --color-accent-200: #fde68a;
-  --color-accent-300: #fcd34d;
-  --color-accent-400: #fbbf24;
-  --color-accent-500: #f59e0b;
-  --color-accent-600: #d97706;
-  --color-accent-700: #b45309;
-  --color-accent-800: #92400e;
-  --color-accent-900: #78350f;
+  /* Dorado: advertencias y estados intermedios. */
+  --color-accent-50: #fdf8ec;
+  --color-accent-100: #f9ecc9;
+  --color-accent-200: #f1d793;
+  --color-accent-300: #e6be5c;
+  --color-accent-400: #d39f35;
+  --color-accent-500: #b7791f;
+  --color-accent-600: #985f17;
+  --color-accent-700: #7a4914;
+  --color-accent-800: #613a13;
+  --color-accent-900: #4f3012;
 
-  /* Neutros fríos */
+  /* Verde azulado: estados completados y confirmaciones. */
+  --color-teal-50: #e8f5f3;
+  --color-teal-100: #cdeae6;
+  --color-teal-500: #138a80;
+  --color-teal-600: #0f766e;
+  --color-teal-700: #0b5f58;
+
+  /* Neutros fríos a partir del azul petróleo. */
   --color-neutral-0: #ffffff;
-  --color-neutral-50: #f8fafc;
-  --color-neutral-100: #f1f5f9;
-  --color-neutral-200: #e2e8f0;
-  --color-neutral-300: #cbd5e1;
-  --color-neutral-400: #94a3b8;
-  --color-neutral-500: #64748b;
-  --color-neutral-600: #475569;
-  --color-neutral-700: #334155;
-  --color-neutral-800: #1e293b;
-  --color-neutral-900: #0f172a;
-  --color-neutral-950: #020617;
+  --color-neutral-50: #f7f9fa;
+  --color-neutral-100: #eef2f4;
+  --color-neutral-200: #dce4e8;
+  --color-neutral-300: #c5d1d7;
+  --color-neutral-400: #8a9aa3;
+  --color-neutral-500: #66777f;
+  --color-neutral-600: #4a5f6b;
+  --color-neutral-700: #2f4652;
+  --color-neutral-800: #1b3442;
+  --color-neutral-900: #0f2a37;
+  --color-neutral-950: #0a1d26;
 
   /* Colores base y semánticos */
   --color-primary: var(--color-primary-600);
   --color-primary-hover: var(--color-primary-700);
   --color-secondary: var(--color-primary-400);
   --color-accent: var(--color-accent-500);
+  --color-brand: var(--color-primary-500);
+  --color-ink: var(--color-neutral-900);
   --color-background: var(--color-neutral-50);
   --color-surface: var(--color-neutral-0);
   --color-surface-subtle: var(--color-neutral-100);
+  --color-surface-raised: var(--color-neutral-0);
   --color-border: var(--color-neutral-200);
   --color-border-strong: var(--color-neutral-300);
   --color-text: var(--color-neutral-900);
   --color-text-muted: var(--color-neutral-600);
+  --color-text-subtle: var(--color-neutral-500);
   --color-text-on-primary: var(--color-neutral-0);
-  --color-success: #16a34a;
-  --color-danger: #dc2626;
-  --color-danger-subtle: #fef2f2;
-  --color-danger-border: #fecaca;
-  --color-danger-text: #991b1b;
+  --color-success: var(--color-teal-500);
+  --color-success-subtle: var(--color-teal-50);
+  --color-success-text: var(--color-teal-700);
+  --color-danger: #c53030;
+  --color-danger-subtle: #fdf1f1;
+  --color-danger-border: #f3c4c4;
+  --color-danger-text: #9b2424;
   --color-warning: var(--color-accent-500);
-  --color-info: #0284c7;
+  --color-warning-subtle: var(--color-accent-50);
+  --color-info: #3b6fd8;
+  --color-info-subtle: #eef3fd;
+  --color-focus: color-mix(in srgb, var(--color-primary-500) 45%, transparent);
+  --color-overlay: rgb(10 29 38 / 0.55);
 
-  /* Tipografía */
-  --font-family-sans: Inter, ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Tipografía: Montserrat, como en las presentaciones. */
+  --font-family-sans: 'Montserrat', ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family-mono: ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
-  --font-size-md: 1rem;
-  --font-size-lg: 1.125rem;
+  --font-size-md: 0.9375rem;
+  --font-size-lg: 1.0625rem;
   --font-size-xl: 1.25rem;
   --font-size-2xl: 1.5rem;
   --font-size-3xl: 1.875rem;
-  --line-height-body: 1.5;
+  --line-height-body: 1.6;
+  --letter-spacing-kicker: 0.16em;
 
   /* Espaciado, bordes y elevación */
   --space-1: 0.25rem;
@@ -81,14 +111,31 @@
   --space-8: 2rem;
   --space-10: 2.5rem;
   --space-12: 3rem;
-  --radius-sm: 0.375rem;
-  --radius-md: 0.625rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
   --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
   --radius-full: 9999px;
-  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.06);
-  --shadow-md: 0 8px 24px rgb(15 23 42 / 0.08);
-  --shadow-lg: 0 18px 48px rgb(15 23 42 / 0.12);
-  --transition-fast: 150ms ease;
+  --shadow-sm: 0 1px 2px rgb(15 61 76 / 0.06);
+  --shadow-md: 0 4px 14px rgb(15 61 76 / 0.08);
+  --shadow-lg: 0 18px 44px rgb(15 61 76 / 0.14);
+  --shadow-card: 0 1px 2px rgb(15 61 76 / 0.04), 0 6px 18px rgb(15 61 76 / 0.06);
+
+  /* Movimiento */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-fast: 160ms var(--ease-out);
+  --transition-base: 240ms var(--ease-out);
+  --transition-slow: 420ms var(--ease-out);
+
+  /* Capas */
+  --z-header: 10;
+  --z-sidebar: 30;
+  --z-modal: 50;
+
+  /* Fondo de las pantallas: el mismo degradé suave de las diapositivas. */
+  --page-glow:
+    radial-gradient(60rem 32rem at 100% -10%, rgb(217 112 31 / 0.09), transparent 60%),
+    radial-gradient(48rem 30rem at -10% 110%, rgb(19 138 128 / 0.08), transparent 60%);
 
   font-family: var(--font-family-sans);
   color: var(--color-text);
@@ -103,94 +150,34 @@
   --color-primary: var(--color-primary-400);
   --color-primary-hover: var(--color-primary-300);
   --color-secondary: var(--color-primary-500);
-  --color-background: var(--color-neutral-950);
-  --color-surface: var(--color-neutral-900);
-  --color-surface-subtle: var(--color-neutral-800);
-  --color-border: var(--color-neutral-800);
-  --color-border-strong: var(--color-neutral-700);
-  --color-text: var(--color-neutral-50);
-  --color-text-muted: var(--color-neutral-400);
-  --color-danger-subtle: #450a0a;
-  --color-danger-border: #7f1d1d;
-  --color-danger-text: #fecaca;
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.25);
-  --shadow-md: 0 8px 24px rgb(0 0 0 / 0.28);
-  --shadow-lg: 0 18px 48px rgb(0 0 0 / 0.36);
-}
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html {
-  min-width: 320px;
-  min-height: 100%;
-}
-
-body {
-  min-width: 320px;
-  min-height: 100vh;
-  margin: 0;
-  color: var(--color-text);
-  background: var(--color-background);
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-body);
-  transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast);
-}
-
-h1,
-h2,
-h3,
-p {
-  margin-top: 0;
-}
-
-h1,
-h2,
-h3 {
-  color: var(--color-text);
-  line-height: 1.2;
-}
-
-h1 {
-  font-size: clamp(2rem, 5vw, 3.5rem);
-  letter-spacing: -0.03em;
-}
-
-p {
-  color: var(--color-text-muted);
-}
-
-a {
-  color: var(--color-primary);
-  transition: color var(--transition-fast);
-}
-
-a:hover {
-  color: var(--color-primary-hover);
-}
-
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--color-secondary) 55%, transparent);
-  outline-offset: 2px;
-}
-
-::selection {
-  color: var(--color-primary-950);
-  background: var(--color-primary-200);
+  --color-brand: var(--color-primary-400);
+  --color-background: #0a1820;
+  --color-surface: #10242f;
+  --color-surface-subtle: #16303d;
+  --color-surface-raised: #142b37;
+  --color-border: #22404f;
+  --color-border-strong: #2f5263;
+  --color-text: #eaf1f4;
+  --color-text-muted: #a3b5be;
+  --color-text-subtle: #8197a2;
+  --color-text-on-primary: #1a0d03;
+  --color-success: #3fbcb0;
+  --color-success-subtle: rgb(63 188 176 / 0.12);
+  --color-success-text: #7fd8cf;
+  --color-danger: #f26b6b;
+  --color-danger-subtle: #3a1416;
+  --color-danger-border: #6e2a2d;
+  --color-danger-text: #ffc9c9;
+  --color-warning-subtle: rgb(211 159 53 / 0.14);
+  --color-info: #7aa2f0;
+  --color-info-subtle: rgb(122 162 240 / 0.14);
+  --color-focus: color-mix(in srgb, var(--color-primary-400) 55%, transparent);
+  --color-overlay: rgb(2 9 13 / 0.68);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 6px 18px rgb(0 0 0 / 0.32);
+  --shadow-lg: 0 18px 48px rgb(0 0 0 / 0.42);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.25), 0 8px 22px rgb(0 0 0 / 0.22);
+  --page-glow:
+    radial-gradient(60rem 32rem at 100% -10%, rgb(229 138 66 / 0.08), transparent 60%),
+    radial-gradient(48rem 30rem at -10% 110%, rgb(63 188 176 / 0.06), transparent 60%);
 }

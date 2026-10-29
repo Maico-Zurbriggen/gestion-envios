@@ -6,6 +6,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Column,
     Date,
     DateTime,
     Float,
@@ -14,6 +15,7 @@ from sqlalchemy import (
     Integer,
     LargeBinary,
     String,
+    Table,
     Text,
     UniqueConstraint,
     func,
@@ -99,6 +101,10 @@ class UsuarioModel(Base):
     )
 
     rol: Mapped["RolModel"] = relationship("RolModel", back_populates="usuarios", lazy="joined")
+    sucursales: Mapped[list["SucursalModel"]] = relationship(
+        "SucursalModel", secondary="usuario_sucursales", lazy="selectin", order_by="SucursalModel.nombre"
+    )
+    """Sucursales habilitadas (no aplica al Superadministrador, que entra en todas)."""
     repartidor: Mapped[Optional["RepartidorModel"]] = relationship(
         "RepartidorModel",
         back_populates="usuario",
@@ -107,9 +113,18 @@ class UsuarioModel(Base):
     )
 
 
+usuario_sucursales = Table(
+    "usuario_sucursales",
+    Base.metadata,
+    Column("usuario_id", types.Uuid(as_uuid=True), ForeignKey("usuarios.id", ondelete="CASCADE"), primary_key=True),
+    Column("sucursal_id", Integer, ForeignKey("sucursales.id", ondelete="CASCADE"), primary_key=True),
+)
+"""Sucursales en las que trabaja cada usuario del personal (el Superadministrador, en todas)."""
+
+
 class SucursalModel(Base):
-    """Catálogo público de sucursales para retiro (soporte de HU03/HU09).
-    Se siembra al iniciar la app; no tiene endpoint de alta."""
+    """Sucursales: punto de partida de los recorridos, lugar de admisión y de retiro.
+    La administra el Superadministrador (`/admin/sucursales`)."""
 
     __tablename__ = "sucursales"
 
@@ -120,6 +135,8 @@ class SucursalModel(Base):
     direccion: Mapped[str] = mapped_column(String(255), nullable=False)
     latitud: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitud: Mapped[float | None] = mapped_column(Float, nullable=True)
+    activa: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
+    """Una sucursal inactiva no recibe envíos nuevos ni aparece para elegir."""
 
     envios: Mapped[list["EnvioModel"]] = relationship(
         "EnvioModel",
@@ -230,6 +247,15 @@ class PaqueteModel(Base):
 
     estado: Mapped[str] = mapped_column(String(30), nullable=False, default="Pendiente")
 
+    sucursal_origen_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("sucursales.id"), nullable=True)
+    """Sucursal donde se admitió el paquete: a ella vuelve si se devuelve al remitente."""
+    peso_admision_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    """Peso medido en la balanza al admitirlo (el del registro lo declara el cliente)."""
+    retiro_hasta: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    """Fecha límite para retirarlo en sucursal; vencida, vuelve al remitente."""
+    en_devolucion: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    """Vuelve (o ya volvió) al remitente: lo retira él en la sucursal de origen."""
+
     sucursal_actual_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("sucursales.id"), nullable=True
     )
@@ -255,6 +281,9 @@ class PaqueteModel(Base):
         "SucursalModel",
         back_populates="paquetes_ubicados_aqui",
         foreign_keys=[sucursal_actual_id],
+    )
+    sucursal_origen: Mapped[Optional["SucursalModel"]] = relationship(
+        "SucursalModel", foreign_keys=[sucursal_origen_id]
     )
     historial_estados: Mapped[list["HistorialEstadoPaqueteModel"]] = relationship(
         "HistorialEstadoPaqueteModel", back_populates="paquete", cascade="all, delete-orphan"
@@ -363,6 +392,12 @@ class NotificacionEnvioModel(Base):
     evento_entrega_id: Mapped[uuid.UUID | None] = mapped_column(
         types.Uuid(as_uuid=True), ForeignKey("eventos_entrega.id"), nullable=True
     )
+    tipo_aviso: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    """Hito avisado (TipoAvisoEnum). Vacío en filas anteriores: se deduce del evento."""
+    paquete_id: Mapped[uuid.UUID | None] = mapped_column(
+        types.Uuid(as_uuid=True), ForeignKey("paquetes.id"), nullable=True
+    )
+    """Paquete al que se refiere el aviso, cuando el hito es de un paquete puntual."""
     procesando_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     canal: Mapped[str] = mapped_column(String(10), nullable=False)
     destinatario_tipo: Mapped[str] = mapped_column(String(15), nullable=False)
@@ -461,6 +496,8 @@ class RecorridoModel(Base):
     fecha: Mapped[date] = mapped_column(Date, nullable=False)
     estado: Mapped[str] = mapped_column(String(15), nullable=False, default=EstadoRecorridoEnum.GENERADO.value)
     generado_automaticamente: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    vuelve_a_sucursal: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    """Si el repartidor vuelve a la sucursal al terminar: se cuenta al optimizar y se dibuja aparte en el mapa."""
     orientacion_calles_grados: Mapped[float] = mapped_column(
         Float, nullable=False, default=0.0, server_default="0"
     )
@@ -626,4 +663,3 @@ class EventoEntregaModel(Base):
     paquete: Mapped["PaqueteModel"] = relationship("PaqueteModel", back_populates="eventos_entrega")
     usuario_registro: Mapped["UsuarioModel"] = relationship("UsuarioModel")
     sucursal: Mapped[Optional["SucursalModel"]] = relationship("SucursalModel")
-

@@ -1,0 +1,88 @@
+.public-header {
+  min-height: 4.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) max(var(--space-4), calc((100% - 1120px) / 2));
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.public-header__brand,
+.public-header__actions,
+.public-header__actions a,
+.public-header__actions button {
+  display: inline-flex;
+  align-items: center;
+}
+
+.public-header__brand {
+  gap: var(--space-3);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.public-header__brand > span {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-on-primary);
+  background: var(--color-primary);
+  border-radius: var(--radius-md);
+}
+
+.public-header__actions {
+  gap: var(--space-2);
+}
+
+.public-header__actions a,
+.public-header__actions button {
+  min-height: 2.5rem;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+}
+
+.public-header__actions button {
+  width: 2.5rem;
+  padding: 0;
+}
+
+.public-header__actions a:hover,
+.public-header__actions button:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+@media (max-width: 520px) {
+  .public-header {
+    min-height: 4rem;
+  }
+
+  .public-header__brand strong {
+    font-size: var(--font-size-sm);
+  }
+
+  .public-header__actions a {
+    width: 2.5rem;
+    padding: 0;
+  }
+
+  .public-header__actions a span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

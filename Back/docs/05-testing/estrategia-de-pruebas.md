@@ -36,6 +36,6 @@ Convención de nombres: los tests que verifican un escenario BDD puntual del Pro
 ## Qué falta cubrir
 
 - No hay tests de los manejadores de excepciones genéricos de `api/middleware.py` para el caso `500 INTERNAL_ERROR` (el "error no controlado") — los tests actuales solo ejercitan las excepciones de negocio explícitas.
-- No hay tests de que `crear_tablas()` / el seed sean realmente idempotentes contra una base persistente (los tests de integración usan una base en memoria que se recrea por test, no el flujo de arranque real).
+- No hay tests de que la siembra sean realmente idempotentes contra una base persistente (los tests de integración usan una base en memoria que se recrea por test, no el flujo de arranque real).
 - A medida que se implementen las próximas historias (HU11, HU12), agregar su archivo de test siguiendo la misma convención de nombres, sumarlas al flujo de punta a punta y documentar el escenario en `04-historias-de-usuario/`.
 - Los tests de integración usan `create_all` sobre SQLite en memoria, pero `tests/integration/test_actualizar_base.py` aplica las migraciones a bases temporales y falla si un cambio de `models.py` no tiene migración. Al agregar una, verificar además `alembic downgrade -1`.

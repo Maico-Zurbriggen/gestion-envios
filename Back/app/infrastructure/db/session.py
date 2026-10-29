@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.config import settings
 from app.infrastructure.db.engine_utils import normalizar_url_base_datos, obtener_connect_args
-from app.infrastructure.db.models import Base
 
 # Configuración del motor asíncrono
 DATABASE_URL = normalizar_url_base_datos(settings.DATABASE_URL)
@@ -39,10 +38,4 @@ async def obtener_sesion_db() -> AsyncGenerator[AsyncSession, None]:
             raise
         finally:
             await session.close()
-
-
-async def crear_tablas() -> None:
-    """Crea todas las tablas definidas en los modelos si no existen."""
-    async with async_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
 

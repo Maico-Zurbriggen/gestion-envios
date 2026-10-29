@@ -21,6 +21,7 @@ from app.domain.constants.estados_logistica import (
     TipoEventoEntregaEnum,
     TipoRetiroEnum,
 )
+from app.domain.rules.circuito_rules import sucursal_de_retiro
 from app.domain.rules.recepcion_rules import normalizar_codigo_escaneado
 from app.domain.rules.reparto_rules import receptor_mayor_de_16
 from app.domain.rules.retiro_rules import (
@@ -49,12 +50,16 @@ class ServicioRetiroSucursal(IServicioRetiroSucursal):
 
         disponible, motivo = evaluar_disponibilidad_retiro(paquete.estado)
         envio = paquete.envio
+        sucursal_retiro_id = self._sucursal_retiro(paquete)
         if disponible and envio is not None:
             errores_envio = validar_envio_para_retiro(
-                envio.tipo_entrega, envio.sucursal_destino_id, paquete.sucursal_actual_id, None
+                envio.tipo_entrega, sucursal_retiro_id, paquete.sucursal_actual_id, None
             )
             if errores_envio:
                 disponible, motivo = False, errores_envio[0]["message"]
+        sucursal_retiro = (
+            await self.repo_entregas.obtener_sucursal(sucursal_retiro_id) if sucursal_retiro_id else None
+        )
 
         sucursal_destino_data = self._mapear_sucursal(envio.sucursal_destino) if envio and envio.sucursal_destino else None
         sucursal_actual_data = self._mapear_sucursal(paquete.sucursal_actual) if paquete.sucursal_actual else None
@@ -71,13 +76,38 @@ class ServicioRetiroSucursal(IServicioRetiroSucursal):
                 tipo_entrega=envio.tipo_entrega if envio else "sucursal",
                 sucursal_destino=sucursal_destino_data,
                 sucursal_actual=sucursal_actual_data,
-                datos_destinatario=DestinatarioRetiroInfo(
-                    nombre=envio.destinatario_nombre if envio else "Desconocido",
-                    telefono=envio.destinatario_telefono if envio else "Desconocido",
-                    email=envio.destinatario_email if envio else "Desconocido",
-                ),
+                datos_destinatario=self._quien_retira(paquete),
                 requisitos_retiro=RequisitosRetiroInfo(),
+                es_devolucion=paquete.en_devolucion,
+                retiro_hasta=paquete.retiro_hasta,
+                sucursal_retiro=self._mapear_sucursal(sucursal_retiro),
             )
+        )
+
+    @staticmethod
+    def _sucursal_retiro(paquete: Any) -> int | None:
+        envio = paquete.envio
+        return sucursal_de_retiro(
+            tipo_entrega=envio.tipo_entrega if envio else None,
+            sucursal_destino_id=envio.sucursal_destino_id if envio else None,
+            sucursal_actual_id=paquete.sucursal_actual_id,
+            sucursal_origen_id=paquete.sucursal_origen_id,
+            estado=paquete.estado,
+            en_devolucion=paquete.en_devolucion,
+        )
+
+    @staticmethod
+    def _quien_retira(paquete: Any) -> DestinatarioRetiroInfo:
+        """En una devolución el titular es el remitente; si no, el destinatario."""
+        envio = paquete.envio
+        if envio is None:
+            return DestinatarioRetiroInfo(nombre="Desconocido", telefono="Desconocido", email="Desconocido")
+        if paquete.en_devolucion:
+            return DestinatarioRetiroInfo(
+                nombre=envio.remitente_nombre, telefono=envio.remitente_telefono, email=envio.remitente_email
+            )
+        return DestinatarioRetiroInfo(
+            nombre=envio.destinatario_nombre, telefono=envio.destinatario_telefono, email=envio.destinatario_email
         )
 
     async def registrar_retiro(
@@ -107,7 +137,7 @@ class ServicioRetiroSucursal(IServicioRetiroSucursal):
         # 2. Modalidad y sucursal: solo se retira en la sucursal elegida, donde ya está el paquete.
         errores_reglas = validar_envio_para_retiro(
             envio.tipo_entrega if envio else "",
-            envio.sucursal_destino_id if envio else None,
+            self._sucursal_retiro(paquete),
             paquete.sucursal_actual_id,
             datos.sucursal_id,
         )
@@ -135,14 +165,22 @@ class ServicioRetiroSucursal(IServicioRetiroSucursal):
                 errors=errores_reglas,
             )
 
-        nuevo_estado = EstadoPaqueteEnum.ENTREGADO_EN_SUCURSAL.value
+        devolucion = paquete.en_devolucion
+        nuevo_estado = (
+            EstadoPaqueteEnum.DEVUELTO.value if devolucion else EstadoPaqueteEnum.ENTREGADO_EN_SUCURSAL.value
+        )
 
-        # 4. Determinación de datos del receptor
+        # 4. Determinación de datos del receptor (en una devolución, el titular es el remitente)
         if datos.tipo_retiro == TipoRetiroEnum.TITULAR.value:
-            receptor_nombre = envio.destinatario_nombre if envio else "Titular"
+            titular = (envio.remitente_nombre if devolucion else envio.destinatario_nombre) if envio else None
+            receptor_nombre = titular or "Titular"
             receptor_documento = datos.documento_presentado.numero.strip()
             es_autorizado = False
-            detalle_obs = f"Retiro presencial por titular ({datos.documento_presentado.tipo} {receptor_documento})."
+            detalle_obs = (
+                f"Devolución retirada por el remitente ({datos.documento_presentado.tipo} {receptor_documento})."
+                if devolucion
+                else f"Retiro presencial por titular ({datos.documento_presentado.tipo} {receptor_documento})."
+            )
         else:
             receptor_nombre = datos.tercero_autorizado.nombre_completo.strip()  # type: ignore
             receptor_documento = datos.tercero_autorizado.documento.strip()  # type: ignore

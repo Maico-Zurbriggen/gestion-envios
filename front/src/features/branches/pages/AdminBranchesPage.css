@@ -1,0 +1,78 @@
+.admin-branches {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.admin-branches .list-row__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.branch-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.branch-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.branch-form__full {
+  grid-column: 1 / -1;
+}
+
+.branch-form__locate {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.branch-form__locate .form-control {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.branch-form__hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.branch-form__check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+
+.branch-form__check input {
+  margin-top: 0.2rem;
+}
+
+.branch-form__check span {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.branch-form__check small {
+  color: var(--color-text-muted);
+}
+
+.branch-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+@media (max-width: 560px) {
+  .branch-form__grid {
+    grid-template-columns: 1fr;
+  }
+}

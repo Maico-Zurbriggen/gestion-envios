@@ -29,7 +29,10 @@ class NotificacionItemData(ApiModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    motivo: Literal["NUEVO_ENVIO", "VISITA_FALLIDA"]
+    motivo: Literal[
+        "NUEVO_ENVIO", "ADMITIDO", "EN_REPARTO", "LISTO_PARA_RETIRO",
+        "ENTREGADO", "VISITA_FALLIDA", "DEVOLUCION", "VENCIDO",
+    ]
     canal: Literal["EMAIL", "WHATSAPP"]
     destinatario_tipo: Literal["REMITENTE", "DESTINATARIO"]
     destino: str

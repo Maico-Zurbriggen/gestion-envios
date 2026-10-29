@@ -14,8 +14,10 @@ Cómo se cubren los factores que pide HU10 Escenario 1:
   ejes de la cuadrícula de la ciudad, rotada según `orientacion_grados` (el
   ángulo de las calles respecto del norte). Una ciudad con calles a 45° cambia
   qué paradas quedan "cerca" entre sí, y por lo tanto el orden de visita.
-- **Optimización del tiempo:** el orden de visita parte del vecino más cercano
-  y se mejora con 2-opt hasta que ningún intercambio acorta el recorrido; la
+- **Optimización del tiempo:** con hasta `MAX_PARADAS_ORDEN_EXACTO` paradas se
+  prueban todos los órdenes y se elige el más rápido; con más, el orden parte del
+  vecino más cercano y se mejora con 2-opt hasta que ningún intercambio acorta el
+  recorrido. La vuelta a la sucursal es una opción de cada recorrido. La
   duración estimada suma el viaje y el tiempo de atención de cada parada.
 - **Distribución equitativa:** las paradas se ordenan por ángulo (barrido) y se
   parten en tramos contiguos minimizando la carga máxima de paquetes de un
@@ -24,6 +26,7 @@ Cómo se cubren los factores que pide HU10 Escenario 1:
 Escenario 4 (corta / larga distancia) se resuelve en `determinar_tipo_reparto`.
 """
 
+import itertools
 import math
 import unicodedata
 from collections.abc import Callable, Sequence
@@ -60,6 +63,8 @@ ORIENTACION_MAXIMA_GRADOS = 90.0
 """Una cuadrícula es simétrica cada 90°: 0° y 90° describen la misma ciudad."""
 
 MAX_PASADAS_2OPT = 50
+MAX_PARADAS_ORDEN_EXACTO = 8
+"""Hasta acá se prueban todos los órdenes posibles (8! = 40 320): el resultado es el óptimo."""
 
 # --- Estados ---
 
@@ -67,10 +72,12 @@ ESTADOS_PAQUETE_LISTOS_PARA_DESPACHO: set[str] = {
     EstadoPaqueteEnum.EN_SUCURSAL_ORIGEN.value,
     EstadoPaqueteEnum.EN_SUCURSAL_DESTINO.value,
     EstadoPaqueteEnum.ENTREGA_FALLIDA.value,
+    EstadoPaqueteEnum.EN_DEVOLUCION.value,
 }
 """Paquetes que están físicamente en una sucursal esperando salir: recién
 recibidos en la terminal (HU06), llegados a la sucursal de la ciudad destino
-(HU11) o devueltos tras una visita fallida (HU12, para reintentar)."""
+(HU11), devueltos tras una visita fallida (HU12, para reintentar) o que vuelven
+al remitente porque no se retiraron a tiempo (viajan a la sucursal de origen)."""
 
 ESTADOS_RECORRIDO_EDITABLES: set[str] = {
     EstadoRecorridoEnum.GENERADO.value,
@@ -247,13 +254,10 @@ def estado_paquete_al_iniciar(tipo_distancia: str) -> str:
 
 
 def vuelve_a_la_sucursal(tipo_distancia: str) -> bool:
-    """El repartidor urbano vuelve a su sucursal al terminar; el de larga distancia
-    termina el recorrido en la última sucursal donde descarga."""
+    """Valor inicial de la opción «volver a la sucursal» de un recorrido: el repartidor
+    urbano vuelve a su sucursal al terminar; el de larga distancia termina en la
+    última sucursal donde descarga. Cada recorrido puede cambiarla."""
     return tipo_distancia == TipoDistanciaEnum.CORTA.value
-
-
-def validar_orientacion(orientacion_grados: float) -> bool:
-    return ORIENTACION_MINIMA_GRADOS <= orientacion_grados < ORIENTACION_MAXIMA_GRADOS
 
 
 # --- Distancias ---
@@ -397,15 +401,20 @@ def costo_recorrido(
     paradas: Sequence[ParadaPlanificable],
     distancia: FuncionDistancia,
     vuelve_al_origen: bool = True,
+    fin: Punto | None = None,
 ) -> float:
-    """Kilómetros totales de visitar las paradas en ese orden desde el origen."""
+    """Costo de visitar las paradas en ese orden desde el origen.
+
+    Si `vuelve_al_origen`, suma el tramo final hasta `fin` (por defecto, el origen):
+    así se puede salir desde la posición del vehículo y terminar en la sucursal.
+    """
     total = 0.0
     actual = origen
     for parada in paradas:
         total += distancia(actual, parada.punto)
         actual = parada.punto
     if vuelve_al_origen and paradas:
-        total += distancia(actual, origen)
+        total += distancia(actual, fin if fin is not None else origen)
     return total
 
 
@@ -414,13 +423,18 @@ def ordenar_paradas(
     paradas: Sequence[ParadaPlanificable],
     distancia: FuncionDistancia,
     vuelve_al_origen: bool = True,
+    fin: Punto | None = None,
 ) -> list[ParadaPlanificable]:
-    """Orden de visita que minimiza la distancia: vecino más cercano + mejora 2-opt.
+    """Orden de visita que minimiza el costo (tiempo o distancia).
 
-    2-opt invierte un tramo del recorrido cada vez que eso lo acorta (elimina
-    los "cruces"), hasta que ningún intercambio mejora o se agotan las pasadas.
-    Los empates se resuelven por `clave` para que el resultado sea determinista.
+    Con hasta `MAX_PARADAS_ORDEN_EXACTO` paradas prueba todos los órdenes y se queda
+    con el mejor. Con más, vecino más cercano + mejora 2-opt: invierte un tramo del
+    recorrido cada vez que eso lo acorta (elimina los "cruces"), hasta que ningún
+    intercambio mejora o se agotan las pasadas. Los empates se resuelven por
+    `clave` para que el resultado sea determinista.
     """
+    if len(paradas) <= MAX_PARADAS_ORDEN_EXACTO:
+        return _orden_exacto(origen, paradas, distancia, vuelve_al_origen, fin)
     pendientes = list(paradas)
     ruta: list[ParadaPlanificable] = []
     actual = origen
@@ -430,18 +444,63 @@ def ordenar_paradas(
         pendientes.remove(siguiente)
         actual = siguiente.punto
 
-    mejor_costo = costo_recorrido(origen, ruta, distancia, vuelve_al_origen)
+    mejor_costo = costo_recorrido(origen, ruta, distancia, vuelve_al_origen, fin)
     for _ in range(MAX_PASADAS_2OPT):
         mejorado = False
         for i in range(len(ruta) - 1):
             for j in range(i + 1, len(ruta)):
                 candidata = ruta[:i] + ruta[i : j + 1][::-1] + ruta[j + 1 :]
-                costo = costo_recorrido(origen, candidata, distancia, vuelve_al_origen)
+                costo = costo_recorrido(origen, candidata, distancia, vuelve_al_origen, fin)
                 if costo < mejor_costo - 1e-9:
                     ruta, mejor_costo, mejorado = candidata, costo, True
         if not mejorado:
             break
     return ruta
+
+
+def _orden_exacto(
+    origen: Punto,
+    paradas: Sequence[ParadaPlanificable],
+    distancia: FuncionDistancia,
+    vuelve_al_origen: bool,
+    fin: Punto | None,
+) -> list[ParadaPlanificable]:
+    """El mejor orden posible, probando todos.
+
+    A igual costo gana el que llega antes a los clientes (menor suma de llegadas): con
+    vuelta a la sucursal, ir y volver por el mismo camino cuesta lo mismo en los dos
+    sentidos, pero conviene atender primero lo que está cerca. Si aun así empatan, el
+    primero por `clave`, para que el resultado no dependa del orden de entrada.
+    """
+    mejor: list[ParadaPlanificable] = []
+    mejor_clave = (math.inf, math.inf)
+    for orden in itertools.permutations(sorted(paradas, key=lambda p: p.clave)):
+        costo, espera = _costo_y_espera(origen, orden, distancia, vuelve_al_origen, fin)
+        tolerancia = 1e-9 * max(1.0, mejor_clave[0]) if mejor_clave[0] < math.inf else 0.0
+        if costo < mejor_clave[0] - tolerancia or (
+            abs(costo - mejor_clave[0]) <= tolerancia and espera < mejor_clave[1] - tolerancia
+        ):
+            mejor, mejor_clave = list(orden), (costo, espera)
+    return mejor
+
+
+def _costo_y_espera(
+    origen: Punto,
+    paradas: Sequence[ParadaPlanificable],
+    distancia: FuncionDistancia,
+    vuelve_al_origen: bool,
+    fin: Punto | None,
+) -> tuple[float, float]:
+    """El costo del recorrido y la suma de lo acumulado al llegar a cada parada."""
+    total = espera = 0.0
+    actual = origen
+    for parada in paradas:
+        total += distancia(actual, parada.punto)
+        espera += total
+        actual = parada.punto
+    if vuelve_al_origen and paradas:
+        total += distancia(actual, fin if fin is not None else origen)
+    return total, espera
 
 
 def estimar_recorrido(
@@ -450,6 +509,7 @@ def estimar_recorrido(
     tipo_distancia: str,
     orientacion_grados: float = 0.0,
     paradas_sin_ubicacion: int = 0,
+    vuelve: bool | None = None,
 ) -> tuple[float, int]:
     """Distancia (km) y duración (min) estimadas del recorrido en el orden dado.
 
@@ -458,7 +518,8 @@ def estimar_recorrido(
     atención.
     """
     distancia = funcion_distancia(tipo_distancia, orientacion_grados)
-    km = costo_recorrido(origen, paradas, distancia, vuelve_a_la_sucursal(tipo_distancia))
+    vuelve = vuelve_a_la_sucursal(tipo_distancia) if vuelve is None else vuelve
+    km = costo_recorrido(origen, paradas, distancia, vuelve)
 
     if tipo_distancia == TipoDistanciaEnum.CORTA.value:
         velocidad, minutos_parada = VELOCIDAD_URBANA_KMH, MINUTOS_POR_PARADA_DOMICILIO
@@ -476,11 +537,12 @@ def planificar_recorridos(
     cantidad_repartidores: int,
     tipo_distancia: str,
     orientacion_grados: float = 0.0,
+    vuelve: bool | None = None,
 ) -> list[list[ParadaPlanificable]]:
     """Generación automática completa (HU10 Escenario 1): reparte las paradas en
     zonas equitativas y ordena cada zona para minimizar el tiempo."""
     distancia = funcion_distancia(tipo_distancia, orientacion_grados)
-    vuelve = vuelve_a_la_sucursal(tipo_distancia)
+    vuelve = vuelve_a_la_sucursal(tipo_distancia) if vuelve is None else vuelve
     return [
         ordenar_paradas(origen, grupo, distancia, vuelve) if grupo else []
         for grupo in repartir_paradas_equitativamente(origen, paradas, cantidad_repartidores)
