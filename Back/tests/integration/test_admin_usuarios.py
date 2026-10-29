@@ -109,7 +109,12 @@ async def test_nadie_se_quita_el_acceso_y_siempre_queda_un_superadmin(client: As
 
     # Con un segundo superadmin, ese otro sí puede pasar a otro rol; quitar al último no.
     otro = await _crear(client, sesion["headers"], "30111444", "otro.super@empresa.com", RolIdEnum.SUPERADMIN.value)
-    resp = await client.patch(f"/api/v1/admin/empleados/{otro['id']}", json={"rol_id": RolIdEnum.ADMINISTRATIVO.value}, headers=sesion["headers"])
+    # Como administrativo tiene que pertenecer a alguna sucursal.
+    sin_sucursal = await client.patch(f"/api/v1/admin/empleados/{otro['id']}", json={"rol_id": RolIdEnum.ADMINISTRATIVO.value}, headers=sesion["headers"])
+    assert sin_sucursal.status_code == 400
+    resp = await client.patch(
+        f"/api/v1/admin/empleados/{otro['id']}", json={"rol_id": RolIdEnum.ADMINISTRATIVO.value, "sucursal_ids": [1]}, headers=sesion["headers"]
+    )
     assert resp.status_code == 200
 
 

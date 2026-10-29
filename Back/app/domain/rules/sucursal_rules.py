@@ -19,5 +19,10 @@ def sucursales_permitidas(rol: str | None, asignadas: Iterable[Any], todas: Iter
 
 
 def requiere_sucursales(rol: str | None) -> bool:
-    """Vendedores y administrativos trabajan en sucursales concretas: hay que habilitarles al menos una."""
-    return rol in (RolEnum.ADMINISTRATIVO.value, RolEnum.VENDEDOR.value)
+    """Todo el personal salvo el Superadministrador pertenece a sucursales concretas."""
+    return rol in (RolEnum.ADMINISTRATIVO.value, RolEnum.VENDEDOR.value, RolEnum.REPARTIDOR.value)
+
+
+def una_sola_sucursal(rol: str | None) -> bool:
+    """El repartidor pertenece a una sola sucursal: es su base, de donde sale a repartir."""
+    return rol == RolEnum.REPARTIDOR.value

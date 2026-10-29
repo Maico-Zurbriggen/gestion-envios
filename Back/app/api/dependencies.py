@@ -110,18 +110,6 @@ def get_repositorio_sucursales(
     return RepositorioSucursales(db)
 
 
-def get_servicio_empleados(
-    repo_usuarios: IRepositorioUsuarios = Depends(get_repositorio_usuarios),
-    repo_roles: IRepositorioRoles = Depends(get_repositorio_roles),
-    repo_sucursales: IRepositorioSucursales = Depends(get_repositorio_sucursales),
-) -> IServicioEmpleados:
-    return ServicioEmpleados(
-        repositorio_usuarios=repo_usuarios,
-        repositorio_roles=repo_roles,
-        repositorio_sucursales=repo_sucursales,
-    )
-
-
 def get_servicio_auth(
     repo_usuarios: IRepositorioUsuarios = Depends(get_repositorio_usuarios),
     repo_sucursales: IRepositorioSucursales = Depends(get_repositorio_sucursales),
@@ -256,6 +244,20 @@ def get_repositorio_repartidores(
     db: AsyncSession = Depends(obtener_sesion_db),
 ) -> IRepositorioRepartidores:
     return RepositorioRepartidores(db)
+
+
+def get_servicio_empleados(
+    repo_usuarios: IRepositorioUsuarios = Depends(get_repositorio_usuarios),
+    repo_roles: IRepositorioRoles = Depends(get_repositorio_roles),
+    repo_sucursales: IRepositorioSucursales = Depends(get_repositorio_sucursales),
+    repo_repartidores: IRepositorioRepartidores = Depends(get_repositorio_repartidores),
+) -> IServicioEmpleados:
+    return ServicioEmpleados(
+        repositorio_usuarios=repo_usuarios,
+        repositorio_roles=repo_roles,
+        repositorio_sucursales=repo_sucursales,
+        repositorio_repartidores=repo_repartidores,
+    )
 
 
 def get_servicio_repartidores(

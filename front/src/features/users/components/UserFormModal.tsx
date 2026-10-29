@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Building2, IdCard, Info, LoaderCircle, Mail, Phone, Save, Shield, UserPen, UserPlus, UserRound } from 'lucide-react'
+import { Building2, Check, IdCard, Info, LoaderCircle, Mail, Phone, Save, Shield, UserPen, UserPlus, UserRound } from 'lucide-react'
 import { Modal } from '../../../shared/components/Modal'
 import type { CreateUserInput, Employee, Role } from '../types/user.types'
 import { roleLabel } from '../../../shared/utils/roles'
@@ -11,7 +11,7 @@ interface UserFormModalProps {
   roles: Role[]
   rolesLoading: boolean
   /** Sucursales que se le pueden habilitar. */
-  branches: Array<{ id: number; name: string; active: boolean }>
+  branches: Array<{ id: number; name: string; city: string; active: boolean }>
   isSelf: boolean
   pending: boolean
   error: string | null
@@ -34,9 +34,9 @@ function initialState(employee?: Employee | null): FormState {
     : { name: '', dni: '', email: '', phone: '', roleId: '', branchIds: [] }
 }
 
-/** Vendedores y administrativos trabajan en sucursales concretas; el Superadministrador, en todas. */
-function worksByBranch(role: string | undefined) {
-  return role === 'ADMINISTRATIVO' || role === 'VENDEDOR'
+/** El nombre propio alcanza: la tarjeta ya dice que es una sucursal. */
+function shortName(name: string) {
+  return name.replace(/^sucursal\s+/i, '')
 }
 
 export function UserFormModal(props: UserFormModalProps) {
@@ -64,15 +64,29 @@ function UserForm({ employee, roles, rolesLoading, branches, isSelf, pending, er
   // En el alta no se ofrece Superadministrador (HU01); al editar sí, para poder delegar.
   const options = employee ? roles : roles.filter((role) => role.name !== 'SUPERADMIN')
   const selectedRole = roles.find((role) => role.id === form.roleId)
-  const byBranch = worksByBranch(selectedRole?.name)
-  const missingBranch = byBranch && form.branchIds.length === 0
+  // Superadministrador: entra en todas. Repartidor: una sola, su base. El resto: una o más.
+  const allBranches = selectedRole?.name === 'SUPERADMIN'
+  const single = selectedRole?.name === 'REPARTIDOR'
+  const missingBranch = !allBranches && form.branchIds.length === 0
 
   function toggleBranch(id: number) {
     setForm((current) => ({
       ...current,
-      branchIds: current.branchIds.includes(id)
-        ? current.branchIds.filter((item) => item !== id)
-        : [...current.branchIds, id],
+      branchIds: single
+        ? [id]
+        : current.branchIds.includes(id)
+          ? current.branchIds.filter((item) => item !== id)
+          : [...current.branchIds, id],
+    }))
+  }
+
+  function changeRole(roleId: number | '') {
+    const role = roles.find((item) => item.id === roleId)
+    // Al pasar a repartidor queda una sola sucursal (la primera elegida).
+    setForm((current) => ({
+      ...current,
+      roleId,
+      branchIds: role?.name === 'REPARTIDOR' ? current.branchIds.slice(0, 1) : current.branchIds,
     }))
   }
 
@@ -89,7 +103,7 @@ function UserForm({ employee, roles, rolesLoading, branches, isSelf, pending, er
       email: form.email.trim(),
       phone: form.phone.trim(),
       roleId: form.roleId,
-      branchIds: form.branchIds,
+      branchIds: allBranches ? [] : form.branchIds,
     })
   }
 
@@ -179,7 +193,7 @@ function UserForm({ employee, roles, rolesLoading, branches, isSelf, pending, er
               className="form-control form-control--with-icon"
               id={`${prefix}-role`}
               value={form.roleId}
-              onChange={(event) => update('roleId', event.target.value === '' ? '' : Number(event.target.value))}
+              onChange={(event) => changeRole(event.target.value === '' ? '' : Number(event.target.value))}
               disabled={rolesLoading || isSelf}
               required
             >
@@ -201,32 +215,62 @@ function UserForm({ employee, roles, rolesLoading, branches, isSelf, pending, er
           </span>
         </div>
 
-        {byBranch ? (
-          <fieldset className="user-modal-form__full user-branches" aria-describedby={`${prefix}-branches-hint`}>
-            <legend><Building2 size={16} aria-hidden="true" /> Sucursales en las que trabaja</legend>
-            <div className="user-branches__options">
-              {branches.map((branch) => (
-                <label key={branch.id} className={form.branchIds.includes(branch.id) ? 'is-selected' : undefined}>
-                  <input type="checkbox" checked={form.branchIds.includes(branch.id)} onChange={() => toggleBranch(branch.id)} />
-                  {branch.name}{branch.active ? '' : ' (inactiva)'}
-                </label>
-              ))}
-            </div>
-            <span className={`user-modal-form__hint${missingBranch ? ' user-branches__missing' : ''}`} id={`${prefix}-branches-hint`}>
-              <Info size={14} aria-hidden="true" />
-              {missingBranch
-                ? 'Elegí al menos una: solo va a poder entrar en las sucursales que marques.'
-                : 'Después de ingresar elige en cuál trabajar; solo ve y carga lo de esa sucursal.'}
-            </span>
-          </fieldset>
-        ) : selectedRole ? (
-          <p className="user-modal-form__full user-modal-form__hint">
-            <Building2 size={14} aria-hidden="true" />
-            {selectedRole.name === 'SUPERADMIN'
-              ? 'El Superadministrador entra en todas las sucursales.'
-              : 'El repartidor sale de su sucursal base: se configura en Recorridos › Repartidores.'}
-          </p>
-        ) : null}
+        <fieldset className="user-modal-form__full user-branches" aria-describedby={`${prefix}-branches-hint`}>
+          <legend>
+            <Building2 size={16} aria-hidden="true" />
+            ¿A qué sucursal pertenece?
+          </legend>
+          {allBranches ? (
+            <p className="user-branches__all">
+              <Building2 size={18} aria-hidden="true" />
+              <span><strong>Todas las sucursales.</strong> El Superadministrador entra en cualquiera, también en las inactivas.</span>
+            </p>
+          ) : (
+            <>
+              {!single && branches.length > 1 && (
+                <div className="user-branches__toolbar">
+                  <span>{form.branchIds.length} de {branches.length} elegidas</span>
+                  <button type="button" onClick={() => update('branchIds', branches.map((branch) => branch.id))}>Todas</button>
+                  <button type="button" onClick={() => update('branchIds', [])} disabled={!form.branchIds.length}>Ninguna</button>
+                </div>
+              )}
+              {branches.length ? (
+                <div className="user-branches__grid">
+                  {branches.map((branch) => {
+                    const checked = form.branchIds.includes(branch.id)
+                    return (
+                      <label key={branch.id} className={`user-branches__option${checked ? ' is-selected' : ''}`}>
+                        <input
+                          type={single ? 'radio' : 'checkbox'}
+                          name={`${prefix}-branch`}
+                          checked={checked}
+                          onChange={() => toggleBranch(branch.id)}
+                        />
+                        <span className="user-branches__mark" aria-hidden="true">{checked && <Check size={13} strokeWidth={3} />}</span>
+                        <span className="user-branches__text">
+                          <strong>{shortName(branch.name)}</strong>
+                          <small>{branch.city}{branch.active ? '' : ' · inactiva'}</small>
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="user-modal-form__hint" role="status"><LoaderCircle className="loading-icon" size={14} aria-hidden="true" /> Cargando sucursales…</p>
+              )}
+            </>
+          )}
+          <span className={`user-modal-form__hint${missingBranch && selectedRole ? ' user-branches__missing' : ''}`} id={`${prefix}-branches-hint`}>
+            <Info size={14} aria-hidden="true" />
+            {allBranches
+              ? 'Al ingresar elige en cuál trabajar.'
+              : single
+                ? 'Es su base: de esa sucursal sale a repartir y solo ve sus recorridos.'
+                : missingBranch
+                  ? 'Elegí al menos una: solo va a poder ingresar a las sucursales que marques.'
+                  : 'Al ingresar elige en cuál trabajar y solo ve y carga lo de esa sucursal.'}
+          </span>
+        </fieldset>
       </div>
 
       {error ? (

@@ -34,7 +34,11 @@ export function useEmployees(filters: EmployeeFilters) {
 export function useEmployeeMutations() {
   const requireToken = useToken()
   const queryClient = useQueryClient()
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: EMPLOYEES_KEY })
+  // Cambiar la sucursal de un repartidor mueve también su base de reparto (Recorridos › Repartidores).
+  const invalidate = () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: EMPLOYEES_KEY }),
+    queryClient.invalidateQueries({ queryKey: ['delivery-drivers'] }),
+  ])
 
   return {
     create: useMutation({

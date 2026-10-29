@@ -293,12 +293,22 @@ export function UsersPage() {
                       <span>{employee.phone}</span>
                       {since ? <span>Alta {since}</span> : null}
                     </p>
-                    {employee.branches.length ? (
+                    {employee.role === 'SUPERADMIN' ? (
+                      <p className="list-row__meta user-row__branches">
+                        <Building2 size={13} aria-hidden="true" />
+                        <span>Todas las sucursales</span>
+                      </p>
+                    ) : employee.branches.length ? (
                       <p className="list-row__meta user-row__branches">
                         <Building2 size={13} aria-hidden="true" />
                         <span>{employee.branches.map((branch) => branch.name).join(' · ')}</span>
                       </p>
-                    ) : null}
+                    ) : (
+                      <p className="list-row__meta user-row__branches user-row__branches--missing">
+                        <Building2 size={13} aria-hidden="true" />
+                        <span>Sin sucursal: no puede ingresar. Editalo y elegí a cuál pertenece.</span>
+                      </p>
+                    )}
                   </div>
                   <div className="list-row__aside">
                     <button

@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from app.application.interfaces.repositorio_repartidores import IRepositorioRepartidores
 from app.application.interfaces.repositorio_roles import IRepositorioRoles
 from app.application.interfaces.repositorio_sucursales import IRepositorioSucursales
 from app.application.interfaces.repositorio_usuarios import IRepositorioUsuarios
@@ -26,7 +27,7 @@ from app.domain.rules.empleado_rules import (
     validar_cambios_propios,
 )
 from app.domain.rules.password_rules import generar_password_temporal
-from app.domain.rules.sucursal_rules import requiere_sucursales
+from app.domain.rules.sucursal_rules import requiere_sucursales, una_sola_sucursal, ve_todas_las_sucursales
 from app.infrastructure.auth.hasher import HasherContrasenas
 from app.infrastructure.db.models import UsuarioModel
 
@@ -40,14 +41,19 @@ class ServicioEmpleados:
         repositorio_roles: IRepositorioRoles,
         hasher: HasherContrasenas = HasherContrasenas(),
         repositorio_sucursales: IRepositorioSucursales | None = None,
+        repositorio_repartidores: IRepositorioRepartidores | None = None,
     ):
         self.repo_usuarios = repositorio_usuarios
         self.repo_roles = repositorio_roles
         self.hasher = hasher
         self.repo_sucursales = repositorio_sucursales
+        self.repo_repartidores = repositorio_repartidores
 
     async def _sucursales(self, ids: list[int], rol: str) -> list:
-        """Sucursales a habilitar; todas tienen que existir y, según el rol, hace falta al menos una."""
+        """Sucursales a las que pertenece según el rol: todas tienen que existir; el
+        Superadministrador no guarda ninguna porque entra en todas."""
+        if ve_todas_las_sucursales(rol):
+            return []
         ids = list(dict.fromkeys(ids))
         sucursales = await self.repo_sucursales.obtener_varias(ids) if self.repo_sucursales and ids else []
         if len(sucursales) != len(ids):
@@ -57,10 +63,33 @@ class ServicioEmpleados:
             )
         if not sucursales and requiere_sucursales(rol):
             raise ValidationException(
-                message="Habilitale al menos una sucursal.",
-                errors=[{"field": "sucursal_ids", "message": "Elegí en qué sucursales trabaja."}],
+                message="Elegí a qué sucursal pertenece.",
+                errors=[{"field": "sucursal_ids", "message": "Solo va a poder ingresar a las sucursales que elijas."}],
+            )
+        if una_sola_sucursal(rol) and len(sucursales) > 1:
+            raise ValidationException(
+                message="El repartidor pertenece a una sola sucursal.",
+                errors=[{"field": "sucursal_ids", "message": "Elegí la sucursal de la que sale a repartir."}],
             )
         return sucursales
+
+    async def _sincronizar_base_repartidor(self, usuario: UsuarioModel, sucursales: list) -> None:
+        """La sucursal del repartidor es su base de reparto: si ya tiene perfil, se actualiza."""
+        if not self.repo_repartidores or len(sucursales) != 1:
+            return
+        cargado = await self.repo_repartidores.obtener_usuario(usuario.id)
+        perfil = cargado.repartidor if cargado else None
+        if perfil is None or perfil.sucursal_base_id == sucursales[0].id:
+            return
+        if await self.repo_repartidores.tiene_recorridos_activos(usuario.id):
+            raise DuplicateEntryException(
+                message=(
+                    "El repartidor tiene recorridos generados o en curso. Finalizalos, reasignalos o "
+                    "eliminalos antes de cambiarlo de sucursal."
+                ),
+                errors=[{"field": "sucursal_ids", "message": "Tiene recorridos activos."}],
+            )
+        perfil.sucursal_base_id = sucursales[0].id
 
     async def crear_empleado(
         self, datos: CrearEmpleadoRequest
@@ -218,10 +247,15 @@ class ServicioEmpleados:
         if duplicados:
             raise DuplicateEntryException(message="El DNI o Email ya se encuentran registrados.", errors=duplicados)
 
-        if cambios.get("sucursal_ids") is not None:
-            usuario.sucursales = await self._sucursales(cambios["sucursal_ids"], rol_nuevo)
-        elif rol_nuevo != rol_actual and requiere_sucursales(rol_nuevo) and not usuario.sucursales:
-            await self._sucursales([], rol_nuevo)
+        # Con el rol nuevo se revalidan las sucursales (las enviadas o las que ya tenía).
+        if cambios.get("sucursal_ids") is not None or rol_nuevo != rol_actual:
+            ids = cambios.get("sucursal_ids")
+            if ids is None:
+                ids = [s.id for s in usuario.sucursales]
+            nuevas = await self._sucursales(ids, rol_nuevo)
+            if una_sola_sucursal(rol_nuevo):
+                await self._sincronizar_base_repartidor(usuario, nuevas)
+            usuario.sucursales = nuevas
 
         for campo in ("nombre", "dni", "email", "telefono", "rol_id"):
             valor = cambios.get(campo)

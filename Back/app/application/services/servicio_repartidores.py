@@ -88,6 +88,8 @@ class ServicioRepartidores(IServicioRepartidores):
         perfil.sucursal_base_id = datos.sucursal_base_id
         perfil.tipo_reparto = datos.tipo_reparto
         perfil.activo = datos.activo
+        # La sucursal del usuario (con la que ingresa) es siempre su base de reparto.
+        usuario.sucursales = [sucursal]
         await self.repo_repartidores.guardar_perfil(perfil)
 
         actualizado = await self._obtener_repartidor(usuario_id)

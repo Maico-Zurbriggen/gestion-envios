@@ -14,7 +14,8 @@ import {
   X,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { AnimatePresence, LazyMotion, m, MotionConfig } from 'framer-motion'
+import { NavLink, useLocation, useNavigate, useOutlet } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '../../app/store'
 import { getAccessibleModules, NAVIGATION_SECTIONS } from '../../app/navigation'
 import { SidebarNav } from './SidebarNav'
@@ -28,6 +29,8 @@ import { CommandPalette, type CommandItem } from './CommandPalette'
 import { PanelLayoutContext } from './panelContext'
 import { readSidebarCollapsed, storeSidebarCollapsed, useApiStatus, useNow } from './useLayoutStatus'
 import './MainLayout.css'
+
+const loadMotionFeatures = () => import('./motionFeatures').then((module) => module.default)
 
 const timeFormatter = new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit' })
 const dayFormatter = new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'short' })
@@ -46,6 +49,7 @@ export function MainLayout() {
   const [instantIndicator, setInstantIndicator] = useState(false)
   const { branch: activeBranch } = useActiveBranch()
   const location = useLocation()
+  const outlet = useOutlet()
   const user = useAppSelector(selectCurrentUser)
   const dispatch = useAppDispatch()
   const queryClient = useQueryClient()
@@ -282,7 +286,23 @@ export function MainLayout() {
 
         <div className="app-content__body">
           <PanelLayoutContext.Provider value={true}>
-            <Outlet />
+            {/* Cambio de sección como en TamboApp y Aviso Entrega: la nueva entra subiendo 6 px. */}
+            <LazyMotion features={loadMotionFeatures} strict>
+              <MotionConfig reducedMotion="user">
+                <AnimatePresence mode="wait" initial={false}>
+                  <m.div
+                    key={location.pathname}
+                    className="page-transition"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, transition: { duration: 0.1 } }}
+                    transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    {outlet}
+                  </m.div>
+                </AnimatePresence>
+              </MotionConfig>
+            </LazyMotion>
           </PanelLayoutContext.Provider>
         </div>
       </div>

@@ -152,3 +152,47 @@ async def test_el_envio_exige_la_sucursal_de_origen(client: AsyncClient, db_sess
     resumen = (await client.get("/api/v1/recorridos/pendientes/resumen", headers=_auth(administrativo_token))).json()["data"]
     assert resumen["sin_llegar"] == 1
     assert [(s["sucursal_id"], s["sin_llegar"]) for s in resumen["sucursales"]] == [(2, 1)]
+
+
+@pytest.mark.asyncio
+async def test_el_repartidor_pertenece_a_una_sola_sucursal_y_es_su_base(client: AsyncClient, administrativo_token: str):
+    token = await _superadmin(client)
+    base = {"nombre": "Rita Repartidora", "dni": "40777666", "email": "rita@demo.example.com", "telefono": "+543564777666",
+            "rol_id": RolIdEnum.REPARTIDOR.value}
+    assert (await client.post("/api/v1/admin/empleados", headers=_auth(token), json=base)).status_code == 400
+    dos = await client.post("/api/v1/admin/empleados", headers=_auth(token), json={**base, "sucursal_ids": [1, 2]})
+    assert dos.status_code == 400 and dos.json()["errors"][0]["field"] == "sucursal_ids"
+
+    creado = await client.post("/api/v1/admin/empleados", headers=_auth(token), json={**base, "sucursal_ids": [1]})
+    assert creado.status_code == 201, creado.text
+    id_ = creado.json()["data"]["id"]
+
+    # Configurar la base de reparto en la otra sucursal cambia también la sucursal del usuario.
+    perfil = await client.put(f"/api/v1/repartidores/{id_}/perfil", headers=_auth(administrativo_token),
+                              json={"sucursal_base_id": 2, "tipo_reparto": "CORTA", "activo": True})
+    assert perfil.status_code == 200, perfil.text
+    detalle = (await client.get(f"/api/v1/admin/empleados/{id_}", headers=_auth(token))).json()["data"]
+    assert [s["id"] for s in detalle["sucursales"]] == [2]
+
+    # Y al revés: cambiarlo de sucursal en Usuarios mueve su base de reparto.
+    cambio = await client.patch(f"/api/v1/admin/empleados/{id_}", headers=_auth(token), json={"sucursal_ids": [1]})
+    assert cambio.status_code == 200, cambio.text
+    repartidor = (await client.get(f"/api/v1/repartidores/{id_}", headers=_auth(administrativo_token))).json()["data"]
+    assert repartidor["sucursal_base"]["id"] == 1
+
+
+@pytest.mark.asyncio
+async def test_al_cambiar_de_rol_se_revalidan_las_sucursales(client: AsyncClient):
+    token = await _superadmin(client)
+    creado = await client.post("/api/v1/admin/empleados", headers=_auth(token), json={
+        "nombre": "Vale Vendedora", "dni": "40555444", "email": "vale@demo.example.com", "telefono": "+543564555444",
+        "rol_id": RolIdEnum.VENDEDOR.value, "sucursal_ids": [1, 2],
+    })
+    id_ = creado.json()["data"]["id"]
+    # Con dos sucursales no puede pasar a repartidor sin elegir una.
+    a_repartidor = await client.patch(f"/api/v1/admin/empleados/{id_}", headers=_auth(token), json={"rol_id": RolIdEnum.REPARTIDOR.value})
+    assert a_repartidor.status_code == 400
+    ok = await client.patch(f"/api/v1/admin/empleados/{id_}", headers=_auth(token),
+                            json={"rol_id": RolIdEnum.REPARTIDOR.value, "sucursal_ids": [2]})
+    assert ok.status_code == 200, ok.text
+    assert [s["id"] for s in ok.json()["data"]["sucursales"]] == [2]

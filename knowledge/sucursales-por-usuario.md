@@ -8,7 +8,11 @@ Tomado de Aviso Entrega Clientes (`SucursalAcceso`, `ElegirSucursalPage`, `Sucur
 |---|---|---|
 | Superadministrador | Todas, también las inactivas. | Elige una si hay más de una. |
 | Administrativo y vendedor | Solo las habilitadas en Usuarios y que estén activas. Necesitan al menos una. | Con una sola entra directo; con más, elige en `/elegir-sucursal`. |
-| Repartidor | Su sucursal base (Recorridos › Repartidores). | No elige: sale siempre de su base. |
+| Repartidor | Una sola: la que se le asigna en Usuarios, que es también su sucursal base de reparto. | No elige: sale siempre de su base. |
+
+- En Usuarios, el campo «¿A qué sucursal pertenece?» está siempre a la vista: varias para vendedor y administrativo, una sola para repartidor, ninguna para el Superadministrador (no guarda sucursales). Sin completarlo no se puede guardar, y el backend también lo exige (`requiere_sucursales`, `una_sola_sucursal`).
+- Al cambiar de rol se vuelven a validar las sucursales: por ejemplo, un vendedor con dos sucursales no pasa a repartidor sin elegir una.
+- La sucursal del repartidor y su base de reparto están sincronizadas en los dos sentidos. Si se cambia en Usuarios, se mueve su perfil de reparto; si se cambia la base en Recorridos › Repartidores, cambia su sucursal. Con recorridos activos no se puede cambiar (409).
 
 - La tabla `usuario_sucursales` guarda las sucursales habilitadas. La migración `e5b19c3a7d20` habilita todas las sucursales a los administrativos y vendedores que ya existían, y su sucursal base a los repartidores, para no dejar a nadie sin acceso.
 - `sucursales.activa`: una sucursal inactiva no se ofrece para envíos nuevos ni puede elegirse, salvo el Superadministrador.
@@ -16,7 +20,7 @@ Tomado de Aviso Entrega Clientes (`SucursalAcceso`, `ElegirSucursalPage`, `Sucur
 
 ## La sucursal activa
 
-- En el frontend, `activeBranchId` vive en Redux (`authSlice`) y se recuerda por usuario en `localStorage` (`gestion-envios.active-branch`). Se cambia desde el selector de la barra superior (`BranchSwitcher`).
+- En el frontend, `activeBranchId` vive en Redux (`authSlice`) y se recuerda por usuario en `localStorage` (`gestion-envios.active-branch`). Se cambia desde el menú de la barra superior (`BranchSwitcher`): un menú propio, accesible con teclado (flechas, Inicio, Fin, Enter, Escape), con la ciudad de cada sucursal y un tilde en la activa.
 - `ProtectedRoutes` manda a `/elegir-sucursal` a quien necesita sucursal y no tiene una activa. El envoltorio general solo exige sesión (`requireBranch={false}`), porque si no la pantalla de elegir se redirige a sí misma.
 - Las pantallas usan `useActiveBranch()` y ya no tienen selectores propios: Recibir paquetes, Carga y descarga, Registrar retiro, Recorridos, Monitor, Reclamos y el registro de envíos en el mostrador.
 

@@ -109,5 +109,9 @@ export function useSaveDriverProfile() {
   const token = useAppSelector(selectAuthToken)
   const client = useQueryClient()
   return useMutation({ mutationKey, mutationFn: (input: DriverProfileInput) => saveDriverProfile(input, token!), retry: false,
-    onSuccess: () => client.invalidateQueries({ queryKey: ['delivery-drivers'] }) })
+    // La base de reparto es también la sucursal del usuario: se refresca el listado de Usuarios.
+    onSuccess: () => Promise.all([
+      client.invalidateQueries({ queryKey: ['delivery-drivers'] }),
+      client.invalidateQueries({ queryKey: ['admin', 'employees'] }),
+    ]) })
 }
