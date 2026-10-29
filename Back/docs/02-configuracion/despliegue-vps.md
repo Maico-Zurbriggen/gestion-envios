@@ -1,6 +1,6 @@
 # Despliegue en el VPS
 
-La app está publicada en **https://envios.179-236-253-243.sslip.io**, en el VPS de Hostinger `srv2042235.hstgr.cloud` (Ubuntu 24.04). La base es Neon.
+La app está publicada en **https://gestionenvios.duckdns.org**, en el VPS de Hostinger `srv2042235.hstgr.cloud` (Ubuntu 24.04). La base es Neon.
 
 En ese VPS también corre la app **soderia**. Gestión de envíos está aislada y **no se toca nada de soderia**: ni su sitio de Nginx, ni su certificado, ni su servicio, ni su PostgreSQL.
 
@@ -13,7 +13,7 @@ En ese VPS también corre la app **soderia**. Gestión de envíos está aislada 
 | API | Servicio `gestion-envios-api` en `127.0.0.1:8010`, con un solo proceso para que la revisión de plazos no se duplique. Copia: [`deploy/vps/gestion-envios-api.service`](../../../deploy/vps/gestion-envios-api.service) |
 | Nginx | Archivo propio `zz-gestion-envios`, que carga después de soderia para que soderia siga siendo la respuesta por IP. Copia: [`deploy/vps/nginx-gestion-envios.conf`](../../../deploy/vps/nginx-gestion-envios.conf) |
 | HTTPS | Certificado `gestion-envios` de Let's Encrypt, que se renueva solo y recarga Nginx |
-| Dirección | `sslip.io` traduce el nombre a la IP del VPS, sin registrar nada. Si después usan un dominio propio, hay que cambiar `server_name`, sacar otro certificado y actualizar `FRONTEND_BASE_URL` |
+| Dirección | `gestionenvios.duckdns.org`, en una cuenta de DuckDNS distinta de la de soderia, apuntando a `179.236.253.243`. La dirección anterior, `envios.179-236-253-243.sslip.io`, redirige a la nueva para no romper enlaces viejos. El certificado cubre las dos |
 
 El `.env` del servidor es una copia del de desarrollo con `ENVIRONMENT=production`, `DEBUG=false` y `FRONTEND_BASE_URL` con la dirección pública. No va al repositorio.
 

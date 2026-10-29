@@ -9,7 +9,7 @@ set -euo pipefail
 
 SERVIDOR="${SERVIDOR:-root@179.236.253.243}"
 CLAVE="${CLAVE:-$HOME/.ssh/gestion_envios_vps}"
-DOMINIO="${DOMINIO:-envios.179-236-253-243.sslip.io}"
+DOMINIO="${DOMINIO:-gestionenvios.duckdns.org}"
 DESTINO=/opt/gestion-envios
 SSH=(ssh -i "$CLAVE" -o BatchMode=yes "$SERVIDOR")
 
