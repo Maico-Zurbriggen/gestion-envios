@@ -1244,6 +1244,9 @@
     min-width: 0;
     padding-inline: var(--space-2);
     font-size: var(--font-size-sm);
+    line-height: 1.2;
+    white-space: normal;
+    text-align: center;
     border: 1px solid var(--color-border);
   }
 
@@ -1297,17 +1300,17 @@
     font-size: var(--font-size-xl);
   }
 
-  /* Paquetes en espera: texto arriba y los dos botones lado a lado. */
+  /* Paquetes en espera: solo el aviso; las mismas acciones están en el encabezado. */
+  .routes-waiting {
+    flex-wrap: nowrap;
+  }
+
   .routes-waiting p {
-    flex: 1 1 calc(100% - 2.5rem);
+    flex: 1 1 auto;
   }
 
   .routes-waiting .route-button {
-    flex: 1 1 0;
-    justify-content: center;
-    min-width: 0;
-    padding-inline: var(--space-2);
-    font-size: var(--font-size-sm);
+    display: none;
   }
 
   /* Tarjeta de recorrido: duración y acciones en una sola fila. */
