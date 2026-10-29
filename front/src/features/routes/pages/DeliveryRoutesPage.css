@@ -1217,3 +1217,152 @@
     display: none;
   }
 }
+
+/* Celular: primero lo que se usa (elegir el día y ver sus recorridos); el circuito queda al final, compacto. */
+@media (max-width: 720px) {
+  .routes-page {
+    gap: var(--space-4);
+  }
+
+  .routes-page > .page-header { order: 0; }
+  .routes-page > .route-feedback { order: 1; }
+  .routes-page > .routes-toolbar { order: 2; }
+  .routes-page > .routes-stats { order: 3; }
+  .routes-page > .routes-waiting { order: 4; }
+  .routes-page > .routes-day { order: 5; }
+  .routes-page > .routes-flow { order: 6; }
+
+  /* Encabezado: la acción principal a lo ancho y las otras dos lado a lado. */
+  .routes-page .page-header__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .routes-page .page-header__actions > .btn {
+    justify-content: center;
+    min-width: 0;
+    padding-inline: var(--space-2);
+    font-size: var(--font-size-sm);
+    border: 1px solid var(--color-border);
+  }
+
+  .routes-page .page-header__actions > .btn--primary {
+    grid-column: 1 / -1;
+    order: -1;
+    border-color: transparent;
+    font-size: var(--font-size-md);
+  }
+
+  /* Barra */
+  .routes-toolbar {
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+
+  .routes-toolbar .active-branch-note {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+  }
+
+  .routes-week__help {
+    display: none;
+  }
+
+  /* Resumen del día: una franja de cuatro números. */
+  .routes-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .routes-stats > div {
+    gap: 0;
+    padding: var(--space-2);
+    text-align: center;
+    justify-items: center;
+  }
+
+  .routes-stats dt {
+    font-size: 0.62rem;
+    letter-spacing: 0;
+    line-height: 1.2;
+  }
+
+  .routes-stats dt svg,
+  .routes-stats small {
+    display: none;
+  }
+
+  .routes-stats dd {
+    font-size: var(--font-size-xl);
+  }
+
+  /* Paquetes en espera: texto arriba y los dos botones lado a lado. */
+  .routes-waiting p {
+    flex: 1 1 calc(100% - 2.5rem);
+  }
+
+  .routes-waiting .route-button {
+    flex: 1 1 0;
+    justify-content: center;
+    min-width: 0;
+    padding-inline: var(--space-2);
+    font-size: var(--font-size-sm);
+  }
+
+  /* Tarjeta de recorrido: duración y acciones en una sola fila. */
+  .route-card {
+    gap: var(--space-2);
+  }
+
+  .route-card__foot {
+    flex-wrap: wrap;
+  }
+
+  .route-card__foot small {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .route-card__actions {
+    flex-wrap: nowrap;
+  }
+
+  /* Circuito: filas compactas con el número a la derecha. */
+  .routes-flow {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+
+  .routes-flow > li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3);
+  }
+
+  .routes-flow__value {
+    grid-column: 2;
+    grid-row: 1;
+    font-size: var(--font-size-xl);
+  }
+
+  .routes-flow p {
+    display: none;
+  }
+
+  .routes-flow .route-button,
+  .routes-flow__branches {
+    grid-column: 1 / -1;
+  }
+
+  .routes-flow__branches {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.15rem;
+  }
+
+  .routes-flow__branch {
+    flex: 0 0 auto;
+  }
+}
