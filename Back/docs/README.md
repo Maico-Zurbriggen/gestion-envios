@@ -21,6 +21,7 @@ Esta carpeta (`Back/docs/`) es el "cómo y por qué" del lado del backend: arqui
 - [Variables de entorno](./02-configuracion/variables-de-entorno.md)
 - [Mantener Neon actualizada (migraciones automáticas)](./02-configuracion/base-de-datos-neon.md)
 - [Notificaciones por email (Gmail) y WhatsApp](./02-configuracion/notificaciones-email-whatsapp.md)
+- [Despliegue en el VPS](./02-configuracion/despliegue-vps.md)
 
 ### 3. Seguridad
 - [Autenticación y autorización (JWT, scopes, roles)](./03-seguridad/autenticacion-jwt.md)
