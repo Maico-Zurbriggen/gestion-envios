@@ -2,7 +2,8 @@ import { useRef, useState, type FormEvent } from 'react'
 import { CheckCircle2, CircleAlert, Printer, RefreshCw, ScanBarcode, Search, Weight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { TraceLink } from '../../monitor/components/TraceLink'
-import { useBranches } from '../../shipments/hooks/useBranches'
+import { ActiveBranchNote } from '../../auth/components/ActiveBranchNote'
+import { useActiveBranch } from '../../auth/hooks/useActiveBranch'
 import { ShipmentNotifications } from '../../notifications/components/ShipmentNotifications'
 import { getStatusLabel } from '../../tracking/trackingStatus'
 import { useTerminal } from '../hooks/useTerminal'
@@ -16,17 +17,6 @@ import { usePrintSettings } from '../../../shared/printing/usePrintSettings'
 import { showToast } from '../../../shared/services/toast'
 import '../../../shared/styles/operations.css'
 import { formatLongDay } from '../../../shared/utils/dates'
-
-const BRANCH_STORAGE_KEY = 'terminal-branch'
-
-// La sucursal es la misma durante todo el turno: se recuerda solo como comodidad local.
-function readStoredBranch() {
-  try { return localStorage.getItem(BRANCH_STORAGE_KEY) ?? '' } catch { return '' }
-}
-
-function storeBranch(value: string) {
-  try { localStorage.setItem(BRANCH_STORAGE_KEY, value) } catch { /* almacenamiento no disponible */ }
-}
 
 const AUTO_PRINT_KEY = 'terminal-imprimir-al-admitir'
 
@@ -59,14 +49,13 @@ export function TerminalPage() {
   const codeInputRef = useRef<HTMLInputElement>(null)
   const [input, setInput] = useState('')
   const [code, setCode] = useState('')
-  const [branchId, setBranchId] = useState(readStoredBranch)
   const [notes, setNotes] = useState('')
   const [scaleWeight, setScaleWeight] = useState('')
   const [autoPrint, setAutoPrint] = useState(readAutoPrint)
   const [printSettings] = usePrintSettings()
-  const branches = useBranches()
+  // Se recibe en la sucursal en la que se está trabajando.
+  const { branchId } = useActiveBranch()
   const { scan, receive } = useTerminal(code)
-  const branchExists = Boolean(branches.data?.some((branch) => String(branch.id) === branchId))
 
   function focusCode() {
     requestAnimationFrame(() => codeInputRef.current?.focus())
@@ -90,11 +79,6 @@ export function TerminalPage() {
     if (receive.isPending) return 'Esperá a que termine la recepción en curso antes de leer otro paquete.'
     setInput(scanned)
     searchCode(scanned)
-  }
-
-  function selectBranch(value: string) {
-    setBranchId(value)
-    storeBranch(value)
   }
 
   function nextPackage() {
@@ -130,7 +114,7 @@ export function TerminalPage() {
       {item.available && !receive.isSuccess && <form className="ops-stack" onSubmit={(e) => {
         e.preventDefault()
         const weight = Number(scaleWeight.replace(',', '.'))
-        receive.mutate({ code: item.code, branchId: Number(branchId), notes, scaleWeightKg: weight > 0 ? weight : null }, {
+        receive.mutate({ code: item.code, branchId: branchId!, notes, scaleWeightKg: weight > 0 ? weight : null }, {
           onSuccess: (reception) => {
             setInput('')
             // Admisión: la etiqueta se imprime y se pega en la caja en el mostrador.
@@ -146,15 +130,13 @@ export function TerminalPage() {
         })
       }}>
         <fieldset className="ops-stack" disabled={receive.isPending || scan.isFetching}>
-          <label className="form-field" htmlFor="terminal-branch">Sucursal donde recibís el paquete<select id="terminal-branch" className="form-control" value={branchExists ? branchId : ''} onChange={(e) => selectBranch(e.target.value)} required><option value="">Seleccioná una sucursal</option>{branches.data?.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>
-          {branches.isPending && <p role="status">Cargando sucursales…</p>}
-          {branches.isError && <div role="alert"><p>{branches.error.message}</p><button className="ops-button" type="button" onClick={() => void branches.refetch()}><RefreshCw size={18} aria-hidden="true" /> Reintentar sucursales</button></div>}
+          <ActiveBranchNote action="Lo recibís en" />
           <label className="form-field" htmlFor="terminal-weight">Peso en balanza (kg, opcional)
             <span className="ops-input-icon"><Weight size={17} aria-hidden="true" /><input id="terminal-weight" className="form-control" type="text" inputMode="decimal" placeholder={`Declarado: ${item.weightKg} kg`} value={scaleWeight} onChange={(e) => setScaleWeight(e.target.value.replace(/[^\d.,]/g, ''))} /></span>
           </label>
           <label className="form-field" htmlFor="terminal-notes">Observaciones de recepción (opcional)<textarea id="terminal-notes" className="form-control" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} /></label>
           <label className="ops-check" htmlFor="terminal-autoprint"><input id="terminal-autoprint" type="checkbox" checked={autoPrint} onChange={(e) => { setAutoPrint(e.target.checked); storeAutoPrint(e.target.checked) }} /> <Printer size={16} aria-hidden="true" /> Imprimir la etiqueta al confirmar (para pegarla en la caja)</label>
-          <button className="ops-button ops-button--primary" disabled={!branchExists || branches.isError || branches.isPending}><CheckCircle2 size={18} aria-hidden="true" />{receive.isPending ? 'Registrando…' : 'Confirmar recepción física'}</button>
+          <button className="ops-button ops-button--primary" disabled={!branchId}><CheckCircle2 size={18} aria-hidden="true" />{receive.isPending ? 'Registrando…' : 'Confirmar recepción física'}</button>
         </fieldset>
       </form>}
     </section>}

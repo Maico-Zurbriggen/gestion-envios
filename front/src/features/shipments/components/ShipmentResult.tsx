@@ -93,7 +93,7 @@ export function ShipmentResult({
         </p>
         <ol className="shipment-next-steps">
           <li>
-            <strong>Llevá cada paquete a cualquier sucursal{admitBy ? ` antes del ${admitBy}` : ''}.</strong>
+            <strong>Llevá cada paquete a {shipment.originBranch ? `${shipment.originBranch.name} (${shipment.originBranch.address}, ${shipment.originBranch.city})` : 'la sucursal elegida'}{admitBy ? ` antes del ${admitBy}` : ''}.</strong>
             <span>Si no lo llevás a tiempo, el registro vence y hay que hacerlo de nuevo.</span>
           </li>
           <li>

@@ -24,6 +24,8 @@ export interface CreateShipmentInput {
   destinationLatitude: number | null
   destinationLongitude: number | null
   destinationBranchId: number | null
+  /** Sucursal donde el remitente va a llevar los paquetes. */
+  originBranchId: number
   termsAccepted: boolean
   packages: ShipmentPackageInput[]
 }
@@ -82,6 +84,7 @@ export interface ApiCreatedShipment {
   latitud_destino: number | null
   longitud_destino: number | null
   sucursal_destino: ApiBranch | null
+  sucursal_origen?: ApiBranch | null
   paquetes: ApiCreatedPackage[]
   created_at: string
   admitir_hasta?: string | null
@@ -122,6 +125,8 @@ export interface CreatedShipment {
   destinationLatitude: number | null
   destinationLongitude: number | null
   destinationBranch: Branch | null
+  /** Dónde tiene que llevar los paquetes el remitente. */
+  originBranch: Branch | null
   packages: CreatedPackage[]
   createdAt: string
   /** Último día para llevarlo a una sucursal; después el registro vence. */

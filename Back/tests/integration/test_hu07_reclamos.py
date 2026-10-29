@@ -32,7 +32,7 @@ def _payload_envio(cantidad_paquetes: int = 2) -> dict:
         "destinatario_email": "maria.gomez@example.com",
         "tipo_entrega": "sucursal",
         "sucursal_destino_id": 2,
-        "terminos_aceptados": True,
+        "sucursal_origen_id": 1, "terminos_aceptados": True,
         "paquetes": [
             {"descripcion": f"Caja {i + 1}", "peso_kg": 2, "largo_cm": 30, "ancho_cm": 20, "alto_cm": 10}
             for i in range(cantidad_paquetes)
@@ -250,7 +250,7 @@ async def test_hu07_gestion_requiere_rol_administrativo(
     for token in (vendedor_token, repartidor_token):
         resp = await client.get(ADMIN, headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 403
-    assert (await client.get(ADMIN, headers={"Authorization": f"Bearer {administrativo_token}"})).status_code == 200
+    assert (await client.get(ADMIN, headers={"Authorization": f"Bearer {administrativo_token}"}, params={"sucursal_id": 1})).status_code == 200
 
 
 @pytest.mark.asyncio
@@ -261,23 +261,23 @@ async def test_hu07_bandeja_muestra_contacto_y_filtra(client: AsyncClient, admin
     await client.post(f"{PUBLICO}/{envio_a['token_seguimiento']}", json=_payload_reclamo())
     await client.post(f"{PUBLICO}/{envio_b['token_seguimiento']}", json=_payload_reclamo(tipo="EXTRAVIO"))
 
-    todos = await client.get(ADMIN, headers=headers)
+    todos = await client.get(ADMIN, headers=headers, params={"sucursal_id": 1})
     assert todos.json()["total"] == 2
     primero = todos.json()["data"][0]
     assert primero["contacto_email"] == "maria.gomez@example.com"
     assert primero["remitente_nombre"] == "Juan Pérez"
 
-    por_tipo = await client.get(ADMIN, headers=headers, params={"tipo": "extravio"})
+    por_tipo = await client.get(ADMIN, headers=headers, params={"sucursal_id": 1, "tipo": "extravio"})
     assert por_tipo.json()["total"] == 1
     assert por_tipo.json()["data"][0]["token_seguimiento"] == envio_b["token_seguimiento"]
 
-    por_token = await client.get(ADMIN, headers=headers, params={"token": envio_a["token_seguimiento"].lower()})
+    por_token = await client.get(ADMIN, headers=headers, params={"sucursal_id": 1, "token": envio_a["token_seguimiento"].lower()})
     assert por_token.json()["total"] == 1
 
-    por_estado = await client.get(ADMIN, headers=headers, params={"estado": "RESUELTO"})
+    por_estado = await client.get(ADMIN, headers=headers, params={"sucursal_id": 1, "estado": "RESUELTO"})
     assert por_estado.json()["total"] == 0
 
-    invalido = await client.get(ADMIN, headers=headers, params={"estado": "CERRADO"})
+    invalido = await client.get(ADMIN, headers=headers, params={"sucursal_id": 1, "estado": "CERRADO"})
     assert invalido.status_code == 400
 
 

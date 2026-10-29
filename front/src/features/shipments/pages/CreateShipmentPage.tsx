@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useInsidePanel } from '../../../layouts/MainLayout/panelContext'
+import { useAppSelector } from '../../../app/store'
+import { selectActiveBranchId } from '../../auth/redux/authSlice'
 import { useBranches } from '../hooks/useBranches'
 import { useCreateShipment } from '../hooks/useCreateShipment'
 import { useGeocodeDestination } from '../hooks/useGeocodeDestination'
@@ -44,6 +46,7 @@ interface ShipmentForm {
   destinationLatitude: number | null
   destinationLongitude: number | null
   destinationBranchId: number | ''
+  originBranchId: number | ''
   termsAccepted: boolean
 }
 
@@ -73,6 +76,7 @@ const INITIAL_FORM: ShipmentForm = {
   destinationLatitude: null,
   destinationLongitude: null,
   destinationBranchId: '',
+  originBranchId: '',
   termsAccepted: false,
 }
 
@@ -90,15 +94,18 @@ function createEmptyPackage(): PackageForm {
 
 export function CreateShipmentPage() {
   const [searchParams] = useSearchParams()
+  // En el mostrador, el envío sale de la sucursal en la que se está trabajando.
+  const activeBranchId = useAppSelector(selectActiveBranchId)
   const [form, setForm] = useState<ShipmentForm>(() => {
     const branchId = Number(searchParams.get('sucursal'))
+    const initial = { ...INITIAL_FORM, originBranchId: activeBranchId ?? ('' as const) }
     return searchParams.get('modalidad') === 'sucursal'
       ? {
-          ...INITIAL_FORM,
+          ...initial,
           deliveryType: 'sucursal',
           destinationBranchId: Number.isInteger(branchId) && branchId > 0 ? branchId : '',
         }
-      : INITIAL_FORM
+      : initial
   })
   const [packages, setPackages] = useState<PackageForm[]>(() => [
     createEmptyPackage(),
@@ -111,6 +118,7 @@ export function CreateShipmentPage() {
   const selectedBranch = branchesQuery.data?.find(
     (branch) => branch.id === form.destinationBranchId,
   )
+  const originBranch = branchesQuery.data?.find((branch) => branch.id === form.originBranchId)
 
   function updateForm<Key extends keyof ShipmentForm>(
     field: Key,
@@ -201,6 +209,11 @@ export function CreateShipmentPage() {
     event.preventDefault()
     setClientError(null)
 
+    if (form.originBranchId === '') {
+      setClientError('Elegí a qué sucursal vas a llevar los paquetes.')
+      return
+    }
+
     if (
       form.deliveryType === 'sucursal' &&
       form.destinationBranchId === ''
@@ -255,6 +268,7 @@ export function CreateShipmentPage() {
         form.deliveryType === 'sucursal'
           ? Number(form.destinationBranchId)
           : null,
+      originBranchId: Number(form.originBranchId),
       termsAccepted: form.termsAccepted,
       packages: packages.map((shipmentPackage) => ({
         description: shipmentPackage.description.trim(),
@@ -349,6 +363,26 @@ export function CreateShipmentPage() {
                 </div>
               </div>
             </section>
+          </fieldset>
+
+          <fieldset className="shipment-form__section">
+            <legend className="shipment-form__sr-only">Origen</legend>
+            <div className="shipment-form__section-header">
+              <span aria-hidden="true"><Building2 size={20} /></span>
+              <span><strong>Origen</strong><small>Dónde vas a entregar los paquetes</small></span>
+            </div>
+            <div className="form-field">
+              <label htmlFor="origin-branch">¿A qué sucursal lo vas a llevar?</label>
+              <select className="form-control" id="origin-branch" value={form.originBranchId} onChange={(event) => updateForm('originBranchId', event.target.value ? Number(event.target.value) : '')} disabled={branchesQuery.isPending || branchesQuery.isError} required>
+                <option value="" disabled>
+                  {branchesQuery.isPending ? 'Cargando sucursales…' : branchesQuery.isError ? 'No se pudieron cargar las sucursales' : 'Seleccioná una sucursal'}
+                </option>
+                {branchesQuery.data?.map((branch) => <option key={branch.id} value={branch.id}>{branch.name} — {branch.city}, {branch.province}</option>)}
+              </select>
+              {originBranch
+                ? <span className="shipment-field-note"><MapPin size={14} aria-hidden="true" />{originBranch.address}, {originBranch.city}</span>
+                : <span className="shipment-field-note">Desde esa sucursal sale tu envío.</span>}
+            </div>
           </fieldset>
 
           <fieldset className="shipment-form__section">

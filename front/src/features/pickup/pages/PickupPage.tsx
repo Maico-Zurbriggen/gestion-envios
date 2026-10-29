@@ -2,7 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { BadgeCheck, Building2, CircleAlert, ClipboardCheck, IdCard, LoaderCircle, PackageCheck, RefreshCw, Search, Undo2, UserRound, UsersRound } from 'lucide-react'
 import { TraceLink } from '../../monitor/components/TraceLink'
 import { receiverIsOldEnough } from '../../delivery/deliveryValidation'
-import { useBranches } from '../../shipments/hooks/useBranches'
+import { ActiveBranchNote } from '../../auth/components/ActiveBranchNote'
+import { useActiveBranch } from '../../auth/hooks/useActiveBranch'
 import { getStatusLabel } from '../../tracking/trackingStatus'
 import { usePickupValidation, useRegisterPickup } from '../hooks/usePickup'
 import type { PickupType, RegisteredPickup } from '../types/pickup.types'
@@ -10,17 +11,6 @@ import { ScanWithCameraButton } from '../../../shared/components/ScanWithCameraB
 import { PACKAGE_CODE_PATTERN } from '../../../shared/services/scannedCode'
 import './PickupPage.css'
 import { formatLongDay } from '../../../shared/utils/dates'
-
-const BRANCH_STORAGE_KEY = 'pickup-branch'
-
-// El mostrador atiende siempre en la misma sucursal: se recuerda solo como comodidad local.
-function readStoredBranch() {
-  try { return localStorage.getItem(BRANCH_STORAGE_KEY) ?? '' } catch { return '' }
-}
-
-function storeBranch(value: string) {
-  try { localStorage.setItem(BRANCH_STORAGE_KEY, value) } catch { /* almacenamiento no disponible */ }
-}
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
@@ -35,13 +25,13 @@ export function PickupPage() {
   const [authorizedName, setAuthorizedName] = useState('')
   const [recipientOver16, setRecipientOver16] = useState(false)
   const [documentReviewed, setDocumentReviewed] = useState(false)
-  const [operatorBranchId, setOperatorBranchId] = useState(readStoredBranch)
   const [receiverBirthDate, setReceiverBirthDate] = useState('')
   const [hasRecipientDocumentCopy, setHasRecipientDocumentCopy] = useState(false)
   const [hasSignedAuthorization, setHasSignedAuthorization] = useState(false)
   const [notes, setNotes] = useState('')
   const [completed, setCompleted] = useState<RegisteredPickup | null>(null)
-  const branches = useBranches()
+  // Se entrega en la sucursal en la que se está trabajando.
+  const { branchId: operatorBranchId } = useActiveBranch()
   const validation = usePickupValidation(searchedCode)
   const registration = useRegisterPickup()
   const packageInfo = validation.isSuccess && !validation.isFetching ? validation.data : null
@@ -50,8 +40,8 @@ export function PickupPage() {
   const branch = packageInfo?.pickupBranch
   const eligible = Boolean(packageInfo?.available && branch)
   const holder = packageInfo?.isReturn ? 'Remitente' : 'Destinatario'
-  const operatorBranchSelected = Boolean(branches.data?.some((item) => String(item.id) === operatorBranchId))
-  const operatorBranchMatches = Boolean(branch && operatorBranchSelected && String(branch.id) === operatorBranchId)
+  const operatorBranchSelected = operatorBranchId !== null
+  const operatorBranchMatches = Boolean(branch && branch.id === operatorBranchId)
   const receiverAgeValid = receiverIsOldEnough(receiverBirthDate, todayIso())
   const canRegister = Boolean(
     eligible && operatorBranchMatches && receiverAgeValid &&
@@ -99,7 +89,7 @@ export function PickupPage() {
       documentType: documentType.trim(),
       documentNumber: documentNumber.trim(),
       recipientOver16,
-      branchId: Number(operatorBranchId),
+      branchId: operatorBranchId!,
       receiverBirthDate,
       documentReviewed,
       authorizedName: authorizedName.trim(),
@@ -165,10 +155,8 @@ export function PickupPage() {
           {eligible && (
             <form className="pickup-panel pickup-form" onSubmit={submitPickup}>
               <div className="pickup-panel__heading"><ClipboardCheck size={21} aria-hidden="true" /><div><h2>Verificación de identidad</h2><p>Completá los controles antes de confirmar la entrega.</p></div></div>
-              <div className="form-field"><label htmlFor="pickup-operator-branch">Sucursal donde atendés</label><select className="form-control" id="pickup-operator-branch" value={operatorBranchSelected ? operatorBranchId : ''} onChange={(event) => { setOperatorBranchId(event.target.value); storeBranch(event.target.value) }} required aria-describedby={operatorBranchSelected && !operatorBranchMatches ? 'pickup-branch-error' : undefined}><option value="">Seleccioná tu sucursal</option>{branches.data?.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
-              {branches.isPending && <p role="status">Cargando sucursales…</p>}
-              {branches.isError && <p className="form-error" role="alert"><CircleAlert size={18} aria-hidden="true" />{branches.error.message}<button className="pickup-button" type="button" onClick={() => void branches.refetch()}><RefreshCw size={17} aria-hidden="true" /> Reintentar</button></p>}
-              {operatorBranchSelected && !operatorBranchMatches && <p className="form-error" id="pickup-branch-error" role="alert"><CircleAlert size={18} aria-hidden="true" />Este paquete se retira en otra sucursal y no puede entregarse acá.</p>}
+              <ActiveBranchNote action="Atendés en" />
+              {operatorBranchSelected && !operatorBranchMatches && <p className="form-error" role="alert"><CircleAlert size={18} aria-hidden="true" />Este paquete se retira en {branch?.name ?? 'otra sucursal'} y no puede entregarse acá. Cambiá de sucursal arriba si estás atendiendo allá.</p>}
               <fieldset className="pickup-form__choices"><legend>¿Quién retira?</legend><label><input type="radio" name="pickup-type" checked={type === 'TITULAR'} onChange={() => setType('TITULAR')} /><UserRound size={20} aria-hidden="true" /> {holder}</label><label><input type="radio" name="pickup-type" checked={type === 'TERCERO_AUTORIZADO'} onChange={() => setType('TERCERO_AUTORIZADO')} /><UsersRound size={20} aria-hidden="true" /> Tercero autorizado</label></fieldset>
               <p className="pickup-form__requirement">{type === 'TITULAR' ? packageInfo.requirements.recipient : packageInfo.requirements.authorizedPerson}</p>
               {type === 'TERCERO_AUTORIZADO' && <div className="form-field"><label htmlFor="pickup-authorized-name">Nombre completo de quien retira</label><input className="form-control" id="pickup-authorized-name" value={authorizedName} onChange={(event) => setAuthorizedName(event.target.value)} minLength={2} maxLength={150} required /></div>}

@@ -2,12 +2,14 @@ import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit'
 import { useDispatch, useSelector } from 'react-redux'
 import authReducer, {
   clearCredentials,
+  setActiveBranch,
   setCredentials,
   setPasswordChangeRequired,
 } from '../features/auth/redux/authSlice'
 import {
   removeAuthSession,
   removePasswordChangeChallenge,
+  saveActiveBranch,
   saveAuthSession,
   savePasswordChangeChallenge,
 } from '../features/auth/services/authStorage'
@@ -19,6 +21,15 @@ authListener.startListening({
   effect: (action) => {
     saveAuthSession(action.payload)
     removePasswordChangeChallenge()
+  },
+})
+
+// Se recuerda la última sucursal de cada usuario.
+authListener.startListening({
+  predicate: (action) => setCredentials.match(action) || setActiveBranch.match(action),
+  effect: (_action, api) => {
+    const { user, activeBranchId } = (api.getState() as { auth: { user: { id: string } | null; activeBranchId: number | null } }).auth
+    if (user && activeBranchId !== null) saveActiveBranch(user.id, activeBranchId)
   },
 })
 

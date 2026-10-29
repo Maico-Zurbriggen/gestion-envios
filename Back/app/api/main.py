@@ -27,6 +27,7 @@ from app.api.v1.routers.roles import router as roles_router
 from app.api.v1.routers.seguimiento import router as seguimiento_router
 from app.api.v1.routers.sucursal_retiro import router as sucursal_retiro_router
 from app.api.v1.routers.sucursales import router as sucursales_router
+from app.api.v1.routers.sucursales import router_admin as sucursales_admin_router
 from app.application.services.servicio_notificaciones import ServicioNotificaciones
 from app.application.services.servicio_plazos import ServicioPlazos
 from app.core.config import settings
@@ -116,6 +117,7 @@ def crear_aplicacion() -> FastAPI:
     app.include_router(notificaciones_router, prefix=settings.API_V1_STR)
     app.include_router(seguimiento_router, prefix=settings.API_V1_STR)
     app.include_router(sucursales_router, prefix=settings.API_V1_STR)
+    app.include_router(sucursales_admin_router, prefix=settings.API_V1_STR)
     app.include_router(roles_router, prefix=settings.API_V1_STR)
     app.include_router(sucursal_retiro_router, prefix=settings.API_V1_STR)
     app.include_router(recepcion_terminal_router, prefix=settings.API_V1_STR)

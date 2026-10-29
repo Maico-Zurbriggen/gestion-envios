@@ -32,7 +32,7 @@ def _envio_a_domicilio(direccion: str, latitud: float | None, longitud: float | 
         "direccion_destino": direccion,
         "latitud_destino": latitud,
         "longitud_destino": longitud,
-        "terminos_aceptados": True,
+        "sucursal_origen_id": 1, "terminos_aceptados": True,
         "paquetes": [{"descripcion": "Libros", "peso_kg": 3, "largo_cm": 30, "ancho_cm": 20, "alto_cm": 15}],
     }
 
@@ -117,7 +117,7 @@ async def test_flujo_completo_registro_recepcion_recorrido_seguimiento_y_reclamo
     assert reclamo.status_code == 201
     reclamo_id = reclamo.json()["data"]["id"]
 
-    bandeja = await client.get("/api/v1/admin/reclamos", headers=admin, params={"estado": "ABIERTO"})
+    bandeja = await client.get("/api/v1/admin/reclamos", headers=admin, params={"sucursal_id": 1, "estado": "ABIERTO"})
     assert [r["id"] for r in bandeja.json()["data"]] == [reclamo_id]
     cierre = await client.patch(
         f"/api/v1/admin/reclamos/{reclamo_id}/estado",

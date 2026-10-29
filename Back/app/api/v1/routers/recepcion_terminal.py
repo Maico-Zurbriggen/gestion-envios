@@ -1,6 +1,11 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Path, status
 
-from app.api.dependencies import get_servicio_notificaciones, get_servicio_recepcion_terminal, requerir_roles
+from app.api.dependencies import (
+    get_servicio_notificaciones,
+    get_servicio_recepcion_terminal,
+    requerir_roles,
+    verificar_sucursal,
+)
 from app.application.interfaces.servicio_notificaciones import IServicioNotificaciones
 from app.application.interfaces.servicio_recepcion_terminal import IServicioRecepcionTerminal
 from app.contracts.recepcion_terminal import (
@@ -62,6 +67,7 @@ async def recepcionar_paquete(
     servicio_recepcion: IServicioRecepcionTerminal = Depends(get_servicio_recepcion_terminal),
     notificaciones: IServicioNotificaciones = Depends(get_servicio_notificaciones),
 ):
+    verificar_sucursal(usuario_vendedor, datos.sucursal_id)
     """Endpoint de recepción del paquete en terminal. Requiere rol VENDEDOR, ADMINISTRATIVO o SUPERADMIN."""
     resultado = await servicio_recepcion.recepcionar_paquete(
         codigo=codigo,

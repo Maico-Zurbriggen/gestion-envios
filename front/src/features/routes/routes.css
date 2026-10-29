@@ -65,3 +65,17 @@
   .route-form-grid, .route-profile-form .route-form-grid, .route-location-editor .route-form-grid { grid-template-columns: 1fr; }
   .delivery-map.map-view { height: 18rem; }
 }
+
+/* Recorrido nuevo: optimizar al crear. */
+.route-optimize-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-right: auto;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.route-optimize-check svg {
+  color: var(--color-primary);
+}

@@ -68,8 +68,9 @@ function mapClaim(claim: ApiAdminClaim): AdminClaim {
   }
 }
 
-export async function listAdminClaims(token: string): Promise<AdminClaim[]> {
-  const { data } = await operationalRequest<{ data: ApiAdminClaim[] }>('/admin/reclamos', token)
+export async function listAdminClaims(token: string, branchId: number | null = null): Promise<AdminClaim[]> {
+  const query = branchId ? `?sucursal_id=${branchId}` : ''
+  const { data } = await operationalRequest<{ data: ApiAdminClaim[] }>(`/admin/reclamos${query}`, token)
   return data.map(mapClaim)
 }
 

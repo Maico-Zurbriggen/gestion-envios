@@ -57,6 +57,7 @@ async def _crear_paquete(
     sucursal_destino_id: int | None = None,
     estado: str = EN_SUCURSAL_ORIGEN,
     sucursal_actual_id: int | None = 1,
+    sucursal_origen_id: int | None = 1,
     cantidad: int = 1,
 ) -> list[PaqueteModel]:
     """Un envío ya recibido en una terminal (HU06), con uno o más paquetes."""
@@ -93,6 +94,7 @@ async def _crear_paquete(
             alto_cm=20.0,
             estado=estado,
             sucursal_actual_id=sucursal_actual_id,
+            sucursal_origen_id=sucursal_origen_id,
         )
         db.add(paquete)
         paquetes.append(paquete)
@@ -152,7 +154,7 @@ async def test_hu10_recorridos_requieren_rol_de_logistica(
         resp = await client.post(f"{BASE}/generar", headers={"Authorization": f"Bearer {token}"}, json=cuerpo)
         assert resp.status_code == 403
         assert resp.json()["code"] == ErrorCodes.FORBIDDEN_ACCESS
-    assert (await client.get(BASE, headers={"Authorization": f"Bearer {administrativo_token}"})).status_code == 200
+    assert (await client.get(BASE, headers={"Authorization": f"Bearer {administrativo_token}"}, params={"sucursal_id": 1})).status_code == 200
 
 
 # --- Escenario 1: generación automática ---
@@ -390,9 +392,9 @@ async def test_hu10_resolver_alerta_manualmente(
     assert (await client.patch(f"{BASE}/alertas/{alerta['id']}/resolver", headers=headers)).status_code == 400
     assert (await client.patch(f"{BASE}/alertas/{uuid.uuid4()}/resolver", headers=headers)).status_code == 404
 
-    pendientes = await client.get(f"{BASE}/alertas", headers=headers)
+    pendientes = await client.get(f"{BASE}/alertas", headers=headers, params={"sucursal_id": 1})
     assert pendientes.json()["total"] == 0
-    todas = await client.get(f"{BASE}/alertas", headers=headers, params={"incluir_resueltas": True})
+    todas = await client.get(f"{BASE}/alertas", headers=headers, params={"sucursal_id": 1, "incluir_resueltas": True})
     assert todas.json()["total"] == 1
 
 
@@ -455,14 +457,21 @@ async def test_hu10_generacion_con_repartidores_elegidos(
 
 @pytest.mark.asyncio
 async def test_hu10_generacion_valida_los_datos(
-    client: AsyncClient, db_session: AsyncSession, administrativo_token: str
+    client: AsyncClient, db_session: AsyncSession, administrativo_usuario, administrativo_token: str
 ):
+    # El administrativo no puede ni intentarlo en una sucursal que no tiene habilitada.
+    ajena = await client.post(
+        f"{BASE}/generar", headers={"Authorization": f"Bearer {administrativo_token}"},
+        json={"sucursal_id": 999, "tipo_distancia": "CORTA"},
+    )
+    assert ajena.status_code == 403
     headers = {"Authorization": f"Bearer {administrativo_token}"}
-    db_session.add(SucursalModel(id=3, nombre="Sucursal Sin Mapa", provincia="Salta", ciudad="Salta", direccion="X 1"))
+    sin_mapa = SucursalModel(id=3, nombre="Sucursal Sin Mapa", provincia="Salta", ciudad="Salta", direccion="X 1")
+    db_session.add(sin_mapa)
+    administrativo_usuario.sucursales.append(sin_mapa)
     await db_session.commit()
 
     casos = [
-        ({"sucursal_id": 999, "tipo_distancia": "CORTA"}, "sucursal_id"),
         ({"sucursal_id": 3, "tipo_distancia": "CORTA"}, "sucursal_id"),
         ({"sucursal_id": 1, "tipo_distancia": "MEDIA"}, "tipo_distancia"),
         ({"sucursal_id": 1, "tipo_distancia": "CORTA", "orientacion_calles_grados": 90}, "orientacion_calles_grados"),
@@ -500,8 +509,8 @@ async def test_hu10_escenario_2_visualizar_y_listar(
     listado = await client.get(BASE, headers=headers, params={"sucursal_id": 1, "fecha": date.today().isoformat()})
     assert listado.json()["total"] == 1
     assert listado.json()["data"][0]["cantidad_paquetes"] == 1
-    assert (await client.get(BASE, headers=headers, params={"tipo_distancia": "LARGA"})).json()["total"] == 0
-    assert (await client.get(BASE, headers=headers, params={"estado": "CERRADO"})).status_code == 400
+    assert (await client.get(BASE, headers=headers, params={"sucursal_id": 1, "tipo_distancia": "LARGA"})).json()["total"] == 0
+    assert (await client.get(BASE, headers=headers, params={"sucursal_id": 1, "estado": "CERRADO"})).status_code == 400
     assert (await client.get(f"{BASE}/{uuid.uuid4()}", headers=headers)).status_code == 404
 
 
@@ -983,7 +992,7 @@ async def test_recorrido_a_mano_con_paquetes_en_espera(
     # La vista semanal trae los recorridos del rango, con su avance.
     hoy = date.today()
     semana = (await client.get(BASE, headers=headers, params={
-        "desde": (hoy - timedelta(days=3)).isoformat(), "hasta": (hoy + timedelta(days=3)).isoformat(),
+        "sucursal_id": 1, "desde": (hoy - timedelta(days=3)).isoformat(), "hasta": (hoy + timedelta(days=3)).isoformat(),
     })).json()
     assert semana["total"] == 2
     assert all(r["paquetes_entregados"] == 0 and r["paquetes_no_entregados"] == 0 for r in semana["data"])
@@ -998,4 +1007,4 @@ async def test_resumen_de_espera_por_sucursal(client: AsyncClient, db_session: A
 
     resumen = (await client.get(f"{BASE}/pendientes/resumen", headers=headers)).json()["data"]
     assert resumen["sin_llegar"] == 1
-    assert resumen["sucursales"] == [{"sucursal_id": 1, "nombre": resumen["sucursales"][0]["nombre"], "a_domicilio": 1, "entre_sucursales": 0}]
+    assert resumen["sucursales"] == [{"sucursal_id": 1, "nombre": resumen["sucursales"][0]["nombre"], "a_domicilio": 1, "entre_sucursales": 0, "sin_llegar": 1}]

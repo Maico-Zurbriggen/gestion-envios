@@ -53,9 +53,11 @@ from app.core.exceptions import (
     ForbiddenAccessException,
     ForbiddenScopeException,
     InvalidTokenException,
+    ValidationException,
 )
 from app.domain.constants.roles import RolEnum
 from app.domain.constants.scopes import ScopeEnum
+from app.domain.rules.sucursal_rules import ve_todas_las_sucursales
 from app.infrastructure.auth.jwt_handler import ManejadorJWT
 from app.infrastructure.db.models import UsuarioModel
 from app.infrastructure.db.session import AsyncSessionLocal, obtener_sesion_db
@@ -96,22 +98,6 @@ def get_repositorio_roles(
     return RepositorioRoles(db)
 
 
-def get_servicio_auth(
-    repo_usuarios: IRepositorioUsuarios = Depends(get_repositorio_usuarios),
-) -> IServicioAuth:
-    return ServicioAuth(repositorio_usuarios=repo_usuarios)
-
-
-def get_servicio_empleados(
-    repo_usuarios: IRepositorioUsuarios = Depends(get_repositorio_usuarios),
-    repo_roles: IRepositorioRoles = Depends(get_repositorio_roles),
-) -> IServicioEmpleados:
-    return ServicioEmpleados(
-        repositorio_usuarios=repo_usuarios,
-        repositorio_roles=repo_roles,
-    )
-
-
 def get_repositorio_envios(
     db: AsyncSession = Depends(obtener_sesion_db),
 ) -> IRepositorioEnvios:
@@ -123,6 +109,24 @@ def get_repositorio_sucursales(
 ) -> IRepositorioSucursales:
     return RepositorioSucursales(db)
 
+
+def get_servicio_empleados(
+    repo_usuarios: IRepositorioUsuarios = Depends(get_repositorio_usuarios),
+    repo_roles: IRepositorioRoles = Depends(get_repositorio_roles),
+    repo_sucursales: IRepositorioSucursales = Depends(get_repositorio_sucursales),
+) -> IServicioEmpleados:
+    return ServicioEmpleados(
+        repositorio_usuarios=repo_usuarios,
+        repositorio_roles=repo_roles,
+        repositorio_sucursales=repo_sucursales,
+    )
+
+
+def get_servicio_auth(
+    repo_usuarios: IRepositorioUsuarios = Depends(get_repositorio_usuarios),
+    repo_sucursales: IRepositorioSucursales = Depends(get_repositorio_sucursales),
+) -> IServicioAuth:
+    return ServicioAuth(repositorio_usuarios=repo_usuarios, repositorio_sucursales=repo_sucursales)
 
 def get_servicio_envios(
     repo_envios: IRepositorioEnvios = Depends(get_repositorio_envios),
@@ -378,6 +382,34 @@ def requerir_rol(rol_requerido: RolEnum) -> Callable:
         return usuario
 
     return validador_rol
+
+
+def sucursales_habilitadas(usuario: Any) -> set[int] | None:
+    """Ids de las sucursales en las que trabaja el usuario; `None` si entra en todas (Superadministrador)."""
+    rol = usuario.rol.nombre if getattr(usuario, "rol", None) else None
+    if ve_todas_las_sucursales(rol):
+        return None
+    return {s.id for s in getattr(usuario, "sucursales", None) or [] if s.activa}
+
+
+def verificar_sucursal(usuario: Any, sucursal_id: int | None) -> None:
+    """403 si el usuario no tiene habilitada esa sucursal."""
+    if sucursal_id is None:
+        return
+    habilitadas = sucursales_habilitadas(usuario)
+    if habilitadas is not None and sucursal_id not in habilitadas:
+        raise ForbiddenAccessException("No tenés acceso a esa sucursal. Elegí una de las habilitadas para tu usuario.")
+
+
+def exigir_sucursal(usuario: Any, sucursal_id: int | None) -> int | None:
+    """Para listados: sin sucursal elegida, quien no entra en todas tiene que elegir una."""
+    if sucursal_id is None and sucursales_habilitadas(usuario) is not None:
+        raise ValidationException(
+            message="Elegí una sucursal.",
+            errors=[{"field": "sucursal_id", "message": "Tu usuario trabaja por sucursal: indicá en cuál."}],
+        )
+    verificar_sucursal(usuario, sucursal_id)
+    return sucursal_id
 
 
 def requerir_roles(roles_permitidos: list[RolEnum]) -> Callable:

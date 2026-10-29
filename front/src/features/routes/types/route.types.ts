@@ -157,13 +157,13 @@ export interface DeliveryRouteSummary {
 
 export interface ApiWaitingSummary {
   sin_llegar: number
-  sucursales: Array<{ sucursal_id: number; nombre: string; a_domicilio: number; entre_sucursales: number }>
+  sucursales: Array<{ sucursal_id: number; nombre: string; a_domicilio: number; entre_sucursales: number; sin_llegar: number }>
 }
 
 /** Dónde hay paquetes esperando recorrido y cuántos todavía no llegaron a una sucursal. */
 export interface WaitingSummary {
   notArrived: number
-  branches: Array<{ id: number; name: string; home: number; between: number }>
+  branches: Array<{ id: number; name: string; home: number; between: number; notArrived: number }>
 }
 
 /** Paquete listo en la sucursal que todavía no tiene recorrido. */

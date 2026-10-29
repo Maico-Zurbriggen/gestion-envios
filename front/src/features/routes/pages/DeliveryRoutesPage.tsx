@@ -1,18 +1,21 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
-  CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Cpu, Inbox, Package, Plus, RefreshCw, Route, ScanBarcode, Truck, XCircle,
+  CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Cpu, Inbox, LoaderCircle, Package, Plus, RefreshCw, Route, ScanBarcode, Truck, WandSparkles, XCircle,
 } from 'lucide-react'
 import { useAppSelector } from '../../../app/store'
 import { PageHeader } from '../../../shared/components/PageHeader'
 import { selectCurrentUser } from '../../auth/redux/authSlice'
+import { ActiveBranchNote } from '../../auth/components/ActiveBranchNote'
+import { useActiveBranch } from '../../auth/hooks/useActiveBranch'
 import { useBranches } from '../../shipments/hooks/useBranches'
 import { AutoPlanModal } from '../components/AutoPlanModal'
 import { DriverProfilesButton } from '../components/DriverProfiles'
 import { NewRouteModal } from '../components/NewRouteModal'
 import { RouteError, RouteLoading } from '../components/RouteFeedback'
 import { RouteWorkspace } from '../components/RouteWorkspace'
-import { useDrivers, usePendingPackages, useRoutes, useRoutesBusy, useWaitingSummary } from '../hooks/useRoutes'
+import { useDrivers, usePendingPackages, useRouteCommand, useRoutes, useRoutesBusy, useWaitingSummary } from '../hooks/useRoutes'
+import { showToast } from '../../../shared/services/toast'
 import {
   dayParts, formatRouteDistance, formatRouteDuration, isRouteEditable, localToday, routeStatusLabels, routeStatusTone, shiftDay, weekOf,
 } from '../routePresentation'
@@ -20,41 +23,33 @@ import type { DeliveryRouteSummary, DistanceType, WaitingSummary } from '../type
 import '../routes.css'
 import './DeliveryRoutesPage.css'
 
-const BRANCH_KEY = 'recorridos-sucursal'
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/
-
-/** Sucursal elegida antes en este equipo; `null` si nunca se eligió (se propone la que tiene paquetes esperando). */
-function storedBranch(): number | null {
-  try {
-    const value = localStorage.getItem(BRANCH_KEY)
-    return value === null ? null : Number(value) || 0
-  } catch {
-    return null
-  }
-}
 
 export function DeliveryRoutesPage() {
   const [params, setParams] = useSearchParams()
   const today = localToday()
   const date = DAY_RE.test(params.get('fecha') ?? '') ? params.get('fecha')! : today
   const selectedId = params.get('recorrido') ?? ''
-  // `null`: nunca se eligió una sucursal en este equipo; se propone la que tiene paquetes esperando.
-  const [chosenBranch, setChosenBranch] = useState(storedBranch)
   const [modal, setModal] = useState<'new' | 'auto' | null>(null)
 
+  // Los recorridos se arman en la sucursal en la que se está trabajando (se cambia arriba).
+  const { branch: activeBranch, branches: allowedBranches, choose } = useActiveBranch()
+  const branchId = activeBranch?.id ?? 0
   const waiting = useWaitingSummary()
-  const suggested = chosenBranch === null ? waiting.data?.branches[0] : undefined
-  const branchId = chosenBranch ?? suggested?.id ?? 0
+  const here = waiting.data?.branches.find((item) => item.id === branchId)
   const typeParam = params.get('tipo')
-  const distanceType: DistanceType = typeParam ? (typeParam === 'larga' ? 'LARGA' : 'CORTA') : suggested && !suggested.home && suggested.between ? 'LARGA' : 'CORTA'
+  const distanceType: DistanceType = typeParam ? (typeParam === 'larga' ? 'LARGA' : 'CORTA') : here && !here.home && here.between ? 'LARGA' : 'CORTA'
   const week = useMemo(() => weekOf(date), [date])
-  const branches = useBranches()
+  const catalog = useBranches()
+  // Para la sucursal base de los repartidores, solo las que tiene habilitadas.
+  const allowedIds = new Set(allowedBranches.map((item) => item.id))
+  const branches = catalog.data?.filter((item) => allowedIds.has(item.id)) ?? []
   const drivers = useDrivers()
   const routes = useRoutes({ branchId, distanceType, from: week[0], to: week[6] })
   const pending = usePendingPackages(branchId, distanceType)
   const busy = useRoutesBusy()
   const user = useAppSelector(selectCurrentUser)
-  const branchName = branches.data?.find((branch) => branch.id === branchId)?.name ?? ''
+  const branchName = activeBranch?.name ?? ''
 
   const dayRoutes = useMemo(() => (routes.data ?? []).filter((route) => route.date === date)
     .sort((a, b) => order(a) - order(b) || a.driver.name.localeCompare(b.driver.name)), [routes.data, date])
@@ -77,8 +72,7 @@ export function DeliveryRoutesPage() {
   }
 
   function setBranchId(value: number) {
-    setChosenBranch(value)
-    try { localStorage.setItem(BRANCH_KEY, String(value)) } catch { /* sin almacenamiento: solo dura la sesión */ }
+    choose(value)
   }
 
   if (selectedId) {
@@ -98,7 +92,7 @@ export function DeliveryRoutesPage() {
     <PageHeader icon={Route} title="Recorridos"
       description="Armá el reparto del día: cada recorrido es un repartidor con sus paquetes en orden de visita."
       actions={<>
-        <DriverProfilesButton drivers={drivers.data ?? []} branches={branches.data ?? []} busy={busy} canCreateUser={user?.role === 'SUPERADMIN'} />
+        <DriverProfilesButton drivers={drivers.data ?? []} branches={branches} busy={busy} canCreateUser={user?.role === 'SUPERADMIN'} />
         <button className="btn btn--ghost" type="button" onClick={() => setModal('auto')} disabled={needsBranch} title={planTitle}><Cpu size={17} aria-hidden="true" /> Armar automáticamente</button>
         <button className="btn btn--primary" type="button" onClick={() => setModal('new')} disabled={needsBranch} title={planTitle}><Plus size={17} aria-hidden="true" /> Nuevo recorrido</button>
       </>} />
@@ -108,13 +102,7 @@ export function DeliveryRoutesPage() {
 
     <section className="surface-card routes-toolbar" aria-label="Qué recorridos ver">
       <div className="routes-toolbar__row">
-        <label className="form-field routes-toolbar__branch">
-          <span>Sucursal</span>
-          <select className="form-control" value={branchId} onChange={(event) => setBranchId(Number(event.target.value))} disabled={branches.isPending}>
-            <option value={0}>Todas las sucursales</option>
-            {branches.data?.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-          </select>
-        </label>
+        <ActiveBranchNote action="Recorridos que salen de" />
         <div className="segmented routes-toolbar__type" role="group" aria-label="Tipo de reparto">
           <button type="button" aria-pressed={distanceType === 'CORTA'} onClick={() => go({ tipo: 'CORTA' }, true)}><Truck size={15} aria-hidden="true" /> A domicilio</button>
           <button type="button" aria-pressed={distanceType === 'LARGA'} onClick={() => go({ tipo: 'LARGA' }, true)}><Route size={15} aria-hidden="true" /> Entre sucursales</button>
@@ -128,7 +116,7 @@ export function DeliveryRoutesPage() {
       <p className="routes-week__help">Elegí el día en que salen los recorridos. Los paquetes en espera no tienen fecha: se suman al recorrido del día que elijas.</p>
     </section>
 
-    {branches.isError && <RouteError error={branches.error} onRetry={() => void branches.refetch()} pending={branches.isFetching} />}
+    {catalog.isError && <RouteError error={catalog.error} onRetry={() => void catalog.refetch()} pending={catalog.isFetching} />}
     {routes.isError && <RouteError error={routes.error} onRetry={() => void routes.refetch()} pending={routes.isFetching} />}
 
     <DayStats routes={dayRoutes} loading={routes.isPending} />
@@ -174,20 +162,23 @@ function Flow({ waiting, branchId, distanceType, dayPackages, onPick }: {
   dayPackages: number
   onPick: (branchId: number, type: DistanceType) => void
 }) {
-  const totalWaiting = waiting?.branches.reduce((sum, branch) => sum + branch.home + branch.between, 0)
+  const withPackages = waiting?.branches.filter((branch) => branch.home + branch.between > 0) ?? []
+  const totalWaiting = waiting && withPackages.reduce((sum, branch) => sum + branch.home + branch.between, 0)
+  // Los que todavía no llegaron se cuentan en la sucursal donde el cliente dijo que los iba a llevar.
+  const notArrived = waiting ? waiting.branches.find((branch) => branch.id === branchId)?.notArrived ?? 0 : undefined
   return <ol className="routes-flow" aria-label="Cómo llegan los paquetes a un recorrido">
     <li className="surface-card">
       <span className="routes-flow__head">Registrados, sin llegar</span>
-      <span className="routes-flow__value">{waiting?.notArrived ?? '…'}</span>
-      <p>El cliente registró el envío pero todavía no lo llevó. Cuando llega, se recibe en la sucursal.</p>
+      <span className="routes-flow__value">{notArrived ?? '…'}</span>
+      <p>El cliente registró el envío para traerlo a esta sucursal y todavía no lo llevó. Cuando llega, se recibe acá.</p>
       <Link className="route-button" to="/terminal/recepcion"><ScanBarcode size={16} aria-hidden="true" /> Recibir paquetes</Link>
     </li>
     <li className="surface-card">
       <span className="routes-flow__head">En sucursal, esperan recorrido</span>
       <span className="routes-flow__value">{totalWaiting ?? '…'}</span>
-      {waiting && waiting.branches.length === 0 && <p>Ninguno: todo lo recibido ya tiene recorrido.</p>}
-      {waiting && waiting.branches.length > 0 && <div className="routes-flow__branches">
-        {waiting.branches.map((branch) => {
+      {waiting && withPackages.length === 0 && <p>Ninguno: todo lo recibido ya tiene recorrido.</p>}
+      {waiting && withPackages.length > 0 && <div className="routes-flow__branches">
+        {withPackages.map((branch) => {
           const type: DistanceType = branch.home || !branch.between ? 'CORTA' : 'LARGA'
           return <button key={branch.id} type="button" className={`routes-flow__branch${branch.id === branchId ? ' is-active' : ''}`} onClick={() => onPick(branch.id, type)}>
             <strong>{branch.name}</strong>
@@ -294,7 +285,27 @@ function RouteCard({ route, onOpen }: { route: DeliveryRouteSummary; onOpen: () 
     </>}
     <footer className="route-card__foot">
       <small>{route.durationMinutes == null ? '' : `≈ ${formatRouteDuration(route.durationMinutes)} de manejo`}</small>
-      <button className="route-button" type="button" onClick={onOpen}>{isRouteEditable(route.status) ? 'Armar' : 'Ver'}</button>
+      <span className="route-card__actions">
+        {(isRouteEditable(route.status) || route.status === 'EN_CURSO') && <OptimizeRouteButton route={route} />}
+        <button className="route-button" type="button" onClick={onOpen}>{isRouteEditable(route.status) ? 'Armar' : 'Ver'}</button>
+      </span>
     </footer>
   </article>
+}
+
+/** Ordena las paradas por el camino más rápido por calles, desde la tarjeta del día. */
+function OptimizeRouteButton({ route }: { route: DeliveryRouteSummary }) {
+  const command = useRouteCommand()
+  const pendingStops = route.status === 'EN_CURSO' ? route.packageCount - route.delivered - route.failed : route.stopCount
+  const possible = pendingStops > 1
+  return <button className="route-button" type="button" disabled={!possible || command.isPending}
+    title={possible ? 'Ordena las paradas por el camino más rápido por calles' : 'Con una sola parada no hay nada que ordenar'}
+    aria-label={`Optimizar el recorrido de ${route.driver.name}`}
+    onClick={() => command.mutate({ id: route.id, action: 'optimize' }, {
+      onSuccess: (result) => showToast(result.message || 'Recorrido optimizado.'),
+      onError: (error) => showToast(error.message, 'error'),
+    })}>
+    {command.isPending ? <LoaderCircle size={16} className="loading-icon" aria-hidden="true" /> : <WandSparkles size={16} aria-hidden="true" />}
+    {command.isPending ? 'Optimizando…' : 'Optimizar'}
+  </button>
 }

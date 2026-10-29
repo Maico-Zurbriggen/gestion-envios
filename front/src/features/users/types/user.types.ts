@@ -4,6 +4,8 @@ export interface CreateUserInput {
   email: string
   phone: string
   roleId: number
+  /** Sucursales en las que trabaja. */
+  branchIds: number[]
 }
 
 export interface ApiRole {
@@ -65,6 +67,7 @@ export interface ApiEmployee {
   requiere_cambio_password: boolean
   created_at: string | null
   updated_at: string | null
+  sucursales?: Array<{ id: number; nombre: string }>
 }
 
 export interface ApiEmployeeList {
@@ -90,6 +93,7 @@ export interface Employee {
   requiresPasswordChange: boolean
   createdAt: string | null
   updatedAt: string | null
+  branches: Array<{ id: number; name: string }>
 }
 
 export interface EmployeeSummary {

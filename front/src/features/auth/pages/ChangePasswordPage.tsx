@@ -12,6 +12,7 @@ import {
   Save,
 } from 'lucide-react'
 import { Navigate, useNavigate } from 'react-router-dom'
+import { shouldChooseBranch } from '../branchAccess'
 import { useAppDispatch, useAppSelector } from '../../../app/store'
 import { useChangePassword } from '../hooks/useChangePassword'
 import {
@@ -132,7 +133,10 @@ export function ChangePasswordPage() {
 
     changePasswordMutation.mutate(
       { currentPassword, newPassword, passwordConfirmation },
-      { onSuccess: () => navigate('/', { replace: true }) },
+      {
+        onSuccess: ({ session }) =>
+          navigate(shouldChooseBranch(session.user) ? '/elegir-sucursal' : '/', { replace: true }),
+      },
     )
   }
 

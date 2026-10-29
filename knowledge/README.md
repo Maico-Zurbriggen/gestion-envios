@@ -14,6 +14,7 @@ Este directorio registra criterios compartidos para evitar que las decisiones de
 - [Registro de envíos y seguimiento público](./envios-seguimiento.md)
 - [Reclamos, preguntas frecuentes y recorridos](./reclamos-preguntas-recorridos.md)
 - [Mapas, recorridos por calles y ubicación de direcciones](./mapas.md)
+- [Sucursales por usuario: todo se divide por sucursal](./sucursales-por-usuario.md)
 - [Sprint 2: notificaciones, recepción, retiro y base Neon](./sprint-2-notificaciones-retiro-y-neon.md)
 - [Estándares y buenas prácticas de codificación](./estandares-codificacion.md)
 

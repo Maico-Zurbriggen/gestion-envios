@@ -46,11 +46,12 @@ function DriverRoute({ id, onBack }: { id: string; onBack: () => void }) {
       <section className="ops-panel ops-stack" aria-label="Resumen del recorrido">
         <h2>{distanceLabels[route.distanceType]} · {route.branchName}</h2><p>{route.date} · {routeStatusLabels[route.status]} · {pendingPackages} de {route.packageCount} paquetes pendientes</p>
         <button className="ops-button" type="button" disabled={detail.isFetching || start.isPending} onClick={() => { void detail.refetch(); void position.refetch() }}><RefreshCw size={18} aria-hidden="true" /> Actualizar recorrido</button>
-        {route.status !== 'FINALIZADO' && pendingStops > 1 && <button className="ops-button" type="button" disabled={optimize.isPending || start.isPending} onClick={() => optimize.mutate()}
-          title="Ordena las paradas que faltan por el camino más rápido, desde donde estás">
+        {route.status !== 'FINALIZADO' && <button className="ops-button ops-button--primary" type="button" disabled={pendingStops < 2 || optimize.isPending || start.isPending} onClick={() => optimize.mutate()}
+          title={pendingStops < 2 ? 'Con una sola parada pendiente no hay nada que ordenar' : 'Ordena las paradas que faltan por el camino más rápido, desde donde estás'}>
           {optimize.isPending ? <LoaderCircle size={18} className="loading-icon" aria-hidden="true" /> : <WandSparkles size={18} aria-hidden="true" />}
           {optimize.isPending ? 'Calculando el mejor recorrido…' : 'Optimizar recorrido'}
         </button>}
+        {route.status !== 'FINALIZADO' && pendingStops < 2 && <p className="ops-hint">Con una sola parada pendiente no hay nada que ordenar.</p>}
         {optimize.isSuccess && <p className="ops-success" role="status"><CheckCircle2 size={18} aria-hidden="true" /> {optimize.data.message}</p>}
         {optimize.isError && <p className="form-error" role="alert">{optimize.error.message}</p>}
         {(route.status === 'GENERADO' || route.status === 'EN_EDICION') && !detail.isError && <div className="ops-stack">

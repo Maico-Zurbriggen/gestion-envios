@@ -13,6 +13,7 @@ El mismo esquema que Rumbo (Aviso Entrega Completa). Todo es gratis y sin claves
 
 - **Sin diagonales.** El mapa dibuja solo el recorrido real de OSRM, con borde blanco y el color de la marca. Si OSRM no responde, se ven las paradas numeradas en orden y un aviso, nunca líneas rectas.
 - **El orden más rápido.** El armado automático y «Optimizar» piden a OSRM la matriz de tiempos reales de manejo entre todas las paradas, que respeta sentidos de circulación, avenidas y rutas. Sobre esa matriz aplican vecino más cercano y mejora 2-opt (`ServicioRecorridos._ordenar`). Sin OSRM, usan la distancia estimada.
+- **Dónde está «Optimizar recorrido».** En cada tarjeta del día, en el armado del recorrido y en la app del repartidor; antes de salir ordena todo y en reparto, lo que falta desde la posición del vehículo. El recorrido nuevo se crea ya optimizado («Optimizar recorrido al crear», marcado por defecto). El botón siempre se ve mientras el recorrido no terminó; con una sola parada queda deshabilitado y lo explica.
 - **Distancia y tiempo.** Salen del recorrido por calles más los minutos de atención en cada parada (5 a domicilio, 15 en una sucursal). El tiempo de OSRM se multiplica por `RUTAS_FACTOR_TRAFICO` (1,2).
 - `POST /api/v1/mapa/trayecto` (con sesión) devuelve la geometría `[longitud, latitud]`, la distancia y el tiempo de un recorrido. Lo usan el panel de recorridos y la app del repartidor.
 

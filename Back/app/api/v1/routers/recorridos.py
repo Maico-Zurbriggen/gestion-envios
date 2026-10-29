@@ -3,7 +3,13 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Path, Query, status
 
-from app.api.dependencies import get_servicio_recorridos, requerir_roles
+from app.api.dependencies import (
+    exigir_sucursal,
+    get_servicio_recorridos,
+    requerir_roles,
+    sucursales_habilitadas,
+    verificar_sucursal,
+)
 from app.application.interfaces.servicio_recorridos import IServicioRecorridos
 from app.contracts.recorridos import (
     AlertaRecorridoResponse,
@@ -49,6 +55,7 @@ async def generar_recorridos(
     usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
+    verificar_sucursal(usuario, datos.sucursal_id)
     return await servicio.generar(datos, usuario)
 
 
@@ -61,9 +68,10 @@ async def generar_recorridos(
 )
 async def crear_recorrido(
     datos: CrearRecorridoRequest,
-    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
+    verificar_sucursal(usuario, datos.sucursal_id)
     return await servicio.crear(datos)
 
 
@@ -75,10 +83,15 @@ async def crear_recorrido(
     description="Cuántos registrados todavía no llegaron a una sucursal, y cuántos esperan en cada sucursal y tipo.",
 )
 async def resumen_espera(
-    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
-    return await servicio.resumen_espera()
+    resumen = await servicio.resumen_espera()
+    habilitadas = sucursales_habilitadas(usuario)
+    if habilitadas is not None:
+        resumen.data.sucursales = [s for s in resumen.data.sucursales if s.sucursal_id in habilitadas]
+        resumen.data.sin_llegar = sum(s.sin_llegar for s in resumen.data.sucursales)
+    return resumen
 
 
 @router.get(
@@ -91,9 +104,10 @@ async def resumen_espera(
 async def listar_pendientes(
     sucursal_id: int = Query(..., gt=0),
     tipo_distancia: str = Query(..., max_length=10, description="CORTA o LARGA."),
-    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
+    verificar_sucursal(usuario, sucursal_id)
     return await servicio.pendientes(sucursal_id, tipo_distancia)
 
 
@@ -109,9 +123,10 @@ async def listar_pendientes(
 async def listar_alertas(
     sucursal_id: int | None = Query(None, gt=0, description="Sucursal donde está el paquete."),
     incluir_resueltas: bool = Query(False),
-    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
+    exigir_sucursal(usuario, sucursal_id)
     return await servicio.listar_alertas(sucursal_id=sucursal_id, incluir_resueltas=incluir_resueltas)
 
 
@@ -148,9 +163,10 @@ async def listar_recorridos(
     repartidor_id: uuid.UUID | None = Query(None),
     desde: date | None = Query(None, description="Desde este día (para ver una semana)."),
     hasta: date | None = Query(None, description="Hasta este día, inclusive."),
-    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
+    exigir_sucursal(usuario, sucursal_id)
     return await servicio.listar(
         sucursal_id=sucursal_id,
         fecha=fecha,
@@ -170,9 +186,10 @@ async def listar_recorridos(
 )
 async def obtener_recorrido(
     id: uuid.UUID,
-    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
+    await _de_mi_sucursal(id, usuario, servicio)
     return await servicio.obtener(id)
 
 
@@ -191,9 +208,10 @@ async def obtener_recorrido(
 async def reemplazar_paquetes(
     id: uuid.UUID,
     datos: ReemplazarPaquetesRecorridoRequest,
-    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
+    await _de_mi_sucursal(id, usuario, servicio)
     return await servicio.reemplazar_paquetes(id, datos)
 
 
@@ -206,9 +224,10 @@ async def reemplazar_paquetes(
 async def quitar_paquete(
     id: uuid.UUID,
     codigo: str = Path(..., max_length=40, description="Número de paquete (`PAQ-XXXXXXXXXX`) o UUID."),
-    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
+    await _de_mi_sucursal(id, usuario, servicio)
     return await servicio.quitar_paquete(id, codigo)
 
 
@@ -224,9 +243,10 @@ async def completar_ubicacion_paquete(
     id: uuid.UUID,
     datos: CompletarUbicacionPaqueteRequest,
     codigo: str = Path(..., max_length=40),
-    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
+    await _de_mi_sucursal(id, usuario, servicio)
     return await servicio.completar_ubicacion(id, codigo, datos)
 
 
@@ -238,9 +258,10 @@ async def completar_ubicacion_paquete(
 )
 async def optimizar_recorrido(
     id: uuid.UUID,
-    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
+    await _de_mi_sucursal(id, usuario, servicio)
     return await servicio.optimizar(id)
 
 
@@ -253,9 +274,10 @@ async def optimizar_recorrido(
 async def reasignar_repartidor(
     id: uuid.UUID,
     datos: ReasignarRepartidorRequest,
-    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
+    await _de_mi_sucursal(id, usuario, servicio)
     return await servicio.reasignar_repartidor(id, datos)
 
 
@@ -276,6 +298,7 @@ async def iniciar_recorrido(
     usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
+    await _de_mi_sucursal(id, usuario, servicio)
     return await servicio.iniciar(id, usuario)
 
 
@@ -288,7 +311,14 @@ async def iniciar_recorrido(
 )
 async def eliminar_recorrido(
     id: uuid.UUID,
-    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
+    usuario: UsuarioModel = Depends(requerir_roles(ROLES_LOGISTICA)),
     servicio: IServicioRecorridos = Depends(get_servicio_recorridos),
 ):
+    await _de_mi_sucursal(id, usuario, servicio)
     return await servicio.eliminar(id)
+
+
+async def _de_mi_sucursal(id: uuid.UUID, usuario: UsuarioModel, servicio: IServicioRecorridos) -> None:
+    """El recorrido tiene que salir de una sucursal habilitada para el usuario."""
+    recorrido = await servicio.obtener(id)
+    verificar_sucursal(usuario, recorrido.data.sucursal_origen_id)

@@ -6,6 +6,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Column,
     Date,
     DateTime,
     Float,
@@ -14,6 +15,7 @@ from sqlalchemy import (
     Integer,
     LargeBinary,
     String,
+    Table,
     Text,
     UniqueConstraint,
     func,
@@ -99,6 +101,10 @@ class UsuarioModel(Base):
     )
 
     rol: Mapped["RolModel"] = relationship("RolModel", back_populates="usuarios", lazy="joined")
+    sucursales: Mapped[list["SucursalModel"]] = relationship(
+        "SucursalModel", secondary="usuario_sucursales", lazy="selectin", order_by="SucursalModel.nombre"
+    )
+    """Sucursales habilitadas (no aplica al Superadministrador, que entra en todas)."""
     repartidor: Mapped[Optional["RepartidorModel"]] = relationship(
         "RepartidorModel",
         back_populates="usuario",
@@ -107,9 +113,18 @@ class UsuarioModel(Base):
     )
 
 
+usuario_sucursales = Table(
+    "usuario_sucursales",
+    Base.metadata,
+    Column("usuario_id", types.Uuid(as_uuid=True), ForeignKey("usuarios.id", ondelete="CASCADE"), primary_key=True),
+    Column("sucursal_id", Integer, ForeignKey("sucursales.id", ondelete="CASCADE"), primary_key=True),
+)
+"""Sucursales en las que trabaja cada usuario del personal (el Superadministrador, en todas)."""
+
+
 class SucursalModel(Base):
-    """Catálogo público de sucursales para retiro (soporte de HU03/HU09).
-    Se siembra al iniciar la app; no tiene endpoint de alta."""
+    """Sucursales: punto de partida de los recorridos, lugar de admisión y de retiro.
+    La administra el Superadministrador (`/admin/sucursales`)."""
 
     __tablename__ = "sucursales"
 
@@ -120,6 +135,8 @@ class SucursalModel(Base):
     direccion: Mapped[str] = mapped_column(String(255), nullable=False)
     latitud: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitud: Mapped[float | None] = mapped_column(Float, nullable=True)
+    activa: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
+    """Una sucursal inactiva no recibe envíos nuevos ni aparece para elegir."""
 
     envios: Mapped[list["EnvioModel"]] = relationship(
         "EnvioModel",

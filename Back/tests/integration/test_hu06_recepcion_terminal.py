@@ -452,10 +452,9 @@ async def test_hu06_rechaza_una_sucursal_inexistente(
         f"{BASE}/{paquete.numero_paquete}/recepcionar", headers=headers, json={"sucursal_id": 9999}
     )
 
-    assert resp.status_code == 400
-    cuerpo = resp.json()
-    assert cuerpo["code"] == ErrorCodes.VALIDATION_ERROR
-    assert cuerpo["errors"][0]["field"] == "sucursal_id"
+    # Una sucursal que no existe tampoco está entre las habilitadas del vendedor.
+    assert resp.status_code == 403
+    assert resp.json()["code"] == ErrorCodes.FORBIDDEN_ACCESS
 
     # El paquete no se modificó
     await db_session.refresh(paquete)

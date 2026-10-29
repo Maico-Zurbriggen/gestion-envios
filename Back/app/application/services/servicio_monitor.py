@@ -142,8 +142,9 @@ class ServicioMonitor:
 
     # --- Resumen ------------------------------------------------------------
 
-    async def resumen(self, ahora: datetime | None = None) -> ResumenMonitorResponse:
+    async def resumen(self, ahora: datetime | None = None, sucursal_id: int | None = None) -> ResumenMonitorResponse:
         ahora = ahora or datetime.now(UTC)
+        self.repo.limitar_a_sucursal(sucursal_id)
         por_estado = await self.repo.contar_por_estado()
         por_grupo = {grupo: sum(por_estado.get(e, 0) for e in estados) for grupo, estados in GRUPOS_ESTADO.items()}
         # Una devolución que espera en origen figura como devolución, no como «para retirar».

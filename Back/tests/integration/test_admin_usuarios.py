@@ -19,7 +19,7 @@ async def _login_super(client: AsyncClient) -> dict:
 async def _crear(client: AsyncClient, headers: dict, dni: str, email: str, rol_id: int = RolIdEnum.ADMINISTRATIVO.value) -> dict:
     resp = await client.post(
         "/api/v1/admin/empleados",
-        json={"nombre": "Laura Díaz", "dni": dni, "email": email, "telefono": "+543564123456", "rol_id": rol_id},
+        json={"nombre": "Laura Díaz", "dni": dni, "email": email, "telefono": "+543564123456", "rol_id": rol_id, "sucursal_ids": [1]},
         headers=headers,
     )
     assert resp.status_code == 201, resp.text

@@ -24,7 +24,7 @@ def _payload_envio() -> dict:
     return {
         "remitente_nombre": "Carlos Gómez", "remitente_documento": "28111222", "remitente_telefono": "03564-15112233",
         "remitente_email": "carlos.gomez@empresa.com", "destinatario_nombre": "Lucía Morales", "destinatario_telefono": "+543564445566",
-        "destinatario_email": "lucia.morales@gmail.com", "tipo_entrega": "sucursal", "sucursal_destino_id": 2, "terminos_aceptados": True,
+        "destinatario_email": "lucia.morales@gmail.com", "tipo_entrega": "sucursal", "sucursal_destino_id": 2, "sucursal_origen_id": 1, "terminos_aceptados": True,
         "paquetes": [{"descripcion": "Libros", "peso_kg": 2, "largo_cm": 30, "ancho_cm": 20, "alto_cm": 10}],
     }
 

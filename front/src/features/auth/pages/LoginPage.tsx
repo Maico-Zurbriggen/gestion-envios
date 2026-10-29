@@ -14,6 +14,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { shouldChooseBranch } from '../branchAccess'
 import { useAppSelector } from '../../../app/store'
 import { useLogin } from '../hooks/useLogin'
 import { selectIsAuthenticated } from '../redux/authSlice'
@@ -43,7 +44,8 @@ export function LoginPage() {
             return
           }
 
-          navigate('/', { replace: true })
+          // Con más de una sucursal habilitada, pregunta en cuál va a trabajar.
+          navigate(shouldChooseBranch(result.session.user) ? '/elegir-sucursal' : '/', { replace: true })
         },
       },
     )

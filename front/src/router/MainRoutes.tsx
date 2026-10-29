@@ -8,9 +8,10 @@ import { monitorRoute } from '../features/monitor/monitorRoutes'
 import { UnloadRoute } from '../features/unload/components/UnloadRoute'
 import { UnauthorizedPage } from '../pages/UnauthorizedPage'
 import { ProtectedRoutes } from './ProtectedRoutes'
-import { EmailTemplatesRoute, PickupRoute, UsersRoute } from './LazyPages'
+import { AdminBranchesRoute, ChooseBranchRoute, EmailTemplatesRoute, PickupRoute, UsersRoute } from './LazyPages'
 
 export const mainRoutes: RouteObject[] = [
+  { path: '/elegir-sucursal', element: <ChooseBranchRoute /> },
   {
     element: <App />,
     children: [
@@ -28,6 +29,10 @@ export const mainRoutes: RouteObject[] = [
           {
             path: '/admin/usuarios/nuevo',
             element: <Navigate to="/admin/usuarios?nuevo=1" replace />,
+          },
+          {
+            path: '/admin/sucursales',
+            element: <AdminBranchesRoute />,
           },
         ],
       },

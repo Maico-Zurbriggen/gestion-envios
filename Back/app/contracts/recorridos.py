@@ -244,10 +244,11 @@ class EsperaSucursalData(ApiModel):
     nombre: str
     a_domicilio: int = Field(..., description="Esperan un recorrido de corta distancia.")
     entre_sucursales: int = Field(..., description="Esperan un recorrido de larga distancia.")
+    sin_llegar: int = Field(0, description="Registrados para llevar a esta sucursal que todavía no llegaron.")
 
 
 class ResumenEsperaData(ApiModel):
-    sin_llegar: int = Field(..., description="Registrados que todavía no se recibieron en ninguna sucursal.")
+    sin_llegar: int = Field(..., description="Registrados que todavía no se recibieron (de las sucursales visibles).")
     sucursales: list[EsperaSucursalData] = Field(..., description="Solo las que tienen paquetes esperando.")
 
 

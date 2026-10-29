@@ -79,8 +79,9 @@ function filterParams(filters: MonitorFilters) {
   return params
 }
 
-export async function getMonitorSummary(token: string): Promise<MonitorSummary> {
-  const { data } = await operationalRequest<{ data: ApiMonitorSummary }>(`${BASE}/resumen`, token)
+export async function getMonitorSummary(token: string, branchId: number | null = null): Promise<MonitorSummary> {
+  const query = branchId ? `?sucursal_id=${branchId}` : ''
+  const { data } = await operationalRequest<{ data: ApiMonitorSummary }>(`${BASE}/resumen${query}`, token)
   return {
     totalPackages: data.total_paquetes,
     totalShipments: data.total_envios,

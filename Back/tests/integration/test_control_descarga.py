@@ -72,14 +72,14 @@ async def test_descarga_completa_con_sobrante_y_faltante(client, db_session, adm
 
     # El monitor muestra el faltante y la lectura en la trazabilidad.
     admin = _auth(administrativo_token)
-    faltantes = (await client.get("/api/v1/admin/monitor/paquetes", headers=admin, params={"grupo": "FALTANTES"})).json()["data"]
+    faltantes = (await client.get("/api/v1/admin/monitor/paquetes", headers=admin, params={"sucursal_id": 1, "grupo": "FALTANTES"})).json()["data"]
     assert [p["numero_paquete"] for p in faltantes["paquetes"]] == [paquetes[2].numero_paquete]
     assert faltantes["paquetes"][0]["faltante_en_descarga"] is True
-    sin_recorrido = (await client.get("/api/v1/admin/monitor/paquetes", headers=admin, params={"grupo": "SIN_RECORRIDO"})).json()["data"]
+    sin_recorrido = (await client.get("/api/v1/admin/monitor/paquetes", headers=admin, params={"sucursal_id": 1, "grupo": "SIN_RECORRIDO"})).json()["data"]
     assert paquetes[2].numero_paquete not in [p["numero_paquete"] for p in sin_recorrido["paquetes"]]
     traza = (await client.get(f"/api/v1/admin/monitor/paquetes/{paquetes[0].numero_paquete}", headers=admin)).json()["data"]
     assert any(e["tipo"] == "descarga" and e["titulo"] == "Verificado en la descarga" for e in traza["linea_de_tiempo"])
-    resumen = (await client.get("/api/v1/admin/monitor/resumen", headers=admin)).json()["data"]
+    resumen = (await client.get("/api/v1/admin/monitor/resumen", headers=admin, params={"sucursal_id": 1})).json()["data"]
     assert resumen["faltantes"] == 1
 
 

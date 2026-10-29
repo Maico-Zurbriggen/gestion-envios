@@ -20,6 +20,17 @@ class LoginRequest(ApiModel):
         return v
 
 
+class SucursalAccesoData(ApiModel):
+    """Sucursal en la que el usuario puede trabajar."""
+
+    id: int
+    nombre: str
+    ciudad: str
+    provincia: str
+    direccion: str
+    activa: bool = True
+
+
 class UserInfoResponse(ApiModel):
     id: UUID
     nombre: str
@@ -27,6 +38,9 @@ class UserInfoResponse(ApiModel):
     email: str
     rol: str
     requiere_cambio_password: bool
+    sucursales: list[SucursalAccesoData] = Field(
+        default_factory=list, description="Sucursales habilitadas (el Superadministrador: todas)."
+    )
 
 
 class LoginNormalData(ApiModel):

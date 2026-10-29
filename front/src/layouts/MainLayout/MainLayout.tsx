@@ -19,6 +19,7 @@ import { useAppDispatch, useAppSelector } from '../../app/store'
 import { getAccessibleModules, NAVIGATION_SECTIONS } from '../../app/navigation'
 import { SidebarGroup } from './SidebarGroup'
 import { clearCredentials, selectCurrentUser } from '../../features/auth/redux/authSlice'
+import { BranchSwitcher } from './BranchSwitcher'
 import { Toaster } from '../../shared/components/Toaster'
 import { useTheme } from '../../shared/hooks/useTheme'
 import { initials, roleLabel } from '../../shared/utils/roles'
@@ -263,6 +264,8 @@ export function MainLayout() {
             </span>
             <span className="badge topbar-user__role">{roleName}</span>
           </div>
+
+          <BranchSwitcher />
 
           <button className="topbar-search" type="button" onClick={() => setPaletteOpen(true)} aria-keyshortcuts="Control+K">
             <Search size={16} aria-hidden="true" />

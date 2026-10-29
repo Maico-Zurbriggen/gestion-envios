@@ -3,14 +3,18 @@ from typing import Any
 from app.application.interfaces.repositorio_envios import IRepositorioEnvios
 from app.application.interfaces.repositorio_sucursales import IRepositorioSucursales
 from app.contracts.sucursales import (
+    GuardarSucursalRequest,
+    ListarSucursalesAdminResponse,
     ListarSucursalesResponse,
     OpcionesRetiroData,
     OpcionesRetiroResponse,
     PaqueteRetiroData,
+    SucursalAdminData,
+    SucursalAdminResponse,
     SucursalData,
     SucursalRetiroData,
 )
-from app.core.exceptions import NotFoundException
+from app.core.exceptions import DuplicateEntryException, NotFoundException
 from app.domain.rules.codigos_rules import normalizar_token_seguimiento
 from app.domain.rules.retiro_rules import (
     envio_habilita_retiro_en_sucursal,
@@ -41,8 +45,46 @@ class ServicioSucursales:
         es lo que consume el selector de retiro en sucursal de HU03).
         """
         sucursales = await self.repo_sucursales.listar_todas(provincia=provincia, ciudad=ciudad)
+        # Las inactivas no reciben envíos nuevos: no se ofrecen en el catálogo público.
         return ListarSucursalesResponse(
-            data=[self._mapear_sucursal(s) for s in sucursales]
+            data=[self._mapear_sucursal(s) for s in sucursales if getattr(s, "activa", True)]
+        )
+
+    # --- Administración (Superadministrador) ---
+
+    async def listar_admin(self) -> ListarSucursalesAdminResponse:
+        usuarios = await self.repo_sucursales.contar_usuarios()
+        return ListarSucursalesAdminResponse(
+            data=[self._mapear_admin(s, usuarios.get(s.id, 0)) for s in await self.repo_sucursales.listar_todas()]
+        )
+
+    async def crear_sucursal(self, datos: GuardarSucursalRequest) -> SucursalAdminResponse:
+        await self._nombre_libre(datos.nombre)
+        sucursal = await self.repo_sucursales.guardar(self.repo_sucursales.nueva(**datos.model_dump()))
+        return SucursalAdminResponse(message="Sucursal creada.", data=self._mapear_admin(sucursal, 0))
+
+    async def actualizar_sucursal(self, id: int, datos: GuardarSucursalRequest) -> SucursalAdminResponse:
+        sucursal = await self.repo_sucursales.obtener_por_id(id)
+        if not sucursal:
+            raise NotFoundException("No existe esa sucursal.")
+        await self._nombre_libre(datos.nombre, id)
+        for campo, valor in datos.model_dump().items():
+            setattr(sucursal, campo, valor)
+        sucursal = await self.repo_sucursales.guardar(sucursal)
+        usuarios = await self.repo_sucursales.contar_usuarios()
+        return SucursalAdminResponse(message="Sucursal actualizada.", data=self._mapear_admin(sucursal, usuarios.get(id, 0)))
+
+    async def _nombre_libre(self, nombre: str, id: int | None = None) -> None:
+        existente = await self.repo_sucursales.obtener_por_nombre(nombre)
+        if existente and existente.id != id:
+            raise DuplicateEntryException(
+                message="Ya hay una sucursal con ese nombre.",
+                errors=[{"field": "nombre", "message": "Elegí otro nombre."}],
+            )
+
+    def _mapear_admin(self, sucursal: Any, usuarios: int) -> SucursalAdminData:
+        return SucursalAdminData(
+            **self._mapear_sucursal(sucursal).model_dump(), activa=getattr(sucursal, "activa", True), usuarios=usuarios,
         )
 
     async def obtener_opciones_retiro(self, token: str) -> OpcionesRetiroResponse:

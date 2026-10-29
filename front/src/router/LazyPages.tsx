@@ -6,6 +6,8 @@ const UsersPage = lazy(() => import('../features/users/pages/UsersPage').then((m
 const PickupPage = lazy(() => import('../features/pickup/pages/PickupPage').then((m) => ({ default: m.PickupPage })))
 const EmailTemplatesPage = lazy(() => import('../features/emails/pages/EmailTemplatesPage').then((m) => ({ default: m.EmailTemplatesPage })))
 const BranchesPage = lazy(() => import('../features/shipments/pages/BranchesPage').then((m) => ({ default: m.BranchesPage })))
+const ChooseBranchPage = lazy(() => import('../features/auth/pages/ChooseBranchPage').then((m) => ({ default: m.ChooseBranchPage })))
+const AdminBranchesPage = lazy(() => import('../features/branches/pages/AdminBranchesPage').then((m) => ({ default: m.AdminBranchesPage })))
 const FaqPage = lazy(() => import('../features/faq/pages/FaqPage').then((m) => ({ default: m.FaqPage })))
 
 function OnDemand({ page: Page }: { page: ComponentType }) {
@@ -21,3 +23,5 @@ export const PickupRoute = () => <OnDemand page={PickupPage} />
 export const EmailTemplatesRoute = () => <OnDemand page={EmailTemplatesPage} />
 export const BranchesRoute = () => <OnDemand page={BranchesPage} />
 export const FaqRoute = () => <OnDemand page={FaqPage} />
+export const ChooseBranchRoute = () => <OnDemand page={ChooseBranchPage} />
+export const AdminBranchesRoute = () => <OnDemand page={AdminBranchesPage} />

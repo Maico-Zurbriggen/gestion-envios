@@ -22,6 +22,7 @@ class IRepositorioReclamos(Protocol):
         estado: str | None = None,
         tipo: str | None = None,
         token_seguimiento: str | None = None,
+        sucursal_id: int | None = None,
     ) -> list[Any]:
         """Bandeja de gestión, filtrable por estado, tipo y token del envío."""
         ...

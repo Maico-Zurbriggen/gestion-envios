@@ -1,6 +1,7 @@
 import { useDeferredValue, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
+  Building2,
   Bike,
   KeyRound,
   LoaderCircle,
@@ -19,6 +20,7 @@ import { FilterTabs, PageHeader, StatCard } from '../../../shared/components/Pag
 import { Modal } from '../../../shared/components/Modal'
 import { showToast } from '../../../shared/services/toast'
 import { selectCurrentUser } from '../../auth/redux/authSlice'
+import { useAdminBranches } from '../../branches/hooks/useAdminBranches'
 import { TemporaryPasswordModal } from '../components/TemporaryPasswordModal'
 import { UserFormModal } from '../components/UserFormModal'
 import { useEmployeeMutations, useEmployees } from '../hooks/useEmployees'
@@ -54,6 +56,7 @@ export function UsersPage() {
   const [password, setPassword] = useState<{ name: string; password: string; created: boolean } | null>(null)
 
   const rolesQuery = useRoles()
+  const branchOptions = useAdminBranches().data ?? []
   const roles = rolesQuery.data ?? []
   const employeesQuery = useEmployees({
     search: deferredSearch,
@@ -100,6 +103,8 @@ export function UsersPage() {
     if (input.email.toLowerCase() !== editing.email) changes.email = input.email
     if (input.phone !== editing.phone) changes.phone = input.phone
     if (input.roleId !== editing.roleId) changes.roleId = input.roleId
+    const before = editing.branches.map((branch) => branch.id).sort().join(',')
+    if ([...input.branchIds].sort().join(',') !== before) changes.branchIds = input.branchIds
     if (!Object.keys(changes).length) {
       setEditing(null)
       return
@@ -288,6 +293,12 @@ export function UsersPage() {
                       <span>{employee.phone}</span>
                       {since ? <span>Alta {since}</span> : null}
                     </p>
+                    {employee.branches.length ? (
+                      <p className="list-row__meta user-row__branches">
+                        <Building2 size={13} aria-hidden="true" />
+                        <span>{employee.branches.map((branch) => branch.name).join(' · ')}</span>
+                      </p>
+                    ) : null}
                   </div>
                   <div className="list-row__aside">
                     <button
@@ -331,6 +342,7 @@ export function UsersPage() {
         open={creating}
         roles={roles}
         rolesLoading={rolesQuery.isPending}
+        branches={branchOptions}
         isSelf={false}
         pending={create.isPending}
         error={errorMessage(create.error)}
@@ -343,6 +355,7 @@ export function UsersPage() {
         employee={editing}
         roles={roles}
         rolesLoading={rolesQuery.isPending}
+        branches={branchOptions}
         isSelf={editing?.id === currentUser?.id}
         pending={update.isPending}
         error={errorMessage(update.error)}

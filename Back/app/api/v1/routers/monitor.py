@@ -5,7 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, Response
 
-from app.api.dependencies import get_servicio_monitor, get_servicio_plazos, requerir_roles
+from app.api.dependencies import exigir_sucursal, get_servicio_monitor, get_servicio_plazos, requerir_roles
 from app.application.services.servicio_monitor import ServicioMonitor
 from app.application.services.servicio_plazos import ServicioPlazos
 from app.contracts.monitor import (
@@ -43,10 +43,11 @@ def _filtros(
 
 @router.get("/resumen", response_model=ResumenMonitorResponse, summary="Tablero: paquetes por etapa, actividad del día y pendientes")
 async def resumen(
-    _usuario=Depends(requerir_roles(PERSONAL)),
+    sucursal_id: int | None = Query(None, ge=1, description="Limitar el tablero a una sucursal."),
+    usuario=Depends(requerir_roles(PERSONAL)),
     servicio: ServicioMonitor = Depends(get_servicio_monitor),
 ):
-    return await servicio.resumen()
+    return await servicio.resumen(sucursal_id=exigir_sucursal(usuario, sucursal_id))
 
 
 @router.get("/paquetes", response_model=ListadoMonitorResponse, summary="Todos los paquetes con filtros y paginado")
@@ -54,9 +55,10 @@ async def listar_paquetes(
     filtros: dict = Depends(_filtros),
     pagina: int = Query(1, ge=1),
     por_pagina: int = Query(25, ge=1, le=100),
-    _usuario=Depends(requerir_roles(PERSONAL)),
+    usuario=Depends(requerir_roles(PERSONAL)),
     servicio: ServicioMonitor = Depends(get_servicio_monitor),
 ):
+    exigir_sucursal(usuario, filtros["sucursal_id"])
     return await servicio.listar(**filtros, pagina=pagina, por_pagina=por_pagina)
 
 
@@ -68,9 +70,10 @@ async def listar_paquetes(
 )
 async def exportar_paquetes(
     filtros: dict = Depends(_filtros),
-    _usuario=Depends(requerir_roles(PERSONAL)),
+    usuario=Depends(requerir_roles(PERSONAL)),
     servicio: ServicioMonitor = Depends(get_servicio_monitor),
 ):
+    exigir_sucursal(usuario, filtros["sucursal_id"])
     contenido = await servicio.exportar_csv(**filtros)
     return Response(
         content=contenido.encode("utf-8"),

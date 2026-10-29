@@ -32,6 +32,13 @@ class ServicioEnvios:
 
     async def crear_envio(self, datos: CrearEnvioRequest) -> CrearEnvioResponse:
         """Registra un Envío con sus Paquetes asociados (HU03 - Escenarios 1 y 2)."""
+        origen = await self.repo_sucursales.obtener_por_id(datos.sucursal_origen_id)
+        if not origen or not getattr(origen, "activa", True):
+            raise ValidationException(
+                message="Elegí la sucursal donde vas a llevar los paquetes.",
+                errors=[{"field": "sucursal_origen_id", "message": "La sucursal de origen no existe o no está habilitada."}],
+            )
+
         sucursal = None
         if datos.tipo_entrega == "sucursal":
             sucursal = await self.repo_sucursales.obtener_por_id(datos.sucursal_destino_id)
@@ -85,6 +92,7 @@ class ServicioEnvios:
                     alto_cm=paquete.alto_cm,
                     observaciones=paquete.observaciones.strip() if paquete.observaciones else None,
                     estado="Pendiente",
+                    sucursal_origen_id=origen.id,
                     created_at=registrado + timedelta(microseconds=indice),
                 )
             )
@@ -128,6 +136,10 @@ class ServicioEnvios:
                 direccion_destino=envio_creado.direccion_destino,
                 latitud_destino=envio_creado.latitud_destino,
                 longitud_destino=envio_creado.longitud_destino,
+                sucursal_origen=SucursalData(
+                    id=origen.id, nombre=origen.nombre, provincia=origen.provincia, ciudad=origen.ciudad,
+                    direccion=origen.direccion, latitud=origen.latitud, longitud=origen.longitud,
+                ),
                 sucursal_destino=(
                     SucursalData(
                         id=envio_creado.sucursal_destino.id,

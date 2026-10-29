@@ -50,7 +50,7 @@ async function screenshot(name) {
 }
 function mockApi() {
   const role = new URLSearchParams(location.search).get('testRole') || (location.pathname.startsWith('/terminal') ? 'VENDEDOR' : 'REPARTIDOR')
-  localStorage.setItem('gestion-envios.auth-session', JSON.stringify({ token: 'test-session', user: { id: 'driver-1', name: 'Repartidor de prueba', dni: '12345678', email: 'prueba@example.test', role, requiresPasswordChange: false } }))
+  localStorage.setItem('gestion-envios.auth-session', JSON.stringify({ token: 'test-session', user: { id: 'driver-1', name: 'Repartidor de prueba', dni: '12345678', email: 'prueba@example.test', role, requiresPasswordChange: false, branches: [{ id: 1, name: 'Sucursal Centro', city: 'Córdoba', province: 'Córdoba', address: 'Centro 123', active: true }] } }))
   const long = location.search.includes('long=true')
   const branch = { id: 1, nombre: 'Sucursal Centro', direccion: 'Centro 123', ciudad: 'Córdoba', provincia: 'Córdoba', latitud: -31.4, longitud: -64.18 }
   const item = { paquete_id: 'package-1', numero_paquete: 'PAQ-ABCDEFGHIJ', orden: 1, descripcion: 'Libros', peso_kg: 2, estado: 'EN_SUCURSAL_ORIGEN', estado_en_recorrido: 'PENDIENTE', token_seguimiento: 'ENV-ABCDEFGHIJ', destinatario_nombre: 'Ana Gómez', destinatario_telefono: '123456' }
@@ -63,7 +63,7 @@ function mockApi() {
     if (!url.includes('/api/v1/')) return originalFetch(input, init)
     const path = new URL(url, location.origin).pathname.replace('/api/v1', '')
     const body = init.body ? JSON.parse(init.body) : null
-    if (path === '/auth/login-token') return ok({ token: 'test-session', user: { id: 'driver-1', nombre: 'Usuario de prueba', dni: '12345678', email: 'prueba@example.test', rol: role, requiere_cambio_password: false } })
+    if (path === '/auth/login-token') return ok({ token: 'test-session', user: { id: 'driver-1', nombre: 'Usuario de prueba', dni: '12345678', email: 'prueba@example.test', rol: role, requiere_cambio_password: false, sucursales: [{ id: 1, nombre: 'Sucursal Centro', ciudad: 'Córdoba', provincia: 'Córdoba', direccion: 'Centro 123', activa: true }] } })
     if (path === '/sucursales') return ok([branch])
     if (path.startsWith('/terminal/paquetes/') && path.endsWith('/escanear')) return ok({ ...item, largo_cm: 10, ancho_cm: 10, alto_cm: 10, estado_actual: state.received ? 'EN_SUCURSAL_ORIGEN' : 'Pendiente', disponible_para_recepcion: !state.received, motivo_no_disponible: state.received ? 'El paquete ya fue recibido.' : null, observaciones: null, envio: { token_seguimiento: item.token_seguimiento, remitente_nombre: 'Juan Pérez', remitente_documento: '12345678', destinatario_nombre: item.destinatario_nombre, destino: 'Domicilio 123' } })
     if (path.endsWith('/recepcionar')) { state.received = true; state.receptions.push(body); return ok({ numero_paquete: item.numero_paquete, estado: 'EN_SUCURSAL_ORIGEN', sucursal_nombre: branch.nombre, fecha_hora_recepcion: new Date().toISOString(), token_seguimiento: item.token_seguimiento }) }
@@ -108,7 +108,8 @@ try {
   await click('Identificar paquete')
   await waitFor('document.body.innerText.includes("Juan Pérez")')
   assert.equal(await evaluate('window.__mock.receptions.length'), 0, 'escanear no recibe automáticamente')
-  await fill('terminal-branch', '1')
+  // Se recibe en la sucursal activa de la sesión, sin elegirla de nuevo.
+  assert.equal(await evaluate('document.body.innerText.includes("Lo recibís en Sucursal Centro")'), true)
   await click('Confirmar recepción física')
   await waitFor('document.body.innerText.includes("recibido en Sucursal Centro")')
   assert.equal(await evaluate('window.__mock.receptions.length'), 1)

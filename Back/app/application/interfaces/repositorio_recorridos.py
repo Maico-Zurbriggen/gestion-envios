@@ -14,8 +14,8 @@ class IRepositorioRecorridos(Protocol):
 
     # --- Paquetes ---
 
-    async def contar_sin_llegar(self) -> int:
-        """Paquetes registrados que todavía no se recibieron en ninguna sucursal."""
+    async def contar_sin_llegar(self) -> dict[int | None, int]:
+        """Registrados que todavía no se recibieron, por la sucursal donde los van a llevar."""
         ...
 
     async def listar_paquetes_listos_en_sucursal(self, sucursal_id: int) -> list[Any]:

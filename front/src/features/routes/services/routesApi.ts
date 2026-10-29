@@ -137,7 +137,7 @@ export async function getWaitingSummary(token: string, signal?: AbortSignal): Pr
   const { data } = await request<ApiWaitingSummary>('/recorridos/pendientes/resumen', token, { signal })
   return {
     notArrived: data.sin_llegar,
-    branches: data.sucursales.map((item) => ({ id: item.sucursal_id, name: item.nombre, home: item.a_domicilio, between: item.entre_sucursales })),
+    branches: data.sucursales.map((item) => ({ id: item.sucursal_id, name: item.nombre, home: item.a_domicilio, between: item.entre_sucursales, notArrived: item.sin_llegar })),
   }
 }
 

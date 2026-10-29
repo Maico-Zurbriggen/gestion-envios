@@ -14,6 +14,7 @@ import {
   ScanBarcode,
   UsersRound,
   Bike,
+  Building2,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -177,6 +178,18 @@ const NAVIGATION_MODULES: NavigationModule[] = [
     allowedRoles: ['SUPERADMIN'],
     showAsQuickAccess: true,
     keywords: 'empleados personal roles contraseña alta baja',
+  },
+  {
+    id: 'admin-branches',
+    label: 'Sucursales',
+    shortLabel: 'Sucursales',
+    description: 'Creá y editá sucursales, su dirección de partida y si están activas.',
+    path: '/admin/sucursales',
+    section: 'administration',
+    icon: Building2,
+    allowedRoles: ['SUPERADMIN'],
+    showAsQuickAccess: false,
+    keywords: 'sucursal direccion ubicacion mapa punto de partida habilitar',
   },
   {
     id: 'email-templates',

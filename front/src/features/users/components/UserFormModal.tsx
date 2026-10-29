@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { IdCard, Info, LoaderCircle, Mail, Phone, Save, Shield, UserPen, UserPlus, UserRound } from 'lucide-react'
+import { Building2, IdCard, Info, LoaderCircle, Mail, Phone, Save, Shield, UserPen, UserPlus, UserRound } from 'lucide-react'
 import { Modal } from '../../../shared/components/Modal'
 import type { CreateUserInput, Employee, Role } from '../types/user.types'
 import { roleLabel } from '../../../shared/utils/roles'
@@ -10,6 +10,8 @@ interface UserFormModalProps {
   employee?: Employee | null
   roles: Role[]
   rolesLoading: boolean
+  /** Sucursales que se le pueden habilitar. */
+  branches: Array<{ id: number; name: string; active: boolean }>
   isSelf: boolean
   pending: boolean
   error: string | null
@@ -23,12 +25,18 @@ interface FormState {
   email: string
   phone: string
   roleId: number | ''
+  branchIds: number[]
 }
 
 function initialState(employee?: Employee | null): FormState {
   return employee
-    ? { name: employee.name, dni: employee.dni, email: employee.email, phone: employee.phone, roleId: employee.roleId }
-    : { name: '', dni: '', email: '', phone: '', roleId: '' }
+    ? { name: employee.name, dni: employee.dni, email: employee.email, phone: employee.phone, roleId: employee.roleId, branchIds: employee.branches.map((branch) => branch.id) }
+    : { name: '', dni: '', email: '', phone: '', roleId: '', branchIds: [] }
+}
+
+/** Vendedores y administrativos trabajan en sucursales concretas; el Superadministrador, en todas. */
+function worksByBranch(role: string | undefined) {
+  return role === 'ADMINISTRATIVO' || role === 'VENDEDOR'
 }
 
 export function UserFormModal(props: UserFormModalProps) {
@@ -51,11 +59,22 @@ export function UserFormModal(props: UserFormModalProps) {
   )
 }
 
-function UserForm({ employee, roles, rolesLoading, isSelf, pending, error, onClose, onSubmit }: UserFormModalProps) {
+function UserForm({ employee, roles, rolesLoading, branches, isSelf, pending, error, onClose, onSubmit }: UserFormModalProps) {
   const [form, setForm] = useState<FormState>(() => initialState(employee))
   // En el alta no se ofrece Superadministrador (HU01); al editar sí, para poder delegar.
   const options = employee ? roles : roles.filter((role) => role.name !== 'SUPERADMIN')
   const selectedRole = roles.find((role) => role.id === form.roleId)
+  const byBranch = worksByBranch(selectedRole?.name)
+  const missingBranch = byBranch && form.branchIds.length === 0
+
+  function toggleBranch(id: number) {
+    setForm((current) => ({
+      ...current,
+      branchIds: current.branchIds.includes(id)
+        ? current.branchIds.filter((item) => item !== id)
+        : [...current.branchIds, id],
+    }))
+  }
 
   function update<Key extends keyof FormState>(field: Key, value: FormState[Key]) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -63,13 +82,14 @@ function UserForm({ employee, roles, rolesLoading, isSelf, pending, error, onClo
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (form.roleId === '') return
+    if (form.roleId === '' || missingBranch) return
     onSubmit({
       name: form.name.trim(),
       dni: form.dni.trim(),
       email: form.email.trim(),
       phone: form.phone.trim(),
       roleId: form.roleId,
+      branchIds: form.branchIds,
     })
   }
 
@@ -180,6 +200,33 @@ function UserForm({ employee, roles, rolesLoading, isSelf, pending, error, onClo
               : (selectedRole?.description ?? 'Define a qué secciones del sistema accede.')}
           </span>
         </div>
+
+        {byBranch ? (
+          <fieldset className="user-modal-form__full user-branches" aria-describedby={`${prefix}-branches-hint`}>
+            <legend><Building2 size={16} aria-hidden="true" /> Sucursales en las que trabaja</legend>
+            <div className="user-branches__options">
+              {branches.map((branch) => (
+                <label key={branch.id} className={form.branchIds.includes(branch.id) ? 'is-selected' : undefined}>
+                  <input type="checkbox" checked={form.branchIds.includes(branch.id)} onChange={() => toggleBranch(branch.id)} />
+                  {branch.name}{branch.active ? '' : ' (inactiva)'}
+                </label>
+              ))}
+            </div>
+            <span className={`user-modal-form__hint${missingBranch ? ' user-branches__missing' : ''}`} id={`${prefix}-branches-hint`}>
+              <Info size={14} aria-hidden="true" />
+              {missingBranch
+                ? 'Elegí al menos una: solo va a poder entrar en las sucursales que marques.'
+                : 'Después de ingresar elige en cuál trabajar; solo ve y carga lo de esa sucursal.'}
+            </span>
+          </fieldset>
+        ) : selectedRole ? (
+          <p className="user-modal-form__full user-modal-form__hint">
+            <Building2 size={14} aria-hidden="true" />
+            {selectedRole.name === 'SUPERADMIN'
+              ? 'El Superadministrador entra en todas las sucursales.'
+              : 'El repartidor sale de su sucursal base: se configura en Recorridos › Repartidores.'}
+          </p>
+        ) : null}
       </div>
 
       {error ? (
@@ -193,7 +240,7 @@ function UserForm({ employee, roles, rolesLoading, isSelf, pending, error, onClo
         <button className="btn btn--ghost" type="button" onClick={onClose}>
           Cancelar
         </button>
-        <button className="btn btn--primary" type="submit" disabled={pending || form.roleId === ''}>
+        <button className="btn btn--primary" type="submit" disabled={pending || form.roleId === '' || missingBranch}>
           {pending ? (
             <LoaderCircle className="loading-icon" size={18} aria-hidden="true" />
           ) : employee ? (

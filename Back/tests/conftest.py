@@ -3,6 +3,7 @@ from collections.abc import AsyncGenerator
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -138,6 +139,8 @@ async def administrativo_usuario(db_session: AsyncSession) -> UsuarioModel:
         requiere_cambio_password=False,
         rol_id=RolIdEnum.ADMINISTRATIVO.value,
     )
+    # Como en la migración: el personal existente trabaja en todas las sucursales.
+    admin.sucursales = list((await db_session.execute(select(SucursalModel))).scalars())
     db_session.add(admin)
     await db_session.commit()
     await db_session.refresh(admin)
@@ -167,6 +170,8 @@ async def vendedor_usuario(db_session: AsyncSession) -> UsuarioModel:
         requiere_cambio_password=False,
         rol_id=RolIdEnum.VENDEDOR.value,
     )
+    # Como en la migración: el personal existente trabaja en todas las sucursales.
+    vendedor.sucursales = list((await db_session.execute(select(SucursalModel))).scalars())
     db_session.add(vendedor)
     await db_session.commit()
     await db_session.refresh(vendedor)

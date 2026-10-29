@@ -5,6 +5,7 @@ import type {
 
 const AUTH_STORAGE_KEY = 'gestion-envios.auth-session'
 const PASSWORD_CHANGE_STORAGE_KEY = 'gestion-envios.password-change'
+const ACTIVE_BRANCH_STORAGE_KEY = 'gestion-envios.active-branch'
 
 function isStoredSession(value: unknown): value is AuthSession {
   if (!value || typeof value !== 'object') return false
@@ -28,7 +29,9 @@ export function loadAuthSession(): AuthSession | null {
     if (!storedSession) return null
 
     const parsedSession: unknown = JSON.parse(storedSession)
-    return isStoredSession(parsedSession) ? parsedSession : null
+    if (!isStoredSession(parsedSession)) return null
+    // Sesiones guardadas antes de dividir por sucursal: se completan al validar el token.
+    return { ...parsedSession, user: { ...parsedSession.user, branches: parsedSession.user.branches ?? [] } }
   } catch {
     return null
   }
@@ -66,4 +69,26 @@ export function savePasswordChangeChallenge(
 
 export function removePasswordChangeChallenge() {
   sessionStorage.removeItem(PASSWORD_CHANGE_STORAGE_KEY)
+}
+
+/** Última sucursal usada por cada usuario: se recuerda entre sesiones. */
+export function loadActiveBranch(userId: string): number | null {
+  try {
+    const stored = JSON.parse(localStorage.getItem(ACTIVE_BRANCH_STORAGE_KEY) ?? '{}') as Record<string, unknown>
+    const value = stored[userId]
+    return typeof value === 'number' ? value : null
+  } catch {
+    return null
+  }
+}
+
+export function saveActiveBranch(userId: string, branchId: number | null) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(ACTIVE_BRANCH_STORAGE_KEY) ?? '{}') as Record<string, unknown>
+    if (branchId === null) delete stored[userId]
+    else stored[userId] = branchId
+    localStorage.setItem(ACTIVE_BRANCH_STORAGE_KEY, JSON.stringify(stored))
+  } catch {
+    /* almacenamiento no disponible */
+  }
 }

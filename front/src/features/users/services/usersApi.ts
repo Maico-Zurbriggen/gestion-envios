@@ -150,6 +150,7 @@ export async function createUser(
         email: input.email,
         telefono: input.phone,
         rol_id: input.roleId,
+        sucursal_ids: input.branchIds,
       }),
     })
   } catch {
@@ -186,6 +187,7 @@ function mapEmployee(employee: ApiEmployee): Employee {
     requiresPasswordChange: employee.requiere_cambio_password,
     createdAt: employee.created_at,
     updatedAt: employee.updated_at,
+    branches: (employee.sucursales ?? []).map((branch) => ({ id: branch.id, name: branch.nombre })),
   }
 }
 
@@ -211,12 +213,13 @@ export async function listEmployees(filters: EmployeeFilters, token: string): Pr
 }
 
 export async function updateEmployee(id: string, input: UpdateEmployeeInput, token: string): Promise<Employee> {
-  const body: Record<string, string | number> = {}
+  const body: Record<string, string | number | number[]> = {}
   if (input.name !== undefined) body.nombre = input.name
   if (input.dni !== undefined) body.dni = input.dni
   if (input.email !== undefined) body.email = input.email
   if (input.phone !== undefined) body.telefono = input.phone
   if (input.roleId !== undefined) body.rol_id = input.roleId
+  if (input.branchIds !== undefined) body.sucursal_ids = input.branchIds
   const { data } = await operationalRequest<{ data: ApiEmployee }>(
     `/admin/empleados/${id}`, token, { method: 'PATCH', body: JSON.stringify(body) }, NOT_FOUND,
   )

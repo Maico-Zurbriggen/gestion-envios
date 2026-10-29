@@ -6,7 +6,7 @@ import {
   selectPasswordChangeChallenge,
   setCredentials,
 } from '../redux/authSlice'
-import { changePassword } from '../services/authApi'
+import { changePassword, loginWithToken } from '../services/authApi'
 import type {
   AuthUser,
   ChangePasswordCredentials,
@@ -37,6 +37,7 @@ function createFallbackUser(token: string, dni: string): AuthUser {
     email: null,
     role: typeof claims.rol === 'string' ? claims.rol : '',
     requiresPasswordChange: false,
+    branches: [],
   }
 }
 
@@ -56,9 +57,13 @@ export function useChangePassword() {
       }
 
       const result = await changePassword(credentials, token)
-      const user = currentUser
-        ? { ...currentUser, requiresPasswordChange: false }
-        : createFallbackUser(result.authToken, dni)
+      // El usuario completo (con sus sucursales habilitadas) lo da el servidor.
+      const validated = await loginWithToken({ token: result.authToken }, dni).catch(() => null)
+      const user = validated?.type === 'authenticated'
+        ? validated.session.user
+        : currentUser
+          ? { ...currentUser, requiresPasswordChange: false }
+          : createFallbackUser(result.authToken, dni)
 
       return {
         message: result.message,

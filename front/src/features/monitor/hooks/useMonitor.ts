@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAppSelector } from '../../../app/store'
-import { selectAuthToken } from '../../auth/redux/authSlice'
+import { selectActiveBranchId, selectAuthToken } from '../../auth/redux/authSlice'
 import { listAdminClaims, updateClaimStatus, type ClaimStatus } from '../services/claimsAdminApi'
 import { getMonitorSummary, getPackageTrace, listMonitorPackages, processDeadlines } from '../services/monitorApi'
 import type { MonitorFilters } from '../types/monitor.types'
@@ -9,11 +9,13 @@ const MONITOR_KEY = ['admin', 'monitor'] as const
 /** El monitor se refresca solo cada 30 segundos mientras está abierto. */
 const AUTO_REFRESH_MS = 30_000
 
+// Todo el monitor muestra la sucursal en la que se está trabajando.
 export function useMonitorSummary() {
   const token = useAppSelector(selectAuthToken)
+  const branchId = useAppSelector(selectActiveBranchId)
   return useQuery({
-    queryKey: [...MONITOR_KEY, 'summary'],
-    queryFn: () => getMonitorSummary(token ?? ''),
+    queryKey: [...MONITOR_KEY, 'summary', branchId],
+    queryFn: () => getMonitorSummary(token ?? '', branchId),
     enabled: Boolean(token),
     refetchInterval: AUTO_REFRESH_MS,
   })
@@ -21,9 +23,11 @@ export function useMonitorSummary() {
 
 export function useMonitorPackages(filters: MonitorFilters) {
   const token = useAppSelector(selectAuthToken)
+  const branchId = useAppSelector(selectActiveBranchId)
+  const scoped = { ...filters, branchId }
   return useQuery({
-    queryKey: [...MONITOR_KEY, 'packages', filters],
-    queryFn: ({ signal }) => listMonitorPackages(filters, token ?? '', signal),
+    queryKey: [...MONITOR_KEY, 'packages', scoped],
+    queryFn: ({ signal }) => listMonitorPackages(scoped, token ?? '', signal),
     enabled: Boolean(token),
     placeholderData: keepPreviousData,
     refetchInterval: AUTO_REFRESH_MS,
@@ -55,9 +59,10 @@ export function useProcessDeadlines() {
 
 export function useAdminClaims() {
   const token = useAppSelector(selectAuthToken)
+  const branchId = useAppSelector(selectActiveBranchId)
   return useQuery({
-    queryKey: [...MONITOR_KEY, 'claims'],
-    queryFn: () => listAdminClaims(token ?? ''),
+    queryKey: [...MONITOR_KEY, 'claims', branchId],
+    queryFn: () => listAdminClaims(token ?? '', branchId),
     enabled: Boolean(token),
     refetchInterval: AUTO_REFRESH_MS,
   })

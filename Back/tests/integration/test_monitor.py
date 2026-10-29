@@ -15,7 +15,7 @@ def _envio(remitente: str, destinatario: str, paquetes: int = 1) -> dict:
         "remitente_nombre": remitente, "remitente_documento": "28111222", "remitente_telefono": "03564-15112233",
         "remitente_email": "remitente@empresa.com", "destinatario_nombre": destinatario,
         "destinatario_telefono": "+543564445566", "destinatario_email": "destinatario@gmail.com",
-        "tipo_entrega": "sucursal", "sucursal_destino_id": 2, "terminos_aceptados": True,
+        "tipo_entrega": "sucursal", "sucursal_destino_id": 2, "sucursal_origen_id": 1, "terminos_aceptados": True,
         "paquetes": [
             {"descripcion": f"Caja {n + 1}", "peso_kg": 2, "largo_cm": 30, "ancho_cm": 20, "alto_cm": 10}
             for n in range(paquetes)
@@ -48,34 +48,34 @@ async def test_resumen_y_listado_con_filtros(client: AsyncClient, administrativo
     )
     assert recepcion.status_code == 200, recepcion.text
 
-    resumen = (await client.get(f"{API}/resumen", headers=headers)).json()["data"]
+    resumen = (await client.get(f"{API}/resumen", headers=headers, params={"sucursal_id": 1})).json()["data"]
     assert resumen["total_paquetes"] == 3 and resumen["total_envios"] == 2
     assert resumen["por_grupo"]["PENDIENTES"] == 2 and resumen["por_grupo"]["EN_DEPOSITO"] == 1
     assert resumen["hoy"]["registrados"] == 3 and resumen["hoy"]["ingresados"] == 1
     assert resumen["sucursales"]
 
-    todos = (await client.get(f"{API}/paquetes", headers=headers)).json()["data"]
+    todos = (await client.get(f"{API}/paquetes", headers=headers, params={"sucursal_id": 1})).json()["data"]
     assert todos["total"] == 3
     primero = todos["paquetes"][0]
     assert {"numero_paquete", "estado_etiqueta", "grupo", "destino", "recorrido"} <= primero.keys()
 
-    pendientes = (await client.get(f"{API}/paquetes", headers=headers, params={"grupo": "PENDIENTES"})).json()["data"]
+    pendientes = (await client.get(f"{API}/paquetes", headers=headers, params={"sucursal_id": 1, "grupo": "PENDIENTES"})).json()["data"]
     assert sorted(p["numero_paquete"] for p in pendientes["paquetes"]) == sorted(paquetes_a)
 
-    en_deposito = (await client.get(f"{API}/paquetes", headers=headers, params={"grupo": "EN_DEPOSITO"})).json()["data"]
+    en_deposito = (await client.get(f"{API}/paquetes", headers=headers, params={"sucursal_id": 1, "grupo": "EN_DEPOSITO"})).json()["data"]
     assert [p["numero_paquete"] for p in en_deposito["paquetes"]] == paquetes_b
     assert en_deposito["paquetes"][0]["sucursal_actual"]
 
-    por_token = (await client.get(f"{API}/paquetes", headers=headers, params={"buscar": token_a.lower()})).json()["data"]
+    por_token = (await client.get(f"{API}/paquetes", headers=headers, params={"sucursal_id": 1, "buscar": token_a.lower()})).json()["data"]
     assert por_token["total"] == 2
 
-    por_persona = (await client.get(f"{API}/paquetes", headers=headers, params={"buscar": "pedro"})).json()["data"]
+    por_persona = (await client.get(f"{API}/paquetes", headers=headers, params={"sucursal_id": 1, "buscar": "pedro"})).json()["data"]
     assert [p["numero_paquete"] for p in por_persona["paquetes"]] == paquetes_b
 
-    paginado = (await client.get(f"{API}/paquetes", headers=headers, params={"por_pagina": 2, "pagina": 2})).json()["data"]
+    paginado = (await client.get(f"{API}/paquetes", headers=headers, params={"sucursal_id": 1, "por_pagina": 2, "pagina": 2})).json()["data"]
     assert paginado["paginas"] == 2 and len(paginado["paquetes"]) == 1
 
-    invalido = await client.get(f"{API}/paquetes", headers=headers, params={"grupo": "CUALQUIERA"})
+    invalido = await client.get(f"{API}/paquetes", headers=headers, params={"sucursal_id": 1, "grupo": "CUALQUIERA"})
     assert invalido.status_code == 400 and invalido.json()["errors"][0]["field"] == "grupo"
 
 
@@ -116,9 +116,9 @@ async def test_trazabilidad_completa_con_reclamo(client: AsyncClient, administra
     fechas = [e["fecha"] for e in traza["linea_de_tiempo"]]
     assert fechas == sorted(fechas)
 
-    con_reclamo = (await client.get(f"{API}/paquetes", headers=headers, params={"grupo": "CON_RECLAMO"})).json()["data"]
+    con_reclamo = (await client.get(f"{API}/paquetes", headers=headers, params={"sucursal_id": 1, "grupo": "CON_RECLAMO"})).json()["data"]
     assert [p["numero_paquete"] for p in con_reclamo["paquetes"]] == [paquete]
-    problemas = (await client.get(f"{API}/paquetes", headers=headers, params={"grupo": "CON_PROBLEMAS"})).json()["data"]
+    problemas = (await client.get(f"{API}/paquetes", headers=headers, params={"sucursal_id": 1, "grupo": "CON_PROBLEMAS"})).json()["data"]
     assert problemas["total"] == 1
 
     assert (await client.get(f"{API}/paquetes/PAQ-NOEXISTE", headers=headers)).status_code == 404
@@ -127,7 +127,7 @@ async def test_trazabilidad_completa_con_reclamo(client: AsyncClient, administra
 @pytest.mark.asyncio
 async def test_exportar_csv(client: AsyncClient, administrativo_token: str):
     _, paquetes = await _registrar(client, "Carlos Gómez", "Lucía Morales")
-    resp = await client.get(f"{API}/paquetes/exportar", headers=_auth(administrativo_token), params={"grupo": "PENDIENTES"})
+    resp = await client.get(f"{API}/paquetes/exportar", headers=_auth(administrativo_token), params={"sucursal_id": 1, "grupo": "PENDIENTES"})
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("text/csv")
     lineas = resp.content.decode("utf-8-sig").strip().splitlines()

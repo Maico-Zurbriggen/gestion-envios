@@ -549,6 +549,23 @@
 }
 
 /* Oculto a la vista pero disponible para lectores de pantalla. */
+/* Sucursal en la que se opera, en las pantallas de mostrador. */
+.active-branch-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  background: var(--color-primary-50);
+}
+
+.active-branch-note svg {
+  flex: 0 0 auto;
+  color: var(--color-primary);
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

@@ -20,29 +20,11 @@ import { FilterTabs, PageHeader } from '../../../shared/components/PageHeader'
 import { ScanWithCameraButton } from '../../../shared/components/ScanWithCameraButton'
 import { PACKAGE_CODE_PATTERN } from '../../../shared/services/scannedCode'
 import { showToast } from '../../../shared/services/toast'
-import { useBranches } from '../../shipments/hooks/useBranches'
+import { ActiveBranchNote } from '../../auth/components/ActiveBranchNote'
+import { useActiveBranch } from '../../auth/hooks/useActiveBranch'
 import { useRoutesToControl, useUnloadControl, useUnloadMutations } from '../hooks/useUnload'
 import type { ControlType, IncomingRoute, ReadOutcome, UnloadControl } from '../services/unloadApi'
 import './UnloadControlPage.css'
-
-/** La misma sucursal que eligió el puesto en Recibir paquetes. */
-const BRANCH_STORAGE_KEY = 'terminal-branch'
-
-function readStoredBranch() {
-  try {
-    return localStorage.getItem(BRANCH_STORAGE_KEY) ?? ''
-  } catch {
-    return ''
-  }
-}
-
-function storeBranch(value: string) {
-  try {
-    localStorage.setItem(BRANCH_STORAGE_KEY, value)
-  } catch {
-    // Sin almacenamiento: se vuelve a elegir al entrar.
-  }
-}
 
 const dayFormatter = new Intl.DateTimeFormat('es-AR', { weekday: 'short', day: '2-digit', month: '2-digit' })
 const timeFormatter = new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit' })
@@ -68,8 +50,7 @@ export function UnloadControlPage() {
   const [params, setParams] = useSearchParams()
   const controlId = params.get('control')
   const type: ControlType = params.get('modo') === 'carga' ? 'CARGA' : 'DESCARGA'
-  const [branchId, setBranchId] = useState(readStoredBranch)
-  const branches = useBranches()
+  const { branch } = useActiveBranch()
 
   function openControl(id: string | null) {
     const next = new URLSearchParams()
@@ -112,28 +93,9 @@ export function UnloadControlPage() {
               Carga · lo que sale
             </button>
           </div>
-          <section className="surface-card unload-branch">
-            <label className="form-field" htmlFor="unload-branch">
-              <span>{type === 'CARGA' ? 'Sucursal de donde sale el recorrido' : 'Sucursal donde estás descargando'}</span>
-              <select
-                id="unload-branch"
-                className="form-control"
-                value={branchId}
-                onChange={(event) => {
-                  setBranchId(event.target.value)
-                  storeBranch(event.target.value)
-                }}
-              >
-                <option value="">{branches.isPending ? 'Cargando sucursales…' : 'Elegí la sucursal'}</option>
-                {branches.data?.map((branch) => (
-                  <option key={branch.id} value={branch.id}>{branch.name}</option>
-                ))}
-              </select>
-            </label>
-            <p>Se recuerda en este equipo, igual que en Recibir paquetes.</p>
-          </section>
-          {branchId ? (
-            <IncomingRoutes key={type} type={type} branchId={Number(branchId)} branchName={branches.data?.find((b) => String(b.id) === branchId)?.name} onOpen={openControl} />
+          <ActiveBranchNote action={type === 'CARGA' ? 'Recorridos que salen de' : 'Recorridos que llegan a'} />
+          {branch ? (
+            <IncomingRoutes key={`${type}-${branch.id}`} type={type} branchId={branch.id} branchName={branch.name} onOpen={openControl} />
           ) : null}
         </>
       )}

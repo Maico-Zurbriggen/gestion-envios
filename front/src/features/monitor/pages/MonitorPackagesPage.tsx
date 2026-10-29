@@ -23,6 +23,7 @@ import { showToast } from '../../../shared/services/toast'
 import { selectAuthToken } from '../../auth/redux/authSlice'
 import { useMonitorPackages, useMonitorSummary } from '../hooks/useMonitor'
 import { exportMonitorPackages } from '../services/monitorApi'
+import { useActiveBranch } from '../../auth/hooks/useActiveBranch'
 import type { GroupFilter, MonitorFilters, MonitorOrder, MonitorPackage, MonitorSummary } from '../types/monitor.types'
 import { formatShortDay } from '../../../shared/utils/dates'
 import { formatDateTime, formatDay, formatRelative, GROUP_META } from '../utils/monitorFormat'
@@ -72,6 +73,7 @@ export function MonitorPackagesPage({ config }: { config: PackagesSectionConfig 
   const deferredSearch = useDeferredValue(search)
   const [exporting, setExporting] = useState(false)
   const summary = useMonitorSummary().data
+  const { branch: activeBranch, branchId: activeBranchId } = useActiveBranch()
 
   const tabIds = config.tabs?.map((tab) => tab.id) ?? []
   const requestedGroup = params.get('grupo') as GroupFilter | null
@@ -79,7 +81,7 @@ export function MonitorPackagesPage({ config }: { config: PackagesSectionConfig 
   const filters: MonitorFilters = {
     search: deferredSearch,
     group,
-    branchId: params.get('sucursal') ? Number(params.get('sucursal')) : null,
+    branchId: activeBranchId,
     deliveryType: (params.get('entrega') as MonitorFilters['deliveryType']) || null,
     from: params.get('desde'),
     to: params.get('hasta'),
@@ -89,11 +91,10 @@ export function MonitorPackagesPage({ config }: { config: PackagesSectionConfig 
   }
   const packagesQuery = useMonitorPackages(filters)
   const page = packagesQuery.data
-  const filtersActive = Boolean(search.trim() || filters.branchId || filters.deliveryType || filters.from || filters.to)
-  const branchName = summary?.branches.find((branch) => branch.id === filters.branchId)?.name
+  const filtersActive = Boolean(search.trim() || filters.deliveryType || filters.from || filters.to)
   const filterSummary = [
     search.trim() ? `«${search.trim()}»` : null,
-    branchName ?? 'Todas las sucursales',
+    activeBranch?.name ?? 'Todas las sucursales',
     filters.deliveryType === 'domicilio' ? 'A domicilio' : filters.deliveryType === 'sucursal' ? 'Retiro en sucursal' : null,
     filters.from || filters.to ? `${filters.from ?? '…'} → ${filters.to ?? 'hoy'}` : null,
     ORDER_LABELS[filters.order ?? 'movimiento'],
@@ -178,7 +179,7 @@ export function MonitorPackagesPage({ config }: { config: PackagesSectionConfig 
       <CollapsibleFilterSection
         sticky
         title="Filtros"
-        description="Buscá y acotá el listado por sucursal, entrega, fechas y orden"
+        description="Buscá y acotá el listado por entrega, fechas y orden"
         status={filterSummary}
         contentClassName="monitor-filters"
       >
@@ -196,15 +197,6 @@ export function MonitorPackagesPage({ config }: { config: PackagesSectionConfig 
               }}
             />
           </span>
-        </label>
-        <label className="monitor-field">
-          <span>Sucursal</span>
-          <select className="list-select" value={filters.branchId ?? ''} onChange={(event) => setParam('sucursal', event.target.value || null)}>
-            <option value="">Todas</option>
-            {summary?.branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>{branch.name}</option>
-            ))}
-          </select>
         </label>
         <label className="monitor-field">
           <span>Entrega</span>

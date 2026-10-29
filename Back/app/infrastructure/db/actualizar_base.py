@@ -59,11 +59,13 @@ ahora el esquema solo cambia por migraciones, así que la lista no crece."""
 REVISION_CORREOS = "539e81c168e2"
 REVISION_DESCARGAS = "7f3c2a91d4b8"
 REVISION_CIRCUITO = "c41a7e9d2b55"
+REVISION_SUCURSALES = "e5b19c3a7d20"
 TABLAS_SOLO_POR_MIGRACION = {
     "plantillas_correo": REVISION_CORREOS,
     "configuracion_correo": REVISION_CORREOS,
     "controles_descarga": REVISION_DESCARGAS,
     "lecturas_descarga": REVISION_DESCARGAS,
+    "usuario_sucursales": REVISION_SUCURSALES,
 }
 """Tablas nacidas después de `create_all`: una base heredada no las tiene (las
 crea la migración). Solo una base armada con los modelos actuales (pruebas) las trae."""
@@ -134,6 +136,8 @@ def revision_de_base_heredada(conexion: Connection) -> str | None:
         return {columna["name"] for columna in inspector.get_columns(tabla)}
 
     if set(TABLAS_SOLO_POR_MIGRACION) <= tablas:
+        return REVISION_SUCURSALES
+    if set(TABLAS_SOLO_POR_MIGRACION) - {"usuario_sucursales"} <= tablas:
         if "tipo_aviso" in columnas("notificaciones_envio"):
             return REVISION_CIRCUITO
         return REVISION_DESCARGAS

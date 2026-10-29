@@ -84,6 +84,25 @@ ESPECIALES = {
 class RepositorioMonitor(IRepositorioMonitor):
     def __init__(self, db: AsyncSession):
         self.db = db
+        self._sucursal: int | None = None
+
+    def limitar_a_sucursal(self, sucursal_id: int | None) -> None:
+        self._sucursal = sucursal_id
+
+    def _paquetes_de_sucursal(self):
+        """Paquetes que pasan por la sucursal: los admitió, están ahí o van a retirarse ahí."""
+        envios_destino = select(EnvioModel.id).where(EnvioModel.sucursal_destino_id == self._sucursal)
+        return or_(
+            PaqueteModel.sucursal_actual_id == self._sucursal,
+            PaqueteModel.sucursal_origen_id == self._sucursal,
+            PaqueteModel.envio_id.in_(envios_destino),
+        )
+
+    def _ids_de_sucursal(self):
+        return select(PaqueteModel.id).where(self._paquetes_de_sucursal())
+
+    def _envios_de_sucursal(self):
+        return select(PaqueteModel.envio_id).where(self._paquetes_de_sucursal())
 
     async def _escalar(self, stmt) -> int:
         return int((await self.db.execute(stmt)).scalar() or 0)
@@ -91,52 +110,71 @@ class RepositorioMonitor(IRepositorioMonitor):
     # --- Resumen ------------------------------------------------------------
 
     async def contar_por_estado(self) -> dict[str, int]:
-        filas = await self.db.execute(select(PaqueteModel.estado, func.count()).group_by(PaqueteModel.estado))
+        stmt = select(PaqueteModel.estado, func.count()).group_by(PaqueteModel.estado)
+        if self._sucursal:
+            stmt = stmt.where(self._paquetes_de_sucursal())
+        filas = await self.db.execute(stmt)
         return {estado: int(cantidad) for estado, cantidad in filas.all()}
 
     async def contar_devoluciones_en_espera(self) -> int:
-        return await self._escalar(
-            select(func.count()).select_from(PaqueteModel).where(
-                PaqueteModel.en_devolucion.is_(True),
-                PaqueteModel.estado.not_in(GRUPOS_ESTADO["DEVOLUCIONES"]),
-            )
+        stmt = select(func.count()).select_from(PaqueteModel).where(
+            PaqueteModel.en_devolucion.is_(True),
+            PaqueteModel.estado.not_in(GRUPOS_ESTADO["DEVOLUCIONES"]),
         )
+        if self._sucursal:
+            stmt = stmt.where(self._paquetes_de_sucursal())
+        return await self._escalar(stmt)
 
     async def contar_envios(self) -> int:
-        return await self._escalar(select(func.count()).select_from(EnvioModel))
+        stmt = select(func.count()).select_from(EnvioModel)
+        if self._sucursal:
+            stmt = stmt.where(EnvioModel.id.in_(self._envios_de_sucursal()))
+        return await self._escalar(stmt)
 
     async def contar_paquetes_especiales(self) -> dict[str, int]:
         return {
-            clave: await self._escalar(select(func.count()).select_from(PaqueteModel).where(condicion()))
+            clave: await self._escalar(
+                select(func.count()).select_from(PaqueteModel).where(
+                    condicion(), *([self._paquetes_de_sucursal()] if self._sucursal else [])
+                )
+            )
             for clave, condicion in ESPECIALES.items()
         }
 
     async def contar_reclamos_en_curso(self) -> int:
-        return await self._escalar(
-            select(func.count()).select_from(ReclamoModel).where(ReclamoModel.estado.in_(ESTADOS_RECLAMO_EN_CURSO))
-        )
+        stmt = select(func.count()).select_from(ReclamoModel).where(ReclamoModel.estado.in_(ESTADOS_RECLAMO_EN_CURSO))
+        if self._sucursal:
+            stmt = stmt.where(ReclamoModel.envio_id.in_(self._envios_de_sucursal()))
+        return await self._escalar(stmt)
 
     async def contar_notificaciones_fallidas(self) -> int:
-        return await self._escalar(
+        stmt = (
             select(func.count())
             .select_from(NotificacionEnvioModel)
             .where(NotificacionEnvioModel.estado == EstadoNotificacionEnum.FALLIDO.value)
         )
+        if self._sucursal:
+            stmt = stmt.where(NotificacionEnvioModel.envio_id.in_(self._envios_de_sucursal()))
+        return await self._escalar(stmt)
 
     async def actividad_desde(self, inicio: datetime) -> dict[str, int]:
         eventos = select(func.count()).select_from(EventoEntregaModel).where(EventoEntregaModel.created_at >= inicio)
+        registrados = select(func.count()).select_from(PaqueteModel).where(PaqueteModel.created_at >= inicio)
+        ingresados = (
+            select(func.count())
+            .select_from(HistorialEstadoPaqueteModel)
+            .where(
+                HistorialEstadoPaqueteModel.created_at >= inicio,
+                HistorialEstadoPaqueteModel.estado_nuevo == EstadoPaqueteEnum.EN_SUCURSAL_ORIGEN.value,
+            )
+        )
+        if self._sucursal:
+            eventos = eventos.where(EventoEntregaModel.paquete_id.in_(self._ids_de_sucursal()))
+            registrados = registrados.where(self._paquetes_de_sucursal())
+            ingresados = ingresados.where(HistorialEstadoPaqueteModel.sucursal_id == self._sucursal)
         return {
-            "registrados": await self._escalar(
-                select(func.count()).select_from(PaqueteModel).where(PaqueteModel.created_at >= inicio)
-            ),
-            "ingresados": await self._escalar(
-                select(func.count())
-                .select_from(HistorialEstadoPaqueteModel)
-                .where(
-                    HistorialEstadoPaqueteModel.created_at >= inicio,
-                    HistorialEstadoPaqueteModel.estado_nuevo == EstadoPaqueteEnum.EN_SUCURSAL_ORIGEN.value,
-                )
-            ),
+            "registrados": await self._escalar(registrados),
+            "ingresados": await self._escalar(ingresados),
             "entregados": await self._escalar(
                 eventos.where(EventoEntregaModel.resultado == ResultadoEventoEntregaEnum.EXITOSO.value)
             ),
@@ -146,17 +184,19 @@ class RepositorioMonitor(IRepositorioMonitor):
         }
 
     async def recorridos_por_estado(self, fecha: date) -> dict[str, int]:
-        filas = await self.db.execute(
-            select(RecorridoModel.estado, func.count()).where(RecorridoModel.fecha == fecha).group_by(RecorridoModel.estado)
-        )
+        stmt = select(RecorridoModel.estado, func.count()).where(RecorridoModel.fecha == fecha)
+        if self._sucursal:
+            stmt = stmt.where(RecorridoModel.sucursal_origen_id == self._sucursal)
+        filas = await self.db.execute(stmt.group_by(RecorridoModel.estado))
         return {estado: int(cantidad) for estado, cantidad in filas.all()}
 
     async def contar_repartidores_en_ruta(self) -> int:
-        return await self._escalar(
-            select(func.count(func.distinct(RecorridoModel.repartidor_id))).where(
-                RecorridoModel.estado == EstadoRecorridoEnum.EN_CURSO.value
-            )
+        stmt = select(func.count(func.distinct(RecorridoModel.repartidor_id))).where(
+            RecorridoModel.estado == EstadoRecorridoEnum.EN_CURSO.value
         )
+        if self._sucursal:
+            stmt = stmt.where(RecorridoModel.sucursal_origen_id == self._sucursal)
+        return await self._escalar(stmt)
 
     async def listar_sucursales(self) -> list[Any]:
         return list((await self.db.execute(select(SucursalModel).order_by(SucursalModel.nombre))).scalars().all())
@@ -202,7 +242,11 @@ class RepositorioMonitor(IRepositorioMonitor):
             stmt = stmt.where(ESPECIALES[especial]())
         if sucursal_id:
             stmt = stmt.where(
-                or_(PaqueteModel.sucursal_actual_id == sucursal_id, EnvioModel.sucursal_destino_id == sucursal_id)
+                or_(
+                    PaqueteModel.sucursal_actual_id == sucursal_id,
+                    PaqueteModel.sucursal_origen_id == sucursal_id,
+                    EnvioModel.sucursal_destino_id == sucursal_id,
+                )
             )
         if tipo_entrega:
             stmt = stmt.where(EnvioModel.tipo_entrega == tipo_entrega)

@@ -6,6 +6,10 @@ from uuid import UUID
 class IRepositorioMonitor(Protocol):
     """Consultas de solo lectura del monitor de envíos."""
 
+    def limitar_a_sucursal(self, sucursal_id: int | None) -> None:
+        """Los conteos del resumen se limitan a los paquetes y recorridos de esa sucursal."""
+        ...
+
     async def contar_por_estado(self) -> dict[str, int]: ...
 
     async def contar_devoluciones_en_espera(self) -> int:

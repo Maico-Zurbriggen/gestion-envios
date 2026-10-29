@@ -1129,3 +1129,11 @@
     height: 22rem;
   }
 }
+
+/* Optimizar desde la tarjeta del día. */
+.route-card__actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

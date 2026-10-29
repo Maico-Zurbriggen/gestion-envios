@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import EmailStr, Field, field_validator, model_validator
 
+from app.contracts.auth import SucursalAccesoData
 from app.contracts.common import ApiModel
 
 
@@ -34,6 +35,10 @@ class CrearEmpleadoRequest(ApiModel):
     email: EmailStr = Field(..., description="Correo electrónico del empleado", examples=["carlos.gomez@empresa.com"])
     telefono: str = Field(..., min_length=6, max_length=30, description="Teléfono de contacto", examples=["+543564123456"])
     rol_id: int = Field(..., description="Identificador del rol a asignar", examples=[2])
+    sucursal_ids: list[int] = Field(
+        default_factory=list,
+        description="Sucursales en las que trabaja. Vendedores y administrativos necesitan al menos una.",
+    )
 
     @field_validator("dni")
     @classmethod
@@ -58,6 +63,7 @@ class EmpleadoCreadoData(ApiModel):
     estado: str
     rol: str
     password_temporal: str
+    sucursales: list[SucursalAccesoData] = Field(default_factory=list)
 
 
 class CrearEmpleadoResponse(ApiModel):
@@ -85,6 +91,7 @@ class EmpleadoData(ApiModel):
     requiere_cambio_password: bool
     created_at: datetime
     updated_at: datetime
+    sucursales: list[SucursalAccesoData] = Field(default_factory=list, description="Sucursales habilitadas.")
 
 
 class ResumenEmpleadosData(ApiModel):
@@ -120,6 +127,7 @@ class ActualizarEmpleadoRequest(ApiModel):
     email: EmailStr | None = None
     telefono: str | None = Field(None, min_length=6, max_length=30)
     rol_id: int | None = None
+    sucursal_ids: list[int] | None = Field(None, description="Reemplaza las sucursales habilitadas.")
 
     @field_validator("nombre")
     @classmethod

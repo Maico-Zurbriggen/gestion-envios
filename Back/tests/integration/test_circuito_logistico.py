@@ -37,7 +37,7 @@ def _envio(paquetes: int = 1) -> dict:
         "remitente_nombre": "Carlos Gómez", "remitente_documento": "28111222", "remitente_telefono": "03564-15112233",
         "remitente_email": "remitente@empresa.com", "destinatario_nombre": "Lucía Morales",
         "destinatario_telefono": "+543564445566", "destinatario_email": "destinataria@gmail.com",
-        "tipo_entrega": "sucursal", "sucursal_destino_id": 2, "terminos_aceptados": True,
+        "tipo_entrega": "sucursal", "sucursal_destino_id": 2, "sucursal_origen_id": 1, "terminos_aceptados": True,
         "paquetes": [
             {"descripcion": f"Caja {n + 1}", "peso_kg": 2, "largo_cm": 30, "ancho_cm": 20, "alto_cm": 10}
             for n in range(paquetes)
@@ -193,7 +193,7 @@ async def test_retiro_vencido_vuelve_al_remitente(client: AsyncClient, db_sessio
     assert parada["sucursal_destino"]["id"] == 1 and parada["paquetes"][0]["en_devolucion"] is True
 
     en_espera = (await client.get(
-        "/api/v1/admin/monitor/paquetes", params={"grupo": "PARA_RETIRAR"}, headers=_auth(administrativo_token)
+        "/api/v1/admin/monitor/paquetes", params={"sucursal_id": 1, "grupo": "PARA_RETIRAR"}, headers=_auth(administrativo_token)
     )).json()["data"]
     assert en_origen.numero_paquete not in {p["numero_paquete"] for p in en_espera["paquetes"]}
 
@@ -205,10 +205,10 @@ async def test_retiro_vencido_vuelve_al_remitente(client: AsyncClient, db_sessio
     )
     assert retiro.status_code == 200, retiro.text
     assert retiro.json()["data"]["estado"] == "DEVUELTO"
-    resumen = (await client.get("/api/v1/admin/monitor/resumen", headers=_auth(administrativo_token))).json()["data"]
+    resumen = (await client.get("/api/v1/admin/monitor/resumen", headers=_auth(administrativo_token), params={"sucursal_id": 1})).json()["data"]
     assert resumen["por_grupo"]["DEVOLUCIONES"] == 2
     assert resumen["por_grupo"]["PARA_RETIRAR"] == 0
     listado = (await client.get(
-        "/api/v1/admin/monitor/paquetes", params={"grupo": "DEVOLUCIONES"}, headers=_auth(administrativo_token)
+        "/api/v1/admin/monitor/paquetes", params={"sucursal_id": 1, "grupo": "DEVOLUCIONES"}, headers=_auth(administrativo_token)
     )).json()["data"]
     assert {p["grupo"] for p in listado["paquetes"]} == {"DEVOLUCIONES"} and listado["total"] == 2

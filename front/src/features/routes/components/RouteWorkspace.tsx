@@ -2,7 +2,7 @@ import { useState, type DragEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowDown, ArrowLeft, ArrowUp, Check, CircleAlert, ClipboardCheck, GripVertical, MapPin, MapPinOff, Package, Play, Plus,
-  RotateCcw, Trash2, Undo2, UserRound, WandSparkles, X,
+  RotateCcw, Trash2, Undo2, UserRound, LoaderCircle, WandSparkles, X,
 } from 'lucide-react'
 import { TraceLink } from '../../monitor/components/TraceLink'
 import { useRoute, useRouteCommand, usePendingPackages } from '../hooks/useRoutes'
@@ -66,6 +66,10 @@ export function RouteWorkspace({ id, drivers, busyDriverIds, onBack, onDeleted }
   const pendingStops = stops.filter((stop) => stop.packages.some((item) => item.routeStatus === 'PENDIENTE')).length
   // Antes de salir se ordena todo; en reparto, lo que falta desde donde está el vehículo.
   const canOptimize = (editable && stops.length > 1) || (route.status === 'EN_CURSO' && pendingStops > 1)
+  const showOptimize = editable || route.status === 'EN_CURSO'
+  const optimizeHelp = canOptimize
+    ? (route.status === 'EN_CURSO' ? 'Ordena lo que falta por el camino más rápido, desde la última posición del repartidor' : 'Ordena las paradas por el camino más rápido por calles')
+    : 'Con una sola parada no hay nada que ordenar'
 
   function run(next: RouteCommand, done?: (message: string) => void) {
     setNotice('')
@@ -145,14 +149,16 @@ export function RouteWorkspace({ id, drivers, busyDriverIds, onBack, onDeleted }
       <section className="surface-card route-stops-panel" aria-labelledby="route-stops-title">
         <header className="route-stops-panel__head">
           <h3 id="route-stops-title">Paradas <span className="badge badge--muted">{stops.length}</span></h3>
-          {canOptimize && <button className="route-button" type="button" disabled={busy} onClick={() => run({ id, action: 'optimize' })}
-            title={route.status === 'EN_CURSO' ? 'Ordena lo que falta por el camino más rápido, desde la última posición del repartidor' : 'Ordena las paradas por el camino más rápido por calles'}>
-            <WandSparkles size={16} aria-hidden="true" /> Optimizar recorrido
+          {showOptimize && <button className="route-button route-button--primary" type="button" disabled={busy || !canOptimize} onClick={() => run({ id, action: 'optimize' })}
+            title={optimizeHelp} aria-describedby="route-optimize-help">
+            {busy && command.variables?.action === 'optimize' ? <LoaderCircle size={16} className="loading-icon" aria-hidden="true" /> : <WandSparkles size={16} aria-hidden="true" />}
+            {busy && command.variables?.action === 'optimize' ? 'Calculando…' : 'Optimizar recorrido'}
           </button>}
           {editable && <button className={`route-button${side === 'add' ? ' route-button--primary' : ''}`} type="button" aria-pressed={side === 'add'} onClick={() => setSide(side === 'add' ? 'map' : 'add')}>
             <Plus size={16} aria-hidden="true" /> Agregar
           </button>}
         </header>
+        {showOptimize && <p className={canOptimize ? 'visually-hidden' : 'route-hint route-stops-panel__help'} id="route-optimize-help">{optimizeHelp}</p>}
         {editable && stops.length > 1 && <p className="route-hint route-stops-panel__help">Arrastrá <GripVertical size={14} aria-label="el asa" /> o usá las flechas para cambiar el orden. Se guarda solo.</p>}
         {stops.length === 0
           ? <p className="route-empty"><Package size={20} aria-hidden="true" /> El recorrido no tiene paquetes. Tocá «Agregar» para sumar los que esperan.</p>

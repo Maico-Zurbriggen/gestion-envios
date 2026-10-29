@@ -75,11 +75,13 @@ class RepositorioRecorridos(IRepositorioRecorridos):
         )
         return control.estado, int(verificados or 0)
 
-    async def contar_sin_llegar(self) -> int:
-        resultado = await self.db.execute(
-            select(func.count()).select_from(PaqueteModel).where(PaqueteModel.estado.in_(ESTADOS_PRE_REGISTRO))
+    async def contar_sin_llegar(self) -> dict[int | None, int]:
+        filas = await self.db.execute(
+            select(PaqueteModel.sucursal_origen_id, func.count())
+            .where(PaqueteModel.estado.in_(ESTADOS_PRE_REGISTRO))
+            .group_by(PaqueteModel.sucursal_origen_id)
         )
-        return int(resultado.scalar() or 0)
+        return {sucursal: int(cantidad) for sucursal, cantidad in filas.all()}
 
     async def listar_paquetes_listos_en_sucursal(self, sucursal_id: int) -> list[PaqueteModel]:
         stmt = (

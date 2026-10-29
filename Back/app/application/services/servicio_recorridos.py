@@ -332,18 +332,21 @@ class ServicioRecorridos(IServicioRecorridos):
 
     async def resumen_espera(self) -> ResumenEsperaResponse:
         sucursales = await self.repo_sucursales.listar_todas()
+        sin_llegar = await self.repo.contar_sin_llegar()
         por_sucursal = []
         for sucursal in sucursales:
             clasificacion = await self._clasificar(sucursal, sucursales)
             corta = len(clasificacion.pendientes[TipoDistanciaEnum.CORTA.value])
             larga = len(clasificacion.pendientes[TipoDistanciaEnum.LARGA.value])
-            if corta or larga:
+            por_llegar = sin_llegar.get(sucursal.id, 0)
+            if corta or larga or por_llegar:
                 por_sucursal.append(EsperaSucursalData(
                     sucursal_id=sucursal.id, nombre=sucursal.nombre, a_domicilio=corta, entre_sucursales=larga,
+                    sin_llegar=por_llegar,
                 ))
         por_sucursal.sort(key=lambda s: -(s.a_domicilio + s.entre_sucursales))
         return ResumenEsperaResponse(data=ResumenEsperaData(
-            sin_llegar=await self.repo.contar_sin_llegar(), sucursales=por_sucursal,
+            sin_llegar=sum(sin_llegar.values()), sucursales=por_sucursal,
         ))
 
     async def pendientes(self, sucursal_id: int, tipo_distancia: str) -> PaquetesPendientesResponse:
