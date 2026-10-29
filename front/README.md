@@ -6,7 +6,7 @@ React, TypeScript y Vite. Las decisiones de arquitectura y diseño están en [`k
 
 | Comando | Uso |
 |---|---|
-| `npm run dev` | Servidor de desarrollo. La API se toma de `VITE_API_URL`. |
+| `npm run dev` | Servidor de desarrollo. La API se toma de `VITE_API_URL` (copiar `.env.example` a `.env.local`). |
 | `npm run lint` | ESLint. |
 | `npm run build` | Chequeo de tipos y build de producción. |
 | `npm test` | Reglas puras (seguimiento, entrega, escáner y etiquetas). |
