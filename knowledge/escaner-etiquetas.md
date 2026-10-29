@@ -1,5 +1,7 @@
 # Escáner con el celular e impresión de etiquetas
 
+Corresponde a HU15 (admisión y control en la sucursal), del Sprint 2.
+
 ## El celular como escáner
 
 Basado en el escáner del administrador de stock de Tekron:

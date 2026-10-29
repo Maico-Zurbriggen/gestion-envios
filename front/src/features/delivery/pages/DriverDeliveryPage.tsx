@@ -75,7 +75,7 @@ function DriverRoute({ id, onBack }: { id: string; onBack: () => void }) {
             <div>
               <p className="driver-arrival__label">Próxima sucursal</p>
               <p className="driver-arrival__name">{nextBranchStop.branch.name}</p>
-              <p className="ops-hint">Bajan {nextBranchPackages} {nextBranchPackages === 1 ? 'paquete' : 'paquetes'}. Cuando llegues, avisá desde acá: se actualiza el recorrido y el seguimiento.</p>
+              <p className="ops-hint">Bajan {nextBranchPackages} {nextBranchPackages === 1 ? 'paquete' : 'paquetes'}. Con el GPS activo, la llegada se registra sola a 10 km de la sucursal. Si no se registra (sin señal o sin GPS), marcala desde acá.</p>
             </div>
             <button className="ops-button ops-button--primary" type="button" aria-haspopup="dialog" disabled={arrive.isPending} onClick={() => setConfirmArrival(true)}>
               <CheckCircle2 size={18} aria-hidden="true" /> Llegué a {nextBranchStop.branch.name}

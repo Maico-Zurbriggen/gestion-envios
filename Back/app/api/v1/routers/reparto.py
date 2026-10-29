@@ -87,9 +87,10 @@ async def optimizar_recorrido(
 @router.post(
     "/{id}/llegadas",
     response_model=RecorridoResponse,
-    summary="Marcar la llegada a la próxima sucursal del recorrido",
-    description="Recorridos entre sucursales: el repartidor avisa desde el celular que llegó. Los paquetes que bajan "
-    "ahí se actualizan y, si quedan listos para retirar, se avisa al cliente por email y WhatsApp.",
+    summary="Marcar la llegada a la próxima sucursal del recorrido (respaldo)",
+    description="Recorridos entre sucursales. La llegada se registra sola por proximidad (10 km) al enviar la "
+    "ubicación; si el GPS no la registró, el repartidor la marca desde el celular. Los paquetes que bajan ahí se "
+    "actualizan y, si quedan listos para retirar, se avisa al cliente por email y WhatsApp.",
 )
 async def registrar_llegada(
     id: uuid.UUID,
@@ -106,15 +107,23 @@ async def registrar_llegada(
 
 
 @router.put(
-    "/{id}/ubicacion", response_model=UbicacionResponse, summary="Actualizar la posición en un recorrido activo"
+    "/{id}/ubicacion",
+    response_model=UbicacionResponse,
+    summary="Actualizar la posición en un recorrido activo",
+    description="En larga distancia, a 10 km o menos de la próxima sucursal registra la llegada (HU11 CA3).",
 )
 async def actualizar_ubicacion(
     id: uuid.UUID,
     datos: UbicacionRequest,
+    tareas: BackgroundTasks,
     usuario: UsuarioModel = Depends(repartidor_autorizado),
     servicio: IServicioReparto = Depends(get_servicio_reparto),
+    notificaciones: IServicioNotificaciones = Depends(get_servicio_notificaciones),
 ):
-    return await servicio.actualizar_ubicacion(id, datos, usuario)
+    respuesta, listos = await servicio.actualizar_ubicacion(id, datos, usuario)
+    for paquete_id in listos:
+        tareas.add_task(notificaciones.notificar_hito, paquete_id, TipoAvisoEnum.LISTO_PARA_RETIRO.value)
+    return respuesta
 
 
 @router.get("/{id}/ubicacion", response_model=UbicacionResponse, summary="Consultar la última posición de mi recorrido")

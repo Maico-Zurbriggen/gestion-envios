@@ -2,12 +2,12 @@
 
 El circuito completo del paquete, con plazos y avisos, está en [circuito-logistico.md](./circuito-logistico.md).
 
-Sección general del menú lateral (`/monitor`), para `ADMINISTRATIVO` y `SUPERADMIN`. Muestra siempre la sucursal activa (ver [sucursales-por-usuario.md](./sucursales-por-usuario.md)). Tiene dos subsecciones:
+Corresponde a HU15 (paquetes por etapa y trazabilidad) y HU17 (bandeja de reclamos). Sección general del menú lateral (`/monitor`), para `ADMINISTRATIVO` y `SUPERADMIN`. Muestra siempre la sucursal activa (ver [sucursales-por-usuario.md](./sucursales-por-usuario.md)). Tiene dos subsecciones:
 
 | Subsección | Ruta | Contenido |
 |---|---|---|
 | Paquetes | `/monitor/paquetes` | Todos los paquetes de la sucursal, con pestañas por etapa: pendientes, en depósito, en camino, para retirar, entregados, visita fallida, devoluciones y vencidos. |
-| Reclamos | `/monitor/reclamos` | Bandeja para revisar, responder y cerrar reclamos (HU07). |
+| Reclamos | `/monitor/reclamos` | Bandeja para revisar, responder y cerrar reclamos (HU17). |
 
 - `/monitor` lleva a Paquetes.
 - **Trazabilidad.** Se abre tocando un paquete o desde las pantallas operativas: `/monitor/trazabilidad/:paquete`. No ocupa un lugar en el menú; mientras está abierta, se marca «Paquetes».
@@ -30,7 +30,7 @@ Para cada paquete muestra:
 - **Etapas:** las del paquete, con alertas destacadas si tuvo una visita fallida, no tiene recorrido, tiene un reclamo, vuelve al remitente o su registro venció.
 - **Línea de tiempo filtrable**, con quién hizo cada movimiento y dónde:
   - registro del envío;
-  - cambios de estado, incluida la llegada a una sucursal que marca el repartidor;
+  - cambios de estado, incluida la llegada a cada sucursal (automática o marcada por el repartidor);
   - asignación a recorridos;
   - entregas y visitas fallidas, con la firma;
   - alertas, reclamos y avisos al cliente.

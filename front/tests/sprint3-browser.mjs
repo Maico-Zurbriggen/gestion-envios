@@ -72,7 +72,8 @@ function mockApi() {
     if (path.endsWith('/iniciar')) { route.estado = 'EN_CURSO'; item.estado = long ? 'EN_TRANSITO' : 'EN_REPARTO'; return ok(route) }
     if (path.endsWith('/ubicacion')) {
       if (init.method === 'PUT') state.position = { ...body, actualizado_at: new Date().toISOString() }
-      return ok(state.position)
+      // La posición está lejos de la sucursal: la llegada no se registra sola.
+      return ok(state.position, { paquetes_actualizados: [] })
     }
     if (path.endsWith('/llegadas')) {
       // La llegada la marca el repartidor: la posición sola no cambia estados.
@@ -198,14 +199,14 @@ try {
   await waitFor('document.body.innerText.includes("Activar ubicación GPS")'); await click('Activar ubicación GPS')
   await waitFor('typeof window.__gps === "function"'); await evaluate('window.__gps({ coords: { latitude: -31.41, longitude: -64.19 } })')
   await waitFor('Boolean(window.__mock.position)')
-  assert.equal(await evaluate('window.__mock.route.estado'), 'EN_CURSO', 'la posición sola no marca la llegada')
+  assert.equal(await evaluate('window.__mock.route.estado'), 'EN_CURSO', 'lejos de la sucursal, la llegada no se registra sola')
   await waitFor('document.body.innerText.includes("Llegué a Sucursal Norte")'); await click('Llegué a Sucursal Norte'); await click('Sí, llegué')
   await waitFor('document.body.innerText.includes("Recorrido finalizado")')
   assert.equal(await evaluate('window.__mock.arrivals[0].sucursal_id'), 2)
   assert.equal(await evaluate('window.__mock.gpsCleared > 0'), true)
   assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'), true, 'llegada a 320 px')
   await screenshot('arrival-320')
-  console.log('HU11 larga: el repartidor marca la llegada a la sucursal y el GPS se detiene al finalizar')
+  console.log('HU11 larga: sin proximidad, el repartidor marca la llegada de respaldo y el GPS se detiene al finalizar')
 
   await navigate('/reparto?testRole=VENDEDOR')
   await waitFor('location.pathname === "/unauthorized"')

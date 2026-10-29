@@ -2,6 +2,8 @@
 
 Cómo viaja un paquete desde que el cliente lo registra hasta que lo recibe. El circuito toma como referencia a Correo Argentino y Andreani y lo adapta a esta operación.
 
+Los avisos de cada etapa y los plazos corresponden a HU14; la sucursal de origen, a HU15; la llegada a cada sucursal, a HU11 E3; y el máximo de visitas, a HU12 E3. El reparto por sprint está en [alcance-sprints-2-y-3.md](./alcance-sprints-2-y-3.md).
+
 ## Resumen
 
 | Etapa | Quién | Estado del paquete | Aviso al cliente |
@@ -9,7 +11,7 @@ Cómo viaja un paquete desde que el cliente lo registra hasta que lo recibe. El 
 | 1. Registro web | Cliente | `Pendiente` | Código de seguimiento al remitente y al destinatario, con el plazo para llevarlo. |
 | 2. Admisión en sucursal | Vendedor | `EN_SUCURSAL_ORIGEN` (o `LISTO_PARA_RETIRO` si se retira en la misma sucursal) | «Admitido» al remitente. |
 | 3. Viaje entre sucursales | Repartidor de larga distancia | `EN_TRANSITO` | — |
-| 4. Llegada a la sucursal | El repartidor la marca desde el celular | `LISTO_PARA_RETIRO` o `EN_SUCURSAL_DESTINO` | «Listo para retirar» al destinatario. |
+| 4. Llegada a la sucursal | Automática por proximidad (10 km); el repartidor la marca si el GPS no la registró | `LISTO_PARA_RETIRO` o `EN_SUCURSAL_DESTINO` | «Listo para retirar» al destinatario. |
 | 5a. Reparto a domicilio | Repartidor de corta distancia | `EN_REPARTO` → `ENTREGADO` o `ENTREGA_FALLIDA` | «Sale a reparto», «Entregado» o «Visita fallida». |
 | 5b. Retiro en sucursal | Vendedor | `ENTREGADO_EN_SUCURSAL` | «Entregado» al remitente y al destinatario. |
 | Devolución | Sistema | `EN_DEVOLUCION` → `LISTO_PARA_RETIRO` en el origen → `DEVUELTO` | «Devolución» al remitente. |
@@ -39,19 +41,18 @@ Reglas:
 ## 3. Viaje entre sucursales
 
 - El planificador arma recorridos de larga distancia con los paquetes listos para despacho, incluidas las devoluciones (`EN_DEVOLUCION`), que viajan hacia la sucursal de origen.
-- Al iniciar el recorrido, los paquetes pasan a `EN_TRANSITO`. El GPS del celular muestra al repartidor en el mapa, pero no cambia estados.
+- Al iniciar el recorrido, los paquetes pasan a `EN_TRANSITO`. El GPS del celular muestra al repartidor en el mapa y en el seguimiento.
 
-## 4. Llegada a la sucursal, marcada por el repartidor
+## 4. Llegada a la sucursal (HU11 CA3)
 
-En la app del repartidor (`/reparto`), un recorrido entre sucursales en curso muestra la **próxima sucursal** y el botón «Llegué a [sucursal]», con confirmación.
-
-- Las sucursales se marcan en orden: solo se puede marcar la próxima con paquetes pendientes.
-- Al confirmar, cada paquete que baja ahí queda:
+- **Automática.** Con el GPS activo, cuando una posición queda a 10 km o menos de la próxima sucursal pendiente (`RADIO_LLEGADA_KM`), la llegada se registra sola. Un envío de posición procesa como máximo esa parada: no adelanta otra aunque esté cerca.
+- **Respaldo manual.** Si el GPS no la registró (sin señal, sin permiso o con la pantalla bloqueada), la app del repartidor (`/reparto`) muestra la **próxima sucursal** y el botón «Llegué a [sucursal]», con confirmación. Las sucursales se marcan en orden: solo se puede marcar la próxima con paquetes pendientes.
+- En los dos casos, cada paquete que baja ahí queda:
   - `LISTO_PARA_RETIRO`, con fecha límite (`paquetes.retiro_hasta`), si se retira ahí; se avisa al destinatario en ese momento;
   - `EN_SUCURSAL_DESTINO`, si sigue a domicilio;
   - en una devolución, listo para que lo retire el remitente si es su sucursal de origen, o `EN_DEVOLUCION` si sigue viaje.
-- El historial queda a nombre del repartidor, con la sucursal y la posición del celular si la comparte. La parada se marca entregada y, cuando no quedan paradas, el recorrido se finaliza.
-- API: `POST /api/v1/reparto/recorridos/{id}/llegadas` con `sucursal_id` (y, opcionalmente, `latitud` y `longitud`).
+- El historial registra la sucursal y la posición. Si la llegada fue automática queda sin usuario; si la marcó el repartidor, a su nombre. La parada se marca entregada y, cuando no quedan paradas, el recorrido se finaliza.
+- API: `PUT /api/v1/reparto/recorridos/{id}/ubicacion` (automática) y `POST /api/v1/reparto/recorridos/{id}/llegadas` con `sucursal_id` (respaldo).
 
 ## 5a. Reparto a domicilio
 

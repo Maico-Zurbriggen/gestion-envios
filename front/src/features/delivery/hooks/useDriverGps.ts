@@ -25,6 +25,7 @@ export function useDriverGps(id: string, active: boolean) {
         if (disposed) return
         setError('')
         client.setQueryData(['delivery', 'position', id], result.position)
+        if (result.updatedPackages.length) { void client.invalidateQueries({ queryKey: ['delivery'] }); void client.invalidateQueries({ queryKey: ['tracking'] }) }
       } catch (issue) {
         if (disposed) return
         setError(issue instanceof Error ? issue.message : 'No pudimos enviar la ubicación.')

@@ -4,6 +4,8 @@
 
 Prioridad: **Alta** · Estimación: **5 SP** · Contrato orientado a frontend: [`Back/Contrato/endpoints_frontend.md`, sección 9](../../Contrato/endpoints_frontend.md).
 
+La sucursal de origen, el escáner con el celular, la balanza, la etiqueta y el monitor de paquetes se agregaron con [HU15](./hu15-admision-y-control.md).
+
 ## Endpoints
 
 | Método | Ruta | Autenticación | Roles |
@@ -141,5 +143,5 @@ Para los tests de autorización se agregaron a [`tests/conftest.py`](../../tests
 ## Lo que esta historia deja pendiente
 
 - **No se notifica al remitente ni al destinatario** que el paquete fue recibido en la terminal. El criterio de aceptación de HU06 no lo pide (la notificación del token es HU05, al registrar el envío). Si el equipo decide avisar cada cambio de estado, el enganche natural es el `BackgroundTasks` que ya usa `POST /envios` con `ServicioNotificaciones`.
-- **La terminal se informa en el request, no se deduce del usuario.** No existe hoy una relación "usuario → sucursal donde trabaja" (`RepartidorModel` tiene `sucursal_base_id`, pero solo para repartidores). Mientras no exista, el frontend tiene que mandar `sucursal_id`; cuando se agregue, el campo podría pasar a ser opcional y defaultear a la sucursal del vendedor autenticado.
+- **La terminal se informa en el request.** El frontend manda la sucursal activa del operador (`sucursal_id`) y el backend verifica que la tenga habilitada (`403` si no). Ver [sucursales por usuario](../../../knowledge/sucursales-por-usuario.md).
 - **No hay transición de salida.** El paquete queda en `EN_SUCURSAL_ORIGEN` y no existe todavía el endpoint que lo despache a `EN_TRANSITO`: eso es HU10/HU11.

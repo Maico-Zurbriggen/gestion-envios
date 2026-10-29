@@ -16,7 +16,7 @@ Resumen de los contratos del backend. El detalle completo (requests, respuestas 
 - La feature `front/src/features/claims/` mantiene componentes, tipos, servicios y hooks de TanStack Query. El formulario permite elegir el envío completo o uno de sus paquetes, y valida descripción, nombre y al menos un medio de contacto.
 - El panel muestra confirmación, reclamos anteriores, estado y resolución pública. Actualiza el historial después de crear, ante un duplicado y por acción del usuario; respeta `puede_iniciar` y el motivo de inhabilitación del servidor.
 - Cambiar el envío consultado reinicia el panel y su formulario. Los datos de contacto no se conservan después de un alta exitosa ni se agregan al historial público.
-- Este alcance cubre el inicio público previsto en la pila del Sprint 3. La bandeja de gestión interna todavía no tiene interfaz en el frontend.
+- Este alcance cubre el inicio público previsto en la pila del Sprint 3. La bandeja de gestión interna es la HU17, en Monitor › Reclamos (ver [monitor.md](./monitor.md)).
 
 ## Preguntas frecuentes (HU08)
 

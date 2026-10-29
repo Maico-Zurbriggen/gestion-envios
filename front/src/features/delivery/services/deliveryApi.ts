@@ -47,8 +47,9 @@ export async function getPosition(id: string, token: string, signal?: AbortSigna
   return mapPosition(data)
 }
 export async function sendPosition(id: string, latitude: number, longitude: number, token: string, signal?: AbortSignal) {
-  const result = await operationalRequest<{ data: ApiDriverPosition }>(`${routePath(id)}/ubicacion`, token, { method: 'PUT', body: JSON.stringify({ latitud: latitude, longitud: longitude }), signal })
-  return { position: mapPosition(result.data) }
+  const result = await operationalRequest<{ data: ApiDriverPosition; paquetes_actualizados?: string[] }>(`${routePath(id)}/ubicacion`, token, { method: 'PUT', body: JSON.stringify({ latitud: latitude, longitud: longitude }), signal })
+  // En larga distancia, cerca de la próxima sucursal la llegada se registra sola (HU11 CA3).
+  return { position: mapPosition(result.data), updatedPackages: result.paquetes_actualizados ?? [] }
 }
 export async function getContact(id: string, code: string, token: string, signal?: AbortSignal): Promise<RecipientContact> {
   const { data } = await operationalRequest<{ data: { destinatario_nombre: string; telefono: string | null; telefono_disponible: boolean } }>(`${routePath(id)}/paquetes/${encodeURIComponent(code)}/contacto`, token, { signal })

@@ -43,6 +43,7 @@ from app.domain.constants.estados_logistica import (
 )
 from app.domain.rules.circuito_rules import agoto_visitas, estado_al_llegar, sumar_dias_habiles
 from app.domain.rules.recepcion_rules import normalizar_codigo_escaneado
+from app.domain.rules.recorrido_rules import distancia_haversine_km
 from app.domain.rules.reparto_rules import decodificar_firma_png, receptor_mayor_de_16
 from app.domain.rules.telefono_rules import normalizar_telefono_whatsapp
 from app.infrastructure.db.models import (
@@ -57,6 +58,9 @@ def _destino_whatsapp(telefono: str | None) -> str:
     """Se audita el número al que realmente se envía; si no es válido, el original para poder corregirlo."""
     numero = normalizar_telefono_whatsapp(telefono, settings.WHATSAPP_CODIGO_PAIS)
     return f"+{numero}" if numero else (telefono or "")
+
+RADIO_LLEGADA_KM = 10.0
+"""HU11 CA3: a esta distancia de la próxima sucursal la llegada se registra sola."""
 
 
 class ServicioReparto(IServicioReparto):
@@ -121,7 +125,12 @@ class ServicioReparto(IServicioReparto):
             latitud=posicion.latitud, longitud=posicion.longitud, actualizado_at=posicion.actualizado_at
         )
 
-    async def actualizar_ubicacion(self, id: uuid.UUID, datos: UbicacionRequest, usuario: Any):
+    async def actualizar_ubicacion(
+        self, id: uuid.UUID, datos: UbicacionRequest, usuario: Any
+    ) -> tuple[UbicacionResponse, list[uuid.UUID]]:
+        """Guarda la posición. En larga distancia, si está a 10 km o menos de la próxima
+        sucursal, registra la llegada sola (HU11 CA3). Devuelve también los paquetes que
+        quedaron listos para retirar, para avisar al cliente."""
         recorrido = await self._autorizado(id, usuario, bloquear=True)
         self._validar_activo(recorrido)
         ahora = datetime.now(UTC)
@@ -133,39 +142,83 @@ class ServicioReparto(IServicioReparto):
         posicion.latitud, posicion.longitud = datos.latitud, datos.longitud
         posicion.actualizado_at = ahora
 
+        actualizados: list[uuid.UUID] = []
+        listos: list[uuid.UUID] = []
+        if recorrido.tipo_distancia == TipoDistanciaEnum.LARGA.value:
+            proxima = await self._proxima_sucursal(recorrido)
+            # Un ping procesa como máximo la próxima parada, aunque otra también esté cerca.
+            if proxima is not None:
+                sucursal, grupo = proxima
+                if (
+                    sucursal.id != recorrido.sucursal_origen_id
+                    and sucursal.latitud is not None
+                    and sucursal.longitud is not None
+                    and distancia_haversine_km((datos.latitud, datos.longitud), (sucursal.latitud, sucursal.longitud))
+                    <= RADIO_LLEGADA_KM
+                ):
+                    actualizados = [rp.paquete_id for rp in grupo]
+                    listos = await self._registrar_llegada_en(
+                        recorrido, sucursal, grupo, ahora,
+                        usuario_id=None, latitud=datos.latitud, longitud=datos.longitud,
+                        detalle=f"por proximidad de hasta {RADIO_LLEGADA_KM:g} km",
+                    )
+            self._finalizar_si_completo(recorrido)
         await self.repo.confirmar()
-        return UbicacionResponse(data=self._posicion_data(posicion))
+        return UbicacionResponse(data=self._posicion_data(posicion), paquetes_actualizados=actualizados), listos
 
     async def registrar_llegada(
         self, id: uuid.UUID, datos: RegistrarLlegadaRequest, usuario: Any
     ) -> tuple[RecorridoResponse, list[uuid.UUID]]:
-        """Llegada a una sucursal de un recorrido entre sucursales, marcada por el repartidor.
+        """Respaldo de la llegada automática: el repartidor la marca desde el celular
+        cuando el GPS no la registró (sin señal o sin permiso de ubicación).
 
-        Los paquetes que bajan ahí quedan listos para retirar (si es su sucursal de
-        retiro), en espera del reparto a domicilio o, si vuelven al remitente, en
-        camino a su origen. Devuelve el recorrido actualizado y los paquetes que
-        quedaron listos para retirar, para avisar al cliente.
+        Devuelve el recorrido actualizado y los paquetes que quedaron listos para retirar.
         """
         recorrido = await self._autorizado(id, usuario, bloquear=True)
         self._validar_activo(recorrido)
         if recorrido.tipo_distancia != TipoDistanciaEnum.LARGA.value:
             raise ValidationException(message="La llegada a una sucursal se marca solo en recorridos entre sucursales.")
-        await self.repo.sincronizar()
-        paradas = [
-            (sucursal, [rp for rp in grupo if rp.estado_en_recorrido == EstadoRecorridoPaqueteEnum.PENDIENTE.value])
-            for sucursal, grupo in await self.recorridos.paradas_en_sucursales(recorrido)
-        ]
-        pendientes = [(sucursal, grupo) for sucursal, grupo in paradas if grupo]
-        if not pendientes:
+        proxima = await self._proxima_sucursal(recorrido)
+        if proxima is None:
             raise ValidationException(message="No quedan sucursales pendientes en este recorrido.")
-        proxima, grupo = pendientes[0]
-        if proxima.id != datos.sucursal_id:
+        sucursal, grupo = proxima
+        if sucursal.id != datos.sucursal_id:
             raise ValidationException(
-                message=f"Primero marcá la llegada a {proxima.nombre}: las sucursales se visitan en orden.",
-                errors=[{"field": "sucursal_id", "message": f"La próxima parada es {proxima.nombre}."}],
+                message=f"Primero marcá la llegada a {sucursal.nombre}: las sucursales se visitan en orden.",
+                errors=[{"field": "sucursal_id", "message": f"La próxima parada es {sucursal.nombre}."}],
             )
+        listos = await self._registrar_llegada_en(
+            recorrido, sucursal, grupo, datetime.now(UTC),
+            usuario_id=usuario.id, latitud=datos.latitud, longitud=datos.longitud,
+            detalle="marcada por el repartidor",
+        )
+        self._finalizar_si_completo(recorrido)
+        await self.repo.confirmar()
 
-        ahora = datetime.now(UTC)
+        respuesta = await self.recorridos.obtener(id)
+        cantidad = len(grupo)
+        respuesta.message = (
+            f"Llegada a {sucursal.nombre} registrada: "
+            f"{cantidad} {'paquete bajó' if cantidad == 1 else 'paquetes bajaron'} en esta sucursal."
+        )
+        return respuesta, listos
+
+    async def _proxima_sucursal(self, recorrido) -> tuple[Any, list[Any]] | None:
+        """Primera sucursal del recorrido (en el orden de HU10) con paquetes pendientes."""
+        await self.repo.sincronizar()
+        for sucursal, grupo in await self.recorridos.paradas_en_sucursales(recorrido):
+            pendientes = [rp for rp in grupo if rp.estado_en_recorrido == EstadoRecorridoPaqueteEnum.PENDIENTE.value]
+            if pendientes:
+                return sucursal, pendientes
+        return None
+
+    async def _registrar_llegada_en(
+        self, recorrido, sucursal, grupo, ahora: datetime, *,
+        usuario_id: uuid.UUID | None, latitud: float | None, longitud: float | None, detalle: str,
+    ) -> list[uuid.UUID]:
+        """Los paquetes que bajan en esa sucursal quedan listos para retirar (si es su
+        sucursal de retiro), en espera del reparto a domicilio o, si vuelven al
+        remitente, en camino a su origen. Devuelve los que quedaron listos para retirar."""
         llegables = (
             EstadoPaqueteEnum.EN_TRANSITO.value,
             EstadoPaqueteEnum.EN_SUCURSAL_DESTINO.value,
@@ -180,13 +233,13 @@ class ServicioReparto(IServicioReparto):
                 sucursal_destino_id=envio.sucursal_destino_id,
                 sucursal_origen_id=paquete.sucursal_origen_id,
                 en_devolucion=paquete.en_devolucion,
-                sucursal_llegada_id=proxima.id,
+                sucursal_llegada_id=sucursal.id,
             )
             if paquete.estado in llegables and paquete.estado != destino:
                 anterior = paquete.estado
                 paquete.estado = destino
-                paquete.sucursal_actual_id = proxima.id
-                observacion = f"Llegó a {proxima.nombre} en el recorrido entre sucursales."
+                paquete.sucursal_actual_id = sucursal.id
+                observacion = f"Llegó a {sucursal.nombre} ({detalle})."
                 if destino == EstadoPaqueteEnum.LISTO_PARA_RETIRO.value:
                     paquete.retiro_hasta = None if paquete.en_devolucion else sumar_dias_habiles(
                         ahora, settings.PLAZO_RETIRO_DIAS_HABILES
@@ -200,24 +253,15 @@ class ServicioReparto(IServicioReparto):
                     paquete_id=paquete.id,
                     estado_anterior=anterior,
                     estado_nuevo=destino,
-                    usuario_id=usuario.id,
-                    sucursal_id=proxima.id,
-                    latitud=datos.latitud,
-                    longitud=datos.longitud,
+                    usuario_id=usuario_id,
+                    sucursal_id=sucursal.id,
+                    latitud=latitud,
+                    longitud=longitud,
                     observacion=observacion,
                     created_at=ahora,
                 ))
             rp.estado_en_recorrido = EstadoRecorridoPaqueteEnum.ENTREGADO.value
-        self._finalizar_si_completo(recorrido)
-        await self.repo.confirmar()
-
-        respuesta = await self.recorridos.obtener(id)
-        cantidad = len(grupo)
-        respuesta.message = (
-            f"Llegada a {proxima.nombre} registrada: "
-            f"{cantidad} {'paquete bajó' if cantidad == 1 else 'paquetes bajaron'} en esta sucursal."
-        )
-        return respuesta, listos
+        return listos
 
     def _paquete(self, recorrido, codigo: str):
         codigo = normalizar_codigo_escaneado(codigo)

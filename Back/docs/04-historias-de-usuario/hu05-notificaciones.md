@@ -2,7 +2,7 @@
 
 > Yo como remitente o destinatario deseo recibir el código de seguimiento y las novedades del envío, para saber en qué estado está sin tener que consultarlo.
 
-Sprint 2. Configuración de proveedores: [notificaciones-email-whatsapp.md](../02-configuracion/notificaciones-email-whatsapp.md). Momento de cada aviso: [circuito logístico](../../../knowledge/circuito-logistico.md).
+Sprint 2. HU05 cubre el aviso del token; los avisos de cada etapa y los plazos se agregaron con [HU14](./hu14-plazos-y-avisos.md), y este documento describe el mecanismo común. Configuración de proveedores: [notificaciones-email-whatsapp.md](../02-configuracion/notificaciones-email-whatsapp.md). Momento de cada aviso: [circuito logístico](../../../knowledge/circuito-logistico.md).
 
 ## Qué se avisa y a quién
 
@@ -11,7 +11,7 @@ Sprint 2. Configuración de proveedores: [notificaciones-email-whatsapp.md](../0
 | Alta del envío (HU03) | Código de seguimiento y enlace público, con el plazo para llevarlo a la sucursal | Remitente y destinatario |
 | Admisión en sucursal (HU06) | Admitido | Remitente |
 | Salida a reparto (HU10 y HU11) | Sale a reparto | Destinatario |
-| Listo para retirar (admisión en la sucursal de retiro, llegada marcada por el repartidor o visitas agotadas) | Listo para retirar | Destinatario |
+| Listo para retirar (admisión en la sucursal de retiro, llegada del recorrido entre sucursales o visitas agotadas) | Listo para retirar | Destinatario |
 | Entrega a domicilio o retiro (HU12 y HU13) | Entregado | Remitente y destinatario |
 | Visita fallida (HU12) | Visita fallida y próximo paso | Destinatario |
 | Retiro vencido | Devolución | Remitente |

@@ -35,10 +35,13 @@ class UbicacionData(UbicacionRequest):
 class UbicacionResponse(ApiModel):
     status: str = "success"
     data: UbicacionData | None = None
+    paquetes_actualizados: list[UUID] = Field(
+        default_factory=list, description="Paquetes cuya llegada a la sucursal se registró con esta posición (HU11 CA3)."
+    )
 
 
 class RegistrarLlegadaRequest(ApiModel):
-    """El repartidor avisa que llegó a una sucursal de su recorrido entre sucursales."""
+    """Respaldo de la llegada automática: el repartidor avisa que llegó a la próxima sucursal."""
 
     sucursal_id: int = Field(..., ge=1, description="Sucursal a la que llegó: tiene que ser la próxima parada pendiente.")
     latitud: float | None = Field(None, ge=-90, le=90)

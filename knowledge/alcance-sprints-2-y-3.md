@@ -1,49 +1,52 @@
 # Alcance de los sprints 2 y 3
 
-No hay Sprint 4. Lo que se sumó después del cierre del Sprint 2 se reparte entre los dos sprints como **criterios refinados de sus propias historias**, no como historias nuevas. Lo que no era necesario para cumplirlas quedó fuera del alcance.
+No hay Sprint 4. Las historias originales del Product Backlog (HU01 a HU13) quedan en el sprint donde estaban planificadas. Lo que se sumó después se reparte entre los sprints 2 y 3 como **historias nuevas**: tres en el Sprint 2 (HU14, HU15 y HU16) y una en el Sprint 3 (HU17). Las mejoras que implementan escenarios ya existentes de HU10, HU11 y HU12 quedan como tareas de esas historias. Lo que no era necesario quedó fuera del alcance.
 
 El código anterior al recorte se conserva en la rama `extras-post-sprint3`.
 
-## Sprint 2: HU05, HU06, HU09 y HU13
+## Esfuerzo
 
-| Historia | Criterios refinados | Documentación |
-|---|---|---|
-| **HU05**: avisos al cliente | Además del código de seguimiento, se avisa cada hito del envío por email y WhatsApp: admitido, sale a reparto, listo para retirar, entregado, visita fallida, devolución y registro vencido. Se avisa una vez por envío, no por bulto. Cada correo usa su plantilla estándar con el diseño de la marca. | [hu05-notificaciones.md](../Back/docs/04-historias-de-usuario/hu05-notificaciones.md), [circuito-logistico.md](./circuito-logistico.md) |
-| **HU06**: recepción en terminal | El envío declara la sucursal donde se va a llevar (`sucursal_origen_id`). Se recibe en la sucursal en la que trabaja el operador. Se puede escanear con el celular, registrar el peso en balanza e imprimir la etiqueta térmica al admitir. | [hu06-recepcion-terminal.md](../Back/docs/04-historias-de-usuario/hu06-recepcion-terminal.md), [escaner-etiquetas.md](./escaner-etiquetas.md) |
-| **HU09**: sucursales para retiro | El catálogo público muestra solo las sucursales activas. El Superadministrador da de alta y edita sucursales con su dirección y ubicación, que son el punto de partida de los recorridos. | [hu09-sucursales-retiro.md](../Back/docs/04-historias-de-usuario/hu09-sucursales-retiro.md), [sucursales-por-usuario.md](./sucursales-por-usuario.md) |
-| **HU13**: retiro verificado | Se entrega en la sucursal en la que trabaja el operador. El retiro tiene un plazo de 7 días hábiles y, si vence, el paquete vuelve al remitente. Un registro que no se lleva a una sucursal en 10 días vence. | [hu13-retiro-sucursal.md](../Back/docs/04-historias-de-usuario/hu13-retiro-sucursal.md), [circuito-logistico.md](./circuito-logistico.md) |
+| Sprint | Historias | Story Points | Tareas | Horas |
+|---|---|---|---|---|
+| 2 | HU05, HU06, HU09, HU13 y las nuevas HU14, HU15, HU16, más calidad y revisión | 41 | 54 | 241 |
+| 3 | HU07, HU08, HU10, HU11, HU12 y la nueva HU17, más cierre | 53 | 57 | 298 |
 
-**Acceso por sucursal.** Al cerrar el Sprint 2 quedaba un límite: el operador elegía su sucursal en pantalla y los usuarios no tenían sucursal asignada. Se resuelve como criterio común de HU06 y HU13:
+El reparto deja los dos sprints lo más parejos posible sin mover las historias originales. El Sprint 3 no puede bajar de unas 298 h porque sus historias originales suman 248 h, y lo que depende del reparto o de HU07 tiene que ir ahí.
 
-- cada usuario pertenece a sus sucursales;
-- después del login elige en cuál trabaja;
-- el backend rechaza lo que corresponde a otra sucursal.
+**Riesgo:** el Sprint 2 está planificado para una semana. Con 241 h y cuatro integrantes, la carga es de unas 12 h por persona y día, así que hay que confirmar la disponibilidad del equipo. El Sprint 3, de dos semanas, queda en unas 7,5 h por persona y día.
 
-Para asignarlas, la administración de usuarios suma la edición, la baja y el blanqueo de contraseña. Detalle en [sucursales-por-usuario.md](./sucursales-por-usuario.md).
+Fuentes: `Pila Sprint 2 Gestion Envios (v2).xlsm` y `Pila_Sprint_3_Gestion_Envios (v2).xlsm`.
 
-## Sprint 3: HU07, HU08, HU10, HU11 y HU12
+## Sprint 2
 
-| Historia | Criterios refinados | Documentación |
-|---|---|---|
-| **HU07**: reclamos | El personal revisa, responde y cierra los reclamos desde Monitor › Reclamos. | [reclamos-preguntas-recorridos.md](./reclamos-preguntas-recorridos.md), [monitor.md](./monitor.md) |
-| **HU08**: preguntas frecuentes | Sin cambios. | [reclamos-preguntas-recorridos.md](./reclamos-preguntas-recorridos.md) |
-| **HU10**: recorridos | Los recorridos se arman como hojas de ruta de la sucursal activa, sobre un mapa con el recorrido real por calles. El orden se calcula por el camino más rápido, con «Optimizar recorrido» en el armado y al crear. Para ver el estado de los paquetes, Monitor › Paquetes ofrece el listado por etapa y la trazabilidad. | [hu10-recorridos.md](../Back/docs/04-historias-de-usuario/hu10-recorridos.md), [mapas.md](./mapas.md), [monitor.md](./monitor.md) |
-| **HU11**: reparto | La app del repartidor permite optimizar el orden desde su posición. En los recorridos entre sucursales, marca «Llegué a [sucursal]» en cada parada, en orden, y así se actualizan el recorrido y el seguimiento. | [hu11-hu12-reparto.md](../Back/docs/04-historias-de-usuario/hu11-hu12-reparto.md), [circuito-logistico.md](./circuito-logistico.md) |
-| **HU12**: entrega a domicilio | Hay como máximo 2 visitas. Después, el paquete queda para retirar en la sucursal, y si no se retira, vuelve al remitente. | [hu11-hu12-reparto.md](../Back/docs/04-historias-de-usuario/hu11-hu12-reparto.md), [circuito-logistico.md](./circuito-logistico.md) |
+| Historia | Qué incluye | SP | Horas | Documentación |
+|---|---|---|---|---|
+| HU05, HU06, HU09 y HU13 | Sin cambios respecto del plan original. | 23 | 113 | [Back/docs](../Back/docs/04-historias-de-usuario/) |
+| **HU14**: plazos y avisos del envío | Aviso de cada etapa del envío por email y WhatsApp, una vez por envío, con plantillas estándar de la marca. El retiro tiene 7 días hábiles y, si vence, el paquete vuelve al remitente. Un registro que no se lleva a una sucursal en 10 días vence. | 5 | 28 | [hu14-plazos-y-avisos.md](../Back/docs/04-historias-de-usuario/hu14-plazos-y-avisos.md), [circuito-logistico.md](./circuito-logistico.md) |
+| **HU15**: admisión y control en la sucursal | Sucursal de origen obligatoria, escáner con el celular, peso en balanza y etiqueta térmica al admitir. Monitor › Paquetes con el listado por etapa y la trazabilidad. | 5 | 32 | [hu15-admision-y-control.md](../Back/docs/04-historias-de-usuario/hu15-admision-y-control.md), [escaner-etiquetas.md](./escaner-etiquetas.md), [monitor.md](./monitor.md) |
+| **HU16**: sucursales y acceso por sucursal | Alta y edición de sucursales con ubicación, usuarios con sus sucursales, sucursal activa y control en el servidor. | 8 | 42 | [hu16-sucursales-y-acceso.md](../Back/docs/04-historias-de-usuario/hu16-sucursales-y-acceso.md), [sucursales-por-usuario.md](./sucursales-por-usuario.md) |
+| Calidad transversal (tarea técnica, sin SP) | Identidad visual compartida con las otras apps (barra lateral, transiciones y esqueletos de carga), limpieza de código sin uso y optimización de la carga inicial. | — | 20 | [visual-identity.md](./visual-identity.md) |
+| Revisión integrada | Flujo completo y demostración. | — | 6 | |
 
-**Tarea técnica de calidad (sin historia propia):**
-- la identidad visual compartida con las otras apps: barra lateral, transiciones entre secciones y esqueletos de carga;
-- la limpieza de código sin uso;
-- la optimización de la carga inicial.
+## Sprint 3
+
+| Historia | Qué incluye | SP | Horas | Documentación |
+|---|---|---|---|---|
+| HU07 y HU08 | Sin cambios respecto del plan original. | 8 | 28 | [reclamos-preguntas-recorridos.md](./reclamos-preguntas-recorridos.md) |
+| HU10 | Además de lo planificado, implementa sus escenarios E1 y E2 con hojas de ruta, mapa por calles y «Optimizar recorrido» por tiempos. | 21 | 100 | [hu10-recorridos.md](../Back/docs/04-historias-de-usuario/hu10-recorridos.md), [mapas.md](./mapas.md) |
+| HU11 | Optimizar el orden desde el celular. En los recorridos entre sucursales, la llegada se registra sola a 10 km de cada sucursal (E3); si el GPS no la registró, el repartidor la marca con «Llegué a [sucursal]», en orden. | 13 | 60 | [hu11-hu12-reparto.md](../Back/docs/04-historias-de-usuario/hu11-hu12-reparto.md) |
+| HU12 | Como máximo 2 visitas (E3). Después, el paquete queda para retirar en la sucursal y, si no se retira, vuelve al remitente. | 8 | 44 | [hu11-hu12-reparto.md](../Back/docs/04-historias-de-usuario/hu11-hu12-reparto.md), [circuito-logistico.md](./circuito-logistico.md) |
+| **HU17**: bandeja interna de reclamos | Revisar, responder y cerrar reclamos desde Monitor › Reclamos, solo los de la sucursal activa. | 3 | 10 | [hu17-bandeja-reclamos.md](../Back/docs/04-historias-de-usuario/hu17-bandeja-reclamos.md), [monitor.md](./monitor.md) |
+| Cierre e integración | Pruebas de punta a punta, correcciones y entrega. | — | 56 | |
 
 ## Fuera del alcance
 
-- **Control de carga y descarga por escaneo.** La llegada a cada sucursal la marca el repartidor desde su celular.
+- **Control de carga y descarga por escaneo.** La llegada a cada sucursal se registra por proximidad, con el botón del repartidor como respaldo.
 - **Tablero de indicadores del Monitor, sección Incidencias y exportación a CSV.** El Monitor queda con el listado por etapa, la trazabilidad y los reclamos.
 
 ## Base de datos
 
 - Neon está en `d2a6f81112ac` (HU11 y HU12).
 - Quedan dos migraciones por aplicar, en este orden:
-  1. `c41a7e9d2b55`: circuito logístico.
-  2. `e5b19c3a7d20`: sucursales por usuario.
+  1. `c41a7e9d2b55`: circuito logístico (HU14 y HU15).
+  2. `e5b19c3a7d20`: sucursales por usuario (HU16).

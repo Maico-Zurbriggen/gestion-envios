@@ -2,7 +2,7 @@
 
 > Yo como personal de la sucursal deseo verificar la identidad de quien retira un paquete y registrar el retiro, para entregarlo solo a quien corresponde y dejar constancia.
 
-Sprint 2. Plazos y devoluciones: [circuito logístico](../../../knowledge/circuito-logistico.md). Acceso por sucursal: [sucursales por usuario](../../../knowledge/sucursales-por-usuario.md).
+Sprint 2. Plazos y devoluciones: [HU14](./hu14-plazos-y-avisos.md) y [circuito logístico](../../../knowledge/circuito-logistico.md). Acceso por sucursal: [HU16](./hu16-sucursales-y-acceso.md) y [sucursales por usuario](../../../knowledge/sucursales-por-usuario.md).
 
 ## Endpoints
 

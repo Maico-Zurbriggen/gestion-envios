@@ -4,6 +4,8 @@
 
 Prioridad: **Media** · Estimación: **5 SP** · Contrato orientado a frontend: [`Back/Contrato/endpoints_frontend.md`, sección 11](../../Contrato/endpoints_frontend.md).
 
+La bandeja interna para responder y cerrar reclamos es [HU17](./hu17-bandeja-reclamos.md).
+
 ## Endpoints
 
 | Método | Ruta | Autenticación | Roles |

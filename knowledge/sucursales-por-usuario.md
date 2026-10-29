@@ -1,6 +1,6 @@
 # Sucursales por usuario: todo se divide por sucursal
 
-Tomado de Aviso Entrega Clientes (`SucursalAcceso`, `ElegirSucursalPage`, `SucursalSwitcher`) y adaptado a este sistema.
+Tomado de Aviso Entrega Clientes (`SucursalAcceso`, `ElegirSucursalPage`, `SucursalSwitcher`) y adaptado a este sistema. Corresponde a HU16 (sucursales y acceso por sucursal), del Sprint 2.
 
 ## Quién entra en qué sucursal
 

@@ -196,12 +196,47 @@ async def test_hu11_rechaza_operaciones_sin_recorrido_activo(client, db_session,
     ).status_code == 400
 
 
-async def test_hu11_escenario_3_llegada_marcada_por_el_repartidor(client, db_session, administrativo_token):
+async def test_hu11_escenario_3_proximidad_registra_la_llegada_sola(client, db_session, administrativo_token):
     db_session.autoflush = False  # misma configuración que la sesión de producción
-    id_, paquetes, usuario, headers, token = await _armar(client, db_session, administrativo_token, tipo="LARGA")
-    # La posición del celular solo actualiza el mapa: no cambia estados aunque esté al lado de la sucursal.
+    id_, paquetes, _, headers, token = await _armar(client, db_session, administrativo_token, tipo="LARGA")
+    # Fuera del radio: no hay cambios.
+    lejos = await client.put(f"{BASE}/{id_}/ubicacion", headers=headers, json={"latitud": -32.7, "longitud": -60.69})
+    assert lejos.status_code == 200
+    assert lejos.json()["paquetes_actualizados"] == []
     cerca = await client.put(f"{BASE}/{id_}/ubicacion", headers=headers, json={"latitud": -32.94, "longitud": -60.69})
     assert cerca.status_code == 200, cerca.text
+    assert set(cerca.json()["paquetes_actualizados"]) == {str(p.id) for p in paquetes}
+    for paquete in paquetes:
+        await db_session.refresh(paquete)
+        assert paquete.estado == "LISTO_PARA_RETIRO"
+        assert paquete.sucursal_actual_id == 2
+        assert paquete.retiro_hasta is not None
+    repetida = await client.put(
+        f"{BASE}/{id_}/ubicacion", headers=headers, json={"latitud": -32.94, "longitud": -60.69}
+    )
+    assert repetida.status_code == 400  # recorrido finalizado
+    historial = list(
+        (
+            await db_session.scalars(
+                select(HistorialEstadoPaqueteModel).where(
+                    HistorialEstadoPaqueteModel.estado_nuevo == "LISTO_PARA_RETIRO",
+                )
+            )
+        ).all()
+    )
+    assert len(historial) == 2
+    assert all(h.usuario_id is None and h.sucursal_id == 2 for h in historial)
+    publico = (await client.get(f"/api/v1/seguimiento/{token}")).json()["data"]["paquetes"]
+    assert all(p["estado"] == "LISTO_PARA_RETIRO" and p["ubicacion_repartidor"] is None for p in publico)
+
+
+async def test_hu11_escenario_3_respaldo_llegada_marcada_por_el_repartidor(client, db_session, administrativo_token):
+    db_session.autoflush = False  # misma configuración que la sesión de producción
+    id_, paquetes, usuario, headers, token = await _armar(client, db_session, administrativo_token, tipo="LARGA")
+    # Lejos de la sucursal (o sin GPS) la llegada no se registra sola: el repartidor la marca.
+    lejos = await client.put(f"{BASE}/{id_}/ubicacion", headers=headers, json={"latitud": -32.7, "longitud": -60.69})
+    assert lejos.status_code == 200, lejos.text
+    assert lejos.json()["paquetes_actualizados"] == []
     for paquete in paquetes:
         await db_session.refresh(paquete)
         assert paquete.estado == "EN_TRANSITO"
@@ -523,10 +558,53 @@ async def test_hu12_rollback_si_no_se_puede_confirmar_constancia(
     assert correo.mensajes_enviados == []
 
 
+async def test_hu11_gps_no_anticipa_otro_tramo(client, db_session, administrativo_token):
+    # Dos sucursales a menos de 10 km entre sí: sólo la primera parada debe cambiar por ping.
+    db_session.add(
+        SucursalModel(
+            id=3,
+            nombre="Rosario Este",
+            ciudad="Rosario",
+            provincia="Santa Fe",
+            direccion="Otra 123",
+            latitud=-32.96,
+            longitud=-60.69,
+        )
+    )
+    await db_session.commit()
+    usuario = await _crear_repartidor(db_session, "Larga distancia", tipo="LARGA")
+    p2 = (await _crear_paquete(db_session, tipo_entrega="sucursal", sucursal_destino_id=2))[0]
+    p3 = (await _crear_paquete(db_session, tipo_entrega="sucursal", sucursal_destino_id=3))[0]
+    r = (await _generar(client, administrativo_token, tipo_distancia="LARGA"))["data"]["recorridos"][0]
+    headers = _headers(usuario)
+    assert (await client.post(f"{BASE}/{r['id']}/iniciar", headers=headers)).status_code == 200
+    primera = r["paradas"][0]
+    resp = await client.put(
+        f"{BASE}/{r['id']}/ubicacion",
+        headers=headers,
+        json={"latitud": primera["latitud"], "longitud": primera["longitud"]},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["paquetes_actualizados"] == [primera["paquetes"][0]["paquete_id"]]
+    for p in (p2, p3):
+        await db_session.refresh(p)
+    # Se retira en esa sucursal: queda listo para retirar; el otro sigue viajando.
+    assert {p2.estado, p3.estado} == {"EN_TRANSITO", "LISTO_PARA_RETIRO"}
+
+
 async def test_hu11_llegada_solo_en_recorridos_entre_sucursales(client, db_session, administrativo_token):
     id_, _, _, headers, _ = await _armar(client, db_session, administrativo_token)
     resp = await client.post(f"{BASE}/{id_}/llegadas", headers=headers, json={"sucursal_id": 1})
     assert resp.status_code == 400
+
+
+@pytest.mark.parametrize("radio,esperado", [(10.0, 1), (10.00001, 0), (9.99999, 1)])
+async def test_hu11_limite_de_proximidad_10_km(client, db_session, administrativo_token, monkeypatch, radio, esperado):
+    id_, _, _, headers, _ = await _armar(client, db_session, administrativo_token, tipo="LARGA", cantidad=1)
+    monkeypatch.setattr("app.application.services.servicio_reparto.distancia_haversine_km", lambda *_: radio)
+    resp = await client.put(f"{BASE}/{id_}/ubicacion", headers=headers, json={"latitud": -32.94, "longitud": -60.69})
+    assert resp.status_code == 200, resp.text
+    assert len(resp.json()["paquetes_actualizados"]) == esperado
 
 
 async def test_hu12_sin_email_registra_fallo_y_conserva_visita(client, db_session, administrativo_token, correo):

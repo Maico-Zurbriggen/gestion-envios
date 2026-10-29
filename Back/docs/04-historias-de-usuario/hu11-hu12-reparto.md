@@ -21,8 +21,8 @@ Base: `/api/v1/reparto/recorridos`.
 | GET | `?fecha=AAAA-MM-DD&estado=EN_CURSO` | Mis recorridos; filtros opcionales. Mismo `ListarRecorridosResponse` de HU10. |
 | GET | `/{id}` | `RecorridoResponse` de HU10: sucursal de origen, destinos, paradas y paquetes ordenados, contactos y trazado. |
 | POST | `/{id}/iniciar` | Reutiliza el inicio de HU10: `EN_CURSO`, paquetes `EN_REPARTO` o `EN_TRANSITO`, con historial. |
-| PUT | `/{id}/ubicacion` | Recibe coordenadas; devuelve la última posición. No cambia estados. |
-| POST | `/{id}/llegadas` | Larga distancia: el repartidor marca la llegada a la próxima sucursal; actualiza los paquetes de esa parada y avisa los que quedan listos para retirar. |
+| PUT | `/{id}/ubicacion` | Recibe coordenadas; devuelve la última posición y los paquetes cuya llegada a la sucursal se registró por proximidad. |
+| POST | `/{id}/llegadas` | Larga distancia, respaldo: el repartidor marca la llegada a la próxima sucursal cuando el GPS no la registró. |
 | GET | `/{id}/ubicacion` | Última posición vinculada al recorrido; `data: null` si todavía no tiene una. |
 | GET | `/{id}/paquetes/{codigo}/contacto` | Contacto del destinatario de un paquete a domicilio en un recorrido corto activo. |
 | POST | `/{id}/paquetes/{codigo}/entrega` | Registra receptor, firma, fecha/hora, estado e historial en una transacción. |
@@ -54,27 +54,39 @@ finitos en rangos `[-90, 90]` y `[-180, 180]`. No se aceptan campos adicionales.
 La hora es la de recepción en el servidor, en UTC. Se conserva únicamente la
 última posición del repartidor y el recorrido al que pertenece.
 
-La posición **no modifica estados de paquetes**, ni en corta ni en larga
-distancia: sirve para el mapa y para el seguimiento público.
+En corta distancia, la posición **no modifica estados de paquetes**.
 
 ### Llegada a una sucursal (larga distancia, HU11 Escenario 3)
+
+**Automática por proximidad.** En cada posición se toma la próxima parada
+pendiente del mismo detalle que usa HU10, sin recalcular otro orden, y se mide
+la distancia Haversine a su sucursal. Dentro de un radio inclusivo de 10 km
+(`RADIO_LLEGADA_KM`) se registra la llegada y la respuesta lo informa en
+`paquetes_actualizados`. Un envío de posición procesa como máximo esa parada:
+no adelanta una posterior aunque esté cerca, ni actualiza paquetes ya
+procesados, la sucursal de origen o una sucursal sin coordenadas.
+
+**Respaldo manual.** Si el GPS no la registró, el repartidor la marca desde la
+app con «Llegué a [sucursal]»:
 
 ```json
 { "sucursal_id": 4, "latitud": -34.58, "longitud": -58.42 }
 ```
 
-El repartidor la marca desde la app con «Llegué a [sucursal]». Solo se acepta
-en un recorrido `EN_CURSO` entre sucursales y para la **próxima** parada con
-paquetes pendientes, en el mismo orden que muestra HU10; marcar otra devuelve
-`400` con el nombre de la que corresponde. Cada paquete de esa parada queda:
+Solo se acepta en un recorrido `EN_CURSO` entre sucursales y para la
+**próxima** parada con paquetes pendientes; marcar otra devuelve `400` con el
+nombre de la que corresponde.
+
+En los dos casos, cada paquete de esa parada queda:
 
 - `LISTO_PARA_RETIRO`, con fecha límite de retiro, si se retira en esa sucursal;
 - `EN_SUCURSAL_DESTINO`, si sigue a domicilio;
 - en una devolución, listo para el remitente en su sucursal de origen, o
   `EN_DEVOLUCION` si todavía no llegó.
 
-Se registra el historial a nombre del repartidor, con la sucursal y la posición
-si se envió, y la asignación del tramo queda `ENTREGADO`. Los paquetes que
+Se registra el historial con la sucursal y la posición (sin usuario si fue
+automática, a nombre del repartidor si la marcó él), y la asignación del tramo
+queda `ENTREGADO`. Los paquetes que
 quedan listos para retirar generan el aviso al destinatario por email y
 WhatsApp. Cuando todas las asignaciones se resolvieron, el recorrido queda
 `FINALIZADO` y una nueva llegada o posición se rechaza con `400`.
