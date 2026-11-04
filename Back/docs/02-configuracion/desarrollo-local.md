@@ -17,12 +17,17 @@ Copy-Item .env.example .env
 
 El `lifespan` de `crear_aplicacion()` (`app/api/main.py`) ejecuta, en orden, `ejecutar_siembra()` (`app/infrastructure/db/seed.py`):
 
-1. `crear_tablas()` — crea todas las tablas del modelo si no existen (`Base.metadata.create_all`, ver la nota sobre Alembic en [Modelo de datos](../01-arquitectura/modelo-de-datos.md)).
+1. `actualizar_esquema_al_iniciar()` — aplica las migraciones de Alembic pendientes (`alembic upgrade head`). Una base vacía se crea completa; una creada antes con `create_all` se adopta y se migra. Ver [Mantener Neon actualizada](./base-de-datos-neon.md).
 2. `sembrar_roles()` — inserta los 4 roles base si no existen.
 3. `sembrar_superadmin()` — si `SUPERADMIN_SEED_PASSWORD` está definida y no existe ya un usuario con ese DNI/email, crea el Superadministrador con `requiere_cambio_password=False`.
 4. `sembrar_sucursales()` — inserta las 6 sucursales de ejemplo si no existen (matching por nombre).
+5. `sembrar_preguntas_frecuentes()` — carga las 13 preguntas frecuentes iniciales (HU08) **solo si la tabla está vacía**, para no volver a crear contenido que un administrador borró o editó.
 
 Todo esto es idempotente: reiniciar el servidor no duplica datos, cada función chequea existencia antes de insertar.
+
+## Bases creadas antes con `create_all`
+
+Ya no hace falta borrar `gestion_envios.db` ni correr `alembic stamp` a mano: al arrancar, la API detecta una base sin `alembic_version`, la marca en la revisión que corresponde y aplica las migraciones que falten. Lo mismo hace `python -m app.infrastructure.db.actualizar_base`.
 
 ## Endpoints útiles para verificar que todo funciona
 
@@ -32,6 +37,7 @@ Todo esto es idempotente: reiniciar el servidor no duplica datos, cada función 
 | Los endpoints están montados | Abrir `http://localhost:8000/docs` (Swagger) o `http://localhost:8000/openapi.json` |
 | Login del Superadmin sembrado | `POST /api/v1/auth/login` con el DNI/contraseña de `SUPERADMIN_SEED_*` |
 | Catálogo de sucursales | `GET /api/v1/sucursales` |
+| Preguntas frecuentes sembradas | `GET /api/v1/preguntas-frecuentes` |
 
 ## Reiniciar desde cero
 

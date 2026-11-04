@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 
 
 # Nota: sin uso actual, ídem `usuario.py` — ver ese archivo.
@@ -7,5 +6,5 @@ from typing import Optional
 class Rol:
     id: int
     nombre: str
-    descripcion: Optional[str] = None
+    descripcion: str | None = None
 

@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials
@@ -51,8 +51,8 @@ async def login(
     description="Autentica o reanuda la sesión a partir de un token JWT generado previamente. Soporta token en el body JSON o en la cabecera Authorization: Bearer.",
 )
 async def login_token(
-    datos: Optional[LoginTokenRequest] = None,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer),
+    datos: LoginTokenRequest | None = None,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security_bearer),
     servicio_auth: IServicioAuth = Depends(get_servicio_auth),
 ):
     """Endpoint para iniciar sesión o validar acceso con token (primer acceso o accesos posteriores)."""
@@ -90,7 +90,7 @@ async def me(
 )
 async def cambiar_password(
     datos: CambiarPasswordRequest,
-    token_payload: Dict[str, Any] = Depends(validar_token_para_cambio_password),
+    token_payload: dict[str, Any] = Depends(validar_token_para_cambio_password),
     servicio_auth: IServicioAuth = Depends(get_servicio_auth),
 ):
     """Endpoint de cambio de contraseña (HU02)."""

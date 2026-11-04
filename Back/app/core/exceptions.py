@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class AppException(Exception):
@@ -9,7 +9,7 @@ class AppException(Exception):
         message: str,
         code: str = "INTERNAL_ERROR",
         status_code: int = 500,
-        errors: Optional[List[Dict[str, Any]]] = None,
+        errors: list[dict[str, Any]] | None = None,
     ):
         super().__init__(message)
         self.message = message
@@ -31,7 +31,7 @@ class ValidationException(AppException):
     def __init__(
         self,
         message: str = "Los datos proporcionados no son válidos.",
-        errors: Optional[List[Dict[str, Any]]] = None,
+        errors: list[dict[str, Any]] | None = None,
     ):
         super().__init__(
             message=message,
@@ -45,7 +45,7 @@ class DuplicateEntryException(AppException):
     def __init__(
         self,
         message: str = "El DNI o Email ya se encuentran registrados.",
-        errors: Optional[List[Dict[str, Any]]] = None,
+        errors: list[dict[str, Any]] | None = None,
     ):
         super().__init__(
             message=message,
@@ -59,7 +59,7 @@ class PasswordPolicyException(AppException):
     def __init__(
         self,
         message: str = "Las contraseñas no coinciden o no cumplen con los requisitos de seguridad.",
-        errors: Optional[List[Dict[str, Any]]] = None,
+        errors: list[dict[str, Any]] | None = None,
     ):
         super().__init__(
             message=message,

@@ -12,7 +12,7 @@ def test_domain_no_importa_capas_externas():
         for file in files:
             if file.endswith(".py"):
                 file_path = Path(root) / file
-                with open(file_path, "r", encoding="utf-8") as f:
+                with open(file_path, encoding="utf-8") as f:
                     tree = ast.parse(f.read(), filename=str(file_path))
 
                 for node in ast.walk(tree):
@@ -39,7 +39,7 @@ def test_application_no_importa_api():
         for file in files:
             if file.endswith(".py"):
                 file_path = Path(root) / file
-                with open(file_path, "r", encoding="utf-8") as f:
+                with open(file_path, encoding="utf-8") as f:
                     tree = ast.parse(f.read(), filename=str(file_path))
 
                 for node in ast.walk(tree):

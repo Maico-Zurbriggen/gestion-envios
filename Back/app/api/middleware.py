@@ -1,4 +1,5 @@
-from typing import Any, Dict, List
+from typing import Any
+
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -14,7 +15,7 @@ def registrar_manejadores_excepciones(app: FastAPI) -> None:
 
     @app.exception_handler(AppException)
     async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
-        content: Dict[str, Any] = {
+        content: dict[str, Any] = {
             "status": "error",
             "code": exc.code,
             "message": exc.message,
@@ -31,19 +32,19 @@ def registrar_manejadores_excepciones(app: FastAPI) -> None:
     async def validation_exception_handler(
         request: Request, exc: RequestValidationError
     ) -> JSONResponse:
-        errores_formateados: List[Dict[str, str]] = []
+        errores_formateados: list[dict[str, str]] = []
         for error in exc.errors():
             loc = error.get("loc", [])
             # Obtener el nombre del campo omitiendo 'body'
             campo = str(loc[-1]) if loc else "general"
             if campo == "body" and len(loc) > 1:
                 campo = str(loc[1])
-            
+
             msg = error.get("msg", "Dato inválido.")
             # Limpiar mensajes técnicos de pydantic para hacerlos legibles
             if msg.startswith("Value error, "):
                 msg = msg.replace("Value error, ", "")
-            
+
             errores_formateados.append({"field": campo, "message": msg})
 
         return JSONResponse(

@@ -1,4 +1,5 @@
 import re
+
 from app.domain.rules.password_rules import (
     generar_password_temporal,
     validar_politica_password,
@@ -14,7 +15,7 @@ def test_generar_password_temporal_cumple_politica():
         assert re.search(r"[a-z]", pwd), "Falta minúscula en contraseña generada"
         assert re.search(r"[0-9]", pwd), "Falta dígito en contraseña generada"
         assert re.search(r"[!@#$%&*]", pwd), "Falta carácter especial en contraseña generada"
-        
+
         # Validar con la función de política
         es_valida, error = validar_politica_password(pwd)
         assert es_valida is True, f"La contraseña generada fue rechazada por la política: {error}"

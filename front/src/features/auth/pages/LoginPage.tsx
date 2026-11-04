@@ -1,16 +1,21 @@
 import { useState, type FormEvent } from 'react'
 import {
   CircleAlert,
+  CircleHelp,
   Eye,
   EyeOff,
   IdCard,
   LoaderCircle,
   LockKeyhole,
   LogIn,
+  MapPin,
   PackageCheck,
+  PackagePlus,
+  Search,
   ShieldCheck,
 } from 'lucide-react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { shouldChooseBranch } from '../branchAccess'
 import { useAppSelector } from '../../../app/store'
 import { useLogin } from '../hooks/useLogin'
 import { selectIsAuthenticated } from '../redux/authSlice'
@@ -40,7 +45,8 @@ export function LoginPage() {
             return
           }
 
-          navigate('/', { replace: true })
+          // Con más de una sucursal habilitada, pregunta en cuál va a trabajar.
+          navigate(shouldChooseBranch(result.session.user) ? '/elegir-sucursal' : '/', { replace: true })
         },
       },
     )
@@ -61,7 +67,7 @@ export function LoginPage() {
           </div>
 
           <div className="login-brand__content">
-            <h2>Tu operación logística, en un solo lugar.</h2>
+            <h2>Tu operación logística, <span>en un solo lugar</span>.</h2>
             <p>
               Administrá cada envío con información clara, segura y siempre
               disponible.
@@ -171,6 +177,28 @@ export function LoginPage() {
               )}
               {loginMutation.isPending ? 'Ingresando…' : 'Ingresar'}
             </button>
+
+            <div className="login-public-action">
+              <span>Acciones públicas</span>
+              <div className="login-public-action__links">
+                <Link to="/envios/nuevo">
+                  <PackagePlus size={18} aria-hidden="true" />
+                  Registrar envío
+                </Link>
+                <Link to="/seguimiento">
+                  <Search size={18} aria-hidden="true" />
+                  Seguir paquete
+                </Link>
+                <Link className="login-public-action__wide" to="/sucursales" state={{ backTo: '/login', backLabel: 'Volver al inicio de sesión' }}>
+                  <MapPin size={18} aria-hidden="true" />
+                  Ver sucursales
+                </Link>
+                <Link className="login-public-action__wide" to="/preguntas-frecuentes">
+                  <CircleHelp size={18} aria-hidden="true" />
+                  Preguntas frecuentes
+                </Link>
+              </div>
+            </div>
           </form>
         </div>
       </section>

@@ -3,9 +3,7 @@ from httpx import AsyncClient
 
 from app.core.config import settings
 from app.domain.constants.error_codes import ErrorCodes
-from app.domain.constants.roles import RolEnum, RolIdEnum
-from app.domain.constants.scopes import ScopeEnum
-from app.infrastructure.auth.jwt_handler import ManejadorJWT
+from app.domain.constants.roles import RolIdEnum
 
 
 @pytest.mark.asyncio
@@ -30,6 +28,7 @@ async def test_hu01_escenario_3_alta_empleado_exitosa(
         "email": "carlos.gomez@empresa.com",
         "telefono": "+543564123456",
         "rol_id": RolIdEnum.ADMINISTRATIVO.value,
+        "sucursal_ids": [1],
     }
 
     resp = await client.post("/api/v1/admin/empleados", json=payload_empleado, headers=headers)
@@ -75,6 +74,7 @@ async def test_hu01_escenario_4_alta_empleado_duplicado(
         "email": "mariano.lopez@empresa.com",
         "telefono": "+543564112233",
         "rol_id": RolIdEnum.ADMINISTRATIVO.value,
+        "sucursal_ids": [1],
     }
     # Crear por primera vez
     resp1 = await client.post("/api/v1/admin/empleados", json=payload, headers=headers)
@@ -87,6 +87,7 @@ async def test_hu01_escenario_4_alta_empleado_duplicado(
         "email": "otro.email@empresa.com",
         "telefono": "+543564000000",
         "rol_id": RolIdEnum.ADMINISTRATIVO.value,
+        "sucursal_ids": [1],
     }
     resp_dup_dni = await client.post("/api/v1/admin/empleados", json=payload_mismo_dni, headers=headers)
     assert resp_dup_dni.status_code == 409
@@ -99,6 +100,7 @@ async def test_hu01_escenario_4_alta_empleado_duplicado(
         "email": "mariano.lopez@empresa.com",
         "telefono": "+543564000000",
         "rol_id": RolIdEnum.ADMINISTRATIVO.value,
+        "sucursal_ids": [1],
     }
     resp_dup_email = await client.post("/api/v1/admin/empleados", json=payload_mismo_email, headers=headers)
     assert resp_dup_email.status_code == 409
@@ -126,6 +128,7 @@ async def test_hu01_escenario_4_alta_empleado_datos_invalidos(
         "email": "pedro.ruiz@empresa.com",
         "telefono": "+543564123456",
         "rol_id": 2,
+        "sucursal_ids": [1],
     }
     resp = await client.post("/api/v1/admin/empleados", json=payload_dni_invalido, headers=headers)
     assert resp.status_code == 400
@@ -138,8 +141,33 @@ async def test_hu01_escenario_4_alta_empleado_datos_invalidos(
         "email": "pedro-sin-arroba-ni-dominio",
         "telefono": "+543564123456",
         "rol_id": 2,
+        "sucursal_ids": [1],
     }
     resp2 = await client.post("/api/v1/admin/empleados", json=payload_email_invalido, headers=headers)
     assert resp2.status_code == 400
     assert resp2.json()["code"] == ErrorCodes.VALIDATION_ERROR
 
+
+
+@pytest.mark.asyncio
+async def test_hu01_escenario_4_email_duplicado_con_otras_mayusculas(client: AsyncClient):
+    """El email se guarda en minúsculas: un duplicado que solo cambia mayúsculas
+    tiene que rechazarse con 409, no romper con un 500 por la restricción UNIQUE."""
+    login_super = await client.post(
+        "/api/v1/auth/login",
+        json={"dni": settings.SUPERADMIN_SEED_DNI, "password": settings.SUPERADMIN_SEED_PASSWORD or "SuperAdmin2026!*"},
+    )
+    headers = {"Authorization": f"Bearer {login_super.json()['data']['token']}"}
+    base = {"nombre": "Laura Martínez", "telefono": "+543564998877", "rol_id": RolIdEnum.ADMINISTRATIVO.value, "sucursal_ids": [1]}
+
+    primero = await client.post(
+        "/api/v1/admin/empleados", headers=headers, json={**base, "dni": "38123456", "email": "laura@empresa.com"}
+    )
+    assert primero.status_code == 201
+
+    duplicado = await client.post(
+        "/api/v1/admin/empleados", headers=headers, json={**base, "dni": "38123457", "email": "Laura@empresa.com"}
+    )
+    assert duplicado.status_code == 409
+    assert duplicado.json()["code"] == ErrorCodes.DUPLICATE_ENTRY
+    assert duplicado.json()["errors"][0]["field"] == "email"

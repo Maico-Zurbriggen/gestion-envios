@@ -213,3 +213,42 @@ async def test_login_con_token_y_endpoint_me(client: AsyncClient, db_session: As
     assert resp_sin_token.json()["code"] == ErrorCodes.INVALID_TOKEN
 
 
+
+
+@pytest.mark.asyncio
+async def test_hu02_me_no_permite_saltear_el_cambio_obligatorio_de_password(
+    client: AsyncClient, db_session: AsyncSession
+):
+    """Con el token temporal del primer acceso, /auth/me no puede devolver un token
+    de acceso pleno: eso permitiría operar sin haber cambiado la contraseña (HU02)."""
+    temp_password = "Tmp#9284Kz1!"
+    db_session.add(
+        UsuarioModel(
+            nombre="Pedro Primer Acceso",
+            dni="38999111",
+            email="pedro.primer@empresa.com",
+            telefono="+543564111000",
+            password_hash=HasherContrasenas.generar_hash(temp_password),
+            estado="Activo",
+            requiere_cambio_password=True,
+            rol_id=RolIdEnum.SUPERADMIN.value,
+        )
+    )
+    await db_session.commit()
+
+    login = await client.post("/api/v1/auth/login", json={"dni": "38999111", "password": temp_password})
+    temp_token = login.json()["data"]["temp_token"]
+
+    me = await client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {temp_token}"})
+    assert me.status_code == 200
+    assert me.json()["data"]["user"]["requiere_cambio_password"] is True
+    token_me = me.json()["data"]["token"]
+
+    # El token devuelto sigue restringido al cambio de contraseña
+    resp = await client.post(
+        "/api/v1/admin/empleados",
+        headers={"Authorization": f"Bearer {token_me}"},
+        json={"nombre": "Intruso", "dni": "40111222", "email": "intruso@empresa.com", "telefono": "+543564000000", "rol_id": 2},
+    )
+    assert resp.status_code == 403
+    assert resp.json()["code"] == ErrorCodes.FORBIDDEN_SCOPE

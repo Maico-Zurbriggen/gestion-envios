@@ -1,3 +1,4 @@
+import re
 import secrets
 import string
 
@@ -19,3 +20,14 @@ def generar_token_seguimiento() -> str:
 def generar_numero_paquete() -> str:
     """Genera un número de paquete público (codificado en el código de barras de la planilla)."""
     return f"{PREFIJO_NUMERO_PAQUETE}{_generar_sufijo()}"
+
+
+def normalizar_token_seguimiento(token: str | None) -> str:
+    """Limpia el token que tipea o pega el usuario en la vista pública.
+
+    Los tokens se generan siempre en mayúsculas y sin espacios, pero quien lo
+    copia de un correo suele arrastrar espacios o saltos de línea, y quien lo
+    tipea puede hacerlo en minúsculas. Sin esta normalización, `env-adrzspq90k`
+    devolvía `404` aunque el envío exista.
+    """
+    return re.sub(r"\s+", "", token or "").upper()

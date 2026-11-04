@@ -1,6 +1,7 @@
-from typing import Union
+from typing import Any
 from uuid import UUID
 
+from app.application.interfaces.repositorio_sucursales import IRepositorioSucursales
 from app.application.interfaces.repositorio_usuarios import IRepositorioUsuarios
 from app.contracts.auth import (
     CambiarPasswordData,
@@ -9,6 +10,7 @@ from app.contracts.auth import (
     LoginRequiresPasswordChangeResponse,
     LoginSuccessResponse,
     LoginTempTokenData,
+    SucursalAccesoData,
     UserInfoResponse,
 )
 from app.core.exceptions import (
@@ -18,6 +20,7 @@ from app.core.exceptions import (
 )
 from app.domain.constants.scopes import ScopeEnum
 from app.domain.rules.password_rules import validar_politica_password
+from app.domain.rules.sucursal_rules import sucursales_permitidas, ve_todas_las_sucursales
 from app.infrastructure.auth.hasher import HasherContrasenas
 from app.infrastructure.auth.jwt_handler import ManejadorJWT
 
@@ -30,14 +33,27 @@ class ServicioAuth:
         repositorio_usuarios: IRepositorioUsuarios,
         hasher: HasherContrasenas = HasherContrasenas(),
         jwt_handler: ManejadorJWT = ManejadorJWT(),
+        repositorio_sucursales: IRepositorioSucursales | None = None,
     ):
         self.repo_usuarios = repositorio_usuarios
+        self.repo_sucursales = repositorio_sucursales
         self.hasher = hasher
         self.jwt_handler = jwt_handler
 
+    async def _sucursales(self, usuario: Any, rol: str) -> list[SucursalAccesoData]:
+        """Sucursales en las que puede trabajar (el Superadministrador, en todas)."""
+        todas = await self.repo_sucursales.listar_todas() if self.repo_sucursales and ve_todas_las_sucursales(rol) else []
+        return [
+            SucursalAccesoData(
+                id=s.id, nombre=s.nombre, ciudad=s.ciudad, provincia=s.provincia, direccion=s.direccion,
+                activa=getattr(s, "activa", True),
+            )
+            for s in sucursales_permitidas(rol, getattr(usuario, "sucursales", None) or [], todas)
+        ]
+
     async def autenticar_usuario(
         self, dni: str, password_plana: str
-    ) -> Union[LoginSuccessResponse, LoginRequiresPasswordChangeResponse]:
+    ) -> LoginSuccessResponse | LoginRequiresPasswordChangeResponse:
         """Autentica a un usuario por su DNI y contraseña (Escenarios 1 y 2 de HU01, Escenario 1 y 4 de HU02)."""
         usuario = await self.repo_usuarios.obtener_por_dni(dni)
         if not usuario:
@@ -83,6 +99,7 @@ class ServicioAuth:
                     dni=usuario.dni,
                     email=usuario.email,
                     rol=rol_nombre,
+                    sucursales=await self._sucursales(usuario, rol_nombre),
                     requiere_cambio_password=False,
                 ),
             ),
@@ -157,7 +174,7 @@ class ServicioAuth:
 
     async def autenticar_con_token(
         self, token: str
-    ) -> Union[LoginSuccessResponse, LoginRequiresPasswordChangeResponse]:
+    ) -> LoginSuccessResponse | LoginRequiresPasswordChangeResponse:
         """Inicia sesión o valida la sesión utilizando un token JWT previamente emitido."""
         if not token or not token.strip():
             raise InvalidTokenException("Token de autenticación no proporcionado.")
@@ -198,6 +215,7 @@ class ServicioAuth:
                     dni=usuario.dni,
                     email=usuario.email,
                     rol=rol_nombre,
+                    sucursales=await self._sucursales(usuario, rol_nombre),
                     requiere_cambio_password=False,
                 ),
             ),
@@ -214,10 +232,18 @@ class ServicioAuth:
 
         rol_nombre = usuario.rol.nombre if usuario.rol else "ADMINISTRATIVO"
 
+        # `/auth/me` acepta también el token temporal del primer acceso: si el
+        # usuario todavía debe cambiar su contraseña, el token renovado tiene que
+        # seguir restringido, o se podría saltear el cambio obligatorio (HU02).
+        scope = (
+            ScopeEnum.PASSWORD_RESET_ONLY.value
+            if usuario.requiere_cambio_password
+            else ScopeEnum.FULL_ACCESS.value
+        )
         token = self.jwt_handler.emitir_token(
             usuario_id=str(usuario.id),
             rol=rol_nombre,
-            scope=ScopeEnum.FULL_ACCESS.value,
+            scope=scope,
         )
 
         return LoginSuccessResponse(
@@ -230,6 +256,7 @@ class ServicioAuth:
                     dni=usuario.dni,
                     email=usuario.email,
                     rol=rol_nombre,
+                    sucursales=await self._sucursales(usuario, rol_nombre),
                     requiere_cambio_password=usuario.requiere_cambio_password,
                 ),
             ),

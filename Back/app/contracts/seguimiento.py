@@ -1,6 +1,23 @@
 from datetime import datetime
 
+from pydantic import Field
+
 from app.contracts.common import ApiModel
+from app.contracts.reparto import UbicacionData
+
+
+class EventoSeguimientoData(ApiModel):
+    estado_anterior: str | None
+    estado: str
+    fecha_hora: datetime
+    descripcion: str
+
+
+class RetiroSeguimientoData(ApiModel):
+    sucursal: str
+    direccion: str
+    hasta: datetime | None = None
+    lo_retira: str = Field(..., description="'destinatario' o 'remitente' (en una devolución).")
 
 
 class PaqueteSeguimientoData(ApiModel):
@@ -14,16 +31,32 @@ class PaqueteSeguimientoData(ApiModel):
     observaciones: str | None
     fecha_registro: datetime
     ultima_actualizacion: datetime
+    historial: list[EventoSeguimientoData] = Field(default_factory=list)
+    ubicacion_repartidor: UbicacionData | None = None
+    retiro: RetiroSeguimientoData | None = Field(
+        None, description="Dónde y hasta cuándo retirarlo, cuando el paquete espera en una sucursal."
+    )
+    visitas_fallidas: int = 0
+    max_visitas: int = 2
+    en_devolucion: bool = Field(False, description="No se retiró a tiempo y vuelve a quien lo envió.")
 
 
 class SeguimientoData(ApiModel):
     """`destino` ya viene armado como un único string legible (dirección
     completa o sucursal + dirección) para que la vista pública no tenga que
     decidir el formato. `paquetes` incluye todos los del envío asociado al
-    token (HU04 Escenario 2), no uno solo."""
+    token (HU04 Escenario 2), no uno solo.
+
+    `latitud_destino`/`longitud_destino` son las coordenadas fijas del
+    destino. La última posición del repartidor se proporciona por paquete
+    exclusivamente mientras esté pendiente en un recorrido EN_CURSO."""
 
     token_seguimiento: str
+    tipo_entrega: str
+    """`domicilio` o `sucursal`: habilita en la vista pública la consulta de sucursal de retiro (HU09)."""
     destino: str
+    latitud_destino: float | None
+    longitud_destino: float | None
     paquetes: list[PaqueteSeguimientoData]
 
 

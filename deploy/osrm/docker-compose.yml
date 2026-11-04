@@ -1,0 +1,43 @@
+# OSRM propio con el mapa de calles de Argentina (el mismo esquema que Rumbo).
+#
+# 1. Preparar una vez (y cada mes para actualizar calles; tarda unos minutos y usa varios GB de RAM):
+#      docker compose -f deploy/osrm/docker-compose.yml --profile preparar run --rm osrm-prepare
+# 2. Levantar:
+#      docker compose -f deploy/osrm/docker-compose.yml up -d osrm
+# 3. En el .env del backend:  OSRM_URL=http://localhost:5000
+#
+# Mientras no esté levantado, el backend usa el servidor público de demostración de OSRM
+# (solo para uso liviano: una consulta por segundo).
+services:
+  # La imagen de OSRM no trae wget/curl: el mapa se baja antes con una imagen liviana.
+  osrm-download:
+    image: alpine:3.20
+    profiles: ["preparar"]
+    # Geofabrik y, si falla, el espejo de openstreetmap.fr (mismo extracto diario de Argentina).
+    command: ["sh", "-c", "cd /data && (wget -q -O argentina-latest.osm.pbf.tmp https://download.geofabrik.de/south-america/argentina-latest.osm.pbf || wget -q -O argentina-latest.osm.pbf.tmp https://download.openstreetmap.fr/extracts/south-america/argentina-latest.osm.pbf) && mv argentina-latest.osm.pbf.tmp argentina-latest.osm.pbf && ls -la"]
+    volumes:
+      - osrm-data:/data
+
+  osrm-prepare:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    profiles: ["preparar"]
+    entrypoint: ["/bin/sh", "/scripts/osrm-prepare.sh"]
+    depends_on:
+      osrm-download:
+        condition: service_completed_successfully
+    volumes:
+      - osrm-data:/data
+      - ./osrm-prepare.sh:/scripts/osrm-prepare.sh:ro
+
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    restart: unless-stopped
+    command: ["osrm-routed", "--algorithm", "mld", "--max-table-size", "500", "/data/argentina-latest.osrm"]
+    ports:
+      - "5000:5000"
+    volumes:
+      - osrm-data:/data
+    mem_limit: 3g
+
+volumes:
+  osrm-data:

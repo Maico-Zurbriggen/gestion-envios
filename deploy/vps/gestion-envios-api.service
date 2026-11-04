@@ -1,0 +1,17 @@
+[Unit]
+Description=Gestion de Envios - API (FastAPI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=gestionenvios
+Group=gestionenvios
+WorkingDirectory=/opt/gestion-envios/back
+ExecStart=/opt/gestion-envios/back/.venv/bin/uvicorn app.api.main:app --host 127.0.0.1 --port 8010 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

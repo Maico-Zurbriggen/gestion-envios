@@ -103,3 +103,13 @@
     animation-duration: 1.5s;
   }
 }
+
+/* En pantallas táctiles, Safari amplía la vista al tocar un campo con letra menor a 16 px y el zoom
+   queda puesto al cambiar de pantalla. Con 16 px no amplía; el zoom con dos dedos sigue disponible. */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+  select,
+  textarea {
+    font-size: max(16px, 1rem) !important;
+  }
+}

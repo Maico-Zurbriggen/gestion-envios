@@ -1,0 +1,159 @@
+import { useRef, useState, type FormEvent } from 'react'
+import { CheckCircle2, CircleAlert, Printer, RefreshCw, ScanBarcode, Search, Weight } from 'lucide-react'
+import { TraceLink } from '../../monitor/components/TraceLink'
+import { ActiveBranchNote } from '../../auth/components/ActiveBranchNote'
+import { useActiveBranch } from '../../auth/hooks/useActiveBranch'
+import { ShipmentNotifications } from '../../notifications/components/ShipmentNotifications'
+import { getStatusLabel } from '../../tracking/trackingStatus'
+import { useTerminal } from '../hooks/useTerminal'
+import type { ScannedPackage } from '../types/terminal.types'
+import { ScanWithCameraButton } from '../../../shared/components/ScanWithCameraButton'
+import { PACKAGE_CODE_PATTERN } from '../../../shared/services/scannedCode'
+import { PrintLabelsButton } from '../../../shared/printing/PrintLabelsButton'
+import { printShipmentLabels } from '../../../shared/printing/printLabels'
+import type { ShipmentLabelData } from '../../../shared/printing/shipmentLabels'
+import { usePrintSettings } from '../../../shared/printing/usePrintSettings'
+import { showToast } from '../../../shared/services/toast'
+import '../../../shared/styles/operations.css'
+import { formatLongDay } from '../../../shared/utils/dates'
+
+const AUTO_PRINT_KEY = 'terminal-imprimir-al-admitir'
+
+function readAutoPrint() {
+  try { return localStorage.getItem(AUTO_PRINT_KEY) !== '0' } catch { return true }
+}
+
+function storeAutoPrint(value: boolean) {
+  try { localStorage.setItem(AUTO_PRINT_KEY, value ? '1' : '0') } catch { /* almacenamiento no disponible */ }
+}
+
+// Etiqueta con los datos que ya trae la identificación: sin consultas extra.
+function toPrintLabel(item: ScannedPackage, caption: string, weightKg?: number | null): ShipmentLabelData {
+  return {
+    packageNumber: item.code,
+    trackingToken: item.trackingToken,
+    recipientName: item.recipientName,
+    destination: item.destination,
+    deliveryType: item.deliveryType,
+    weightKg: weightKg ?? item.weightKg,
+    dimensions: item.dimensions,
+    index: item.packageIndex,
+    total: item.packageTotal,
+    date: new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date()),
+    dateCaption: caption,
+  }
+}
+
+export function TerminalPage() {
+  const codeInputRef = useRef<HTMLInputElement>(null)
+  const [input, setInput] = useState('')
+  const [code, setCode] = useState('')
+  const [notes, setNotes] = useState('')
+  const [scaleWeight, setScaleWeight] = useState('')
+  const [autoPrint, setAutoPrint] = useState(readAutoPrint)
+  const [printSettings] = usePrintSettings()
+  // Se recibe en la sucursal en la que se está trabajando.
+  const { branchId } = useActiveBranch()
+  const { scan, receive } = useTerminal(code)
+  // Paquetes recibidos en esta visita a la pantalla: leerlos de nuevo no los vuelve a abrir.
+  const received = useRef(new Set<string>())
+
+  function focusCode() {
+    requestAnimationFrame(() => codeInputRef.current?.focus())
+  }
+
+  // Única entrada de códigos: el lector USB, el tipeo manual y la cámara terminan acá.
+  function searchCode(value: string) {
+    const normalized = value.replace(/\s/g, '').toUpperCase()
+    if (!normalized) return
+    receive.reset(); setNotes(''); setScaleWeight('')
+    if (normalized === code) void scan.refetch()
+    else setCode(normalized)
+  }
+
+  function search(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    searchCode(input)
+  }
+
+  function searchFromCamera(scanned: string) {
+    if (receive.isPending) return 'Esperá a que termine la recepción en curso antes de leer otro paquete.'
+    if (received.current.has(scanned)) return `${scanned} ya se recibió. Apuntá a otro paquete.`
+    // Si la consulta anterior falló, leerlo de nuevo sirve para reintentar.
+    if (scanned === code && scan.data && !scan.isError) return `${scanned} ya está escaneado: sus datos están abajo.`
+    setInput(scanned)
+    searchCode(scanned)
+  }
+
+  function nextPackage() {
+    setInput(''); setCode(''); setNotes(''); setScaleWeight('')
+    receive.reset()
+    focusCode()
+  }
+
+  const item = scan.data
+  return <div className="ops-page">
+    <header className="ops-page__header"><span className="eyebrow"><ScanBarcode size={15} aria-hidden="true" /> Operación de terminal</span><h1>Recepción en terminal</h1><p>Admisión del paquete: leé el código del comprobante del cliente, revisá los datos, pesalo y confirmá. Al confirmar se imprime la etiqueta para pegar en la caja.</p></header>
+    <form className="ops-panel ops-scan ops-scan--camera" onSubmit={search}>
+      <label className="form-field" htmlFor="terminal-code">Código del paquete<input ref={codeInputRef} id="terminal-code" className="form-control" value={input} onChange={(e) => setInput(e.target.value)} onFocus={(e) => e.target.select()} required maxLength={80} autoComplete="off" autoFocus disabled={receive.isPending} placeholder="PAQ-XXXXXXXXXX" /></label>
+      <button className="ops-button ops-button--primary" disabled={scan.isFetching || receive.isPending}><Search size={18} aria-hidden="true" />{scan.isFetching ? 'Consultando…' : 'Identificar paquete'}</button>
+      <ScanWithCameraButton mode="continuous" pattern={PACKAGE_CODE_PATTERN} patternMessage={(read) => `${read} no es un código de paquete (PAQ-XXXXXXXXXX).`} onScan={searchFromCamera} disabled={receive.isPending}
+        description="Apuntá la cámara trasera al código de barras de cada paquete. Cada lectura identifica el paquete automáticamente."
+        continuousHint="Cerrá la cámara para revisar los datos del paquete y confirmar la recepción física." />
+    </form>
+    {scan.isFetching && <p role="status">Consultando el paquete…</p>}
+    {scan.isError && <div className="form-error" role="alert">{scan.error.message}<button className="ops-button" type="button" disabled={scan.isFetching} onClick={() => void scan.refetch()}><RefreshCw size={18} aria-hidden="true" /> Reintentar</button></div>}
+    {item && !scan.isError && <section className="ops-panel ops-stack" aria-label="Paquete identificado">
+      <div className="ops-package__heading"><div><span className="eyebrow">Paquete identificado</span><h2>{item.code}</h2></div><span className="badge">{getStatusLabel(item.status)}</span></div>
+      <dl className="ops-details">
+        <div><dt>Contenido</dt><dd><strong>{item.description}</strong> · {item.weightKg} kg · {item.dimensions}</dd></div>
+        <div><dt>Estado</dt><dd>{getStatusLabel(item.status)}</dd></div>
+        <div><dt>Remitente</dt><dd>{item.senderName} · Documento: {item.senderDocument}</dd></div>
+        <div><dt>Destinatario</dt><dd>{item.recipientName}</dd></div>
+        <div className="ops-details__wide"><dt>Destino</dt><dd>{item.destination}</dd></div>
+        {item.notes && <div className="ops-details__wide"><dt>Observaciones declaradas</dt><dd>{item.notes}</dd></div>}
+      </dl>
+      <div className="ops-actions"><PrintLabelsButton labels={[toPrintLabel(item, item.available ? 'Admitido' : 'Reimpreso')]} label={item.available ? 'Imprimir etiqueta' : 'Reimprimir etiqueta'} /><TraceLink code={item.code} className="ops-button" /></div>
+      {!item.available && <p role="status">{item.unavailableReason || 'Este paquete no está disponible para recepción.'}</p>}
+      {item.available && !receive.isSuccess && <form className="ops-stack" onSubmit={(e) => {
+        e.preventDefault()
+        const weight = Number(scaleWeight.replace(',', '.'))
+        receive.mutate({ code: item.code, branchId: branchId!, notes, scaleWeightKg: weight > 0 ? weight : null }, {
+          onSuccess: (reception) => {
+            received.current.add(item.code)
+            setInput('')
+            // Admisión: la etiqueta se imprime y se pega en la caja en el mostrador.
+            if (autoPrint) {
+              try {
+                printShipmentLabels([toPrintLabel(item, 'Admitido', reception.scaleWeightKg)], printSettings)
+              } catch {
+                showToast('No pudimos abrir la impresión. Usá «Imprimir etiqueta».', 'error')
+              }
+            }
+            focusCode()
+          },
+        })
+      }}>
+        <fieldset className="ops-stack" disabled={receive.isPending || scan.isFetching}>
+          <ActiveBranchNote action="Lo recibís en" />
+          <label className="form-field" htmlFor="terminal-weight">Peso en balanza (kg, opcional)
+            <span className="ops-input-icon"><Weight size={17} aria-hidden="true" /><input id="terminal-weight" className="form-control" type="text" inputMode="decimal" placeholder={`Declarado: ${item.weightKg} kg`} value={scaleWeight} onChange={(e) => setScaleWeight(e.target.value.replace(/[^\d.,]/g, ''))} /></span>
+          </label>
+          <label className="form-field" htmlFor="terminal-notes">Observaciones de recepción (opcional)<textarea id="terminal-notes" className="form-control" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} /></label>
+          <label className="ops-check" htmlFor="terminal-autoprint"><input id="terminal-autoprint" type="checkbox" checked={autoPrint} onChange={(e) => { setAutoPrint(e.target.checked); storeAutoPrint(e.target.checked) }} /> <Printer size={16} aria-hidden="true" /> Imprimir la etiqueta al confirmar (para pegarla en la caja)</label>
+          <button className="ops-button ops-button--primary" disabled={!branchId}><CheckCircle2 size={18} aria-hidden="true" />{receive.isPending ? 'Registrando…' : 'Confirmar recepción física'}</button>
+        </fieldset>
+      </form>}
+    </section>}
+    {receive.isError && <p className="form-error" role="alert">{receive.error.message} Revisá el estado actualizado antes de repetir la recepción.</p>}
+    {receive.data && <div className="ops-success ops-stack" role="status">
+      <p><CheckCircle2 size={20} aria-hidden="true" /> {receive.data.code} recibido en {receive.data.branchName}. Estado: {getStatusLabel(receive.data.status)}. {new Date(receive.data.receivedAt).toLocaleString('es-AR')}</p>
+      {receive.data.weightWarning && <p className="ops-warning"><CircleAlert size={18} aria-hidden="true" /> {receive.data.weightWarning}</p>}
+      {receive.data.pickupUntil && <p className="ops-hint">Es la sucursal de retiro: queda para el destinatario hasta el {formatLongDay(receive.data.pickupUntil)}. Ya le avisamos.</p>}
+      <p className="ops-hint">Le avisamos al remitente que recibimos el paquete.</p>
+      <p className="ops-hint">El campo de código quedó listo para escanear el siguiente paquete.</p>
+      <div className="ops-actions"><button className="ops-button" type="button" onClick={nextPackage}><ScanBarcode size={18} aria-hidden="true" /> Procesar otro paquete</button></div>
+    </div>}
+    {item && !scan.isError && <ShipmentNotifications key={item.trackingToken} trackingToken={item.trackingToken} />}
+  </div>
+}

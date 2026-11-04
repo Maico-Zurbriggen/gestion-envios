@@ -1,4 +1,4 @@
-from typing import Protocol, Union
+from typing import Protocol
 from uuid import UUID
 
 from app.contracts.auth import (
@@ -13,7 +13,7 @@ class IServicioAuth(Protocol):
 
     async def autenticar_usuario(
         self, dni: str, password_plana: str
-    ) -> Union[LoginSuccessResponse, LoginRequiresPasswordChangeResponse]: ...
+    ) -> LoginSuccessResponse | LoginRequiresPasswordChangeResponse: ...
 
     async def cambiar_password(
         self,
@@ -25,7 +25,7 @@ class IServicioAuth(Protocol):
 
     async def autenticar_con_token(
         self, token: str
-    ) -> Union[LoginSuccessResponse, LoginRequiresPasswordChangeResponse]: ...
+    ) -> LoginSuccessResponse | LoginRequiresPasswordChangeResponse: ...
 
     async def obtener_usuario_por_id(
         self, usuario_id: UUID

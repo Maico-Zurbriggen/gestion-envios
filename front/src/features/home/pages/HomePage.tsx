@@ -4,6 +4,7 @@ import {
   Boxes,
   Construction,
   IdCard,
+  KeyRound,
   ShieldCheck,
   Sparkles,
 } from 'lucide-react'
@@ -11,6 +12,7 @@ import { Link } from 'react-router-dom'
 import { getAccessibleModules } from '../../../app/navigation'
 import { useAppSelector } from '../../../app/store'
 import { selectCurrentUser } from '../../auth/redux/authSlice'
+import { roleLabel } from '../../../shared/utils/roles'
 import './HomePage.css'
 
 export function HomePage() {
@@ -37,7 +39,7 @@ export function HomePage() {
         </div>
         <span className="home-role-badge">
           <BadgeCheck size={17} aria-hidden="true" />
-          {user?.role || 'Usuario'}
+          {user?.role ? roleLabel(user.role) : 'Usuario'}
         </span>
       </section>
 
@@ -127,6 +129,10 @@ export function HomePage() {
             No compartas tu contraseña ni la dejes guardada en equipos de uso
             compartido. Cerrá la sesión al terminar.
           </p>
+          <Link className="trace-link" to="/cambiar-password">
+            <KeyRound size={16} aria-hidden="true" />
+            Cambiar mi contraseña
+          </Link>
         </div>
       </aside>
     </main>

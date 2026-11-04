@@ -32,7 +32,7 @@ def _payload_domicilio(**overrides):
         "direccion_destino": "Calle 50 N° 1234",
         "latitud_destino": -34.9214,
         "longitud_destino": -57.9544,
-        "terminos_aceptados": True,
+        "sucursal_origen_id": 1, "terminos_aceptados": True,
         "paquetes": [_paquete()],
     }
     base.update(overrides)
@@ -51,6 +51,8 @@ async def test_hu04_escenario_1_consulta_publica_con_token_valido(client: AsyncC
     seguimiento = body["data"]
     assert seguimiento["token_seguimiento"] == token
     assert "La Plata" in seguimiento["destino"]
+    assert seguimiento["latitud_destino"] == -34.9214
+    assert seguimiento["longitud_destino"] == -57.9544
     assert len(seguimiento["paquetes"]) == 1
     paquete = seguimiento["paquetes"][0]
     for campo in ("numero_paquete", "estado", "descripcion", "observaciones", "fecha_registro", "ultima_actualizacion"):
@@ -62,6 +64,22 @@ async def test_hu04_escenario_1_consulta_publica_con_token_valido(client: AsyncC
     assert "destinatario_telefono" not in seguimiento
     assert "remitente_email" not in seguimiento
     assert "destinatario_email" not in seguimiento
+
+
+@pytest.mark.asyncio
+async def test_hu04_domicilio_sin_ubicacion_marcada_devuelve_coordenadas_nulas(client: AsyncClient):
+    """Si el remitente no marcó un punto en el mapa al registrar el envío a
+    domicilio, el seguimiento debe devolver latitud/longitud en None en vez
+    de inventar una ubicación."""
+    payload = _payload_domicilio(latitud_destino=None, longitud_destino=None)
+    registro = await client.post("/api/v1/envios", json=payload)
+    token = registro.json()["data"]["token_seguimiento"]
+
+    resp = await client.get(f"/api/v1/seguimiento/{token}")
+    assert resp.status_code == 200
+    seguimiento = resp.json()["data"]
+    assert seguimiento["latitud_destino"] is None
+    assert seguimiento["longitud_destino"] is None
 
 
 @pytest.mark.asyncio
@@ -113,5 +131,24 @@ async def test_hu04_seguimiento_a_sucursal_muestra_nombre_y_direccion(client: As
     token = registro.json()["data"]["token_seguimiento"]
 
     resp = await client.get(f"/api/v1/seguimiento/{token}")
-    destino = resp.json()["data"]["destino"]
-    assert "Sucursal Test Norte" in destino
+    seguimiento = resp.json()["data"]
+    assert "Sucursal Test Norte" in seguimiento["destino"]
+    assert seguimiento["latitud_destino"] == -32.95
+    assert seguimiento["longitud_destino"] == -60.69
+
+
+@pytest.mark.asyncio
+async def test_hu04_token_en_minusculas_o_con_espacios_resuelve_el_envio(client: AsyncClient):
+    """Un token copiado de un correo (con espacios) o tipeado en minúsculas encuentra el envío."""
+    registro = await client.post("/api/v1/envios", json=_payload_domicilio())
+    token = registro.json()["data"]["token_seguimiento"]
+
+    resp = await client.get(f"/api/v1/seguimiento/{token.lower()}")
+    assert resp.status_code == 200
+    assert resp.json()["data"]["token_seguimiento"] == token
+
+    resp_espacios = await client.get(f"/api/v1/seguimiento/%20{token}%20")
+    assert resp_espacios.status_code == 200
+
+    resp_retiro = await client.get(f"/api/v1/sucursales/opciones-retiro/{token.lower()}")
+    assert resp_retiro.status_code == 200

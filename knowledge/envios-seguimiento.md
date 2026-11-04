@@ -6,6 +6,7 @@ Endpoints públicos, sin autenticación. Confirmados en Swagger (`/docs`) del ba
 
 - Endpoint: `POST /api/v1/envios`
 - Acceso: público.
+- Ruta del frontend: `/envios/nuevo`, disponible tanto sin sesión como desde el panel autenticado.
 - Un envío tiene un remitente, un destinatario y uno o más paquetes (`paquetes: []`, mínimo 1).
 
 Cuerpo de la solicitud:
@@ -38,9 +39,13 @@ Cuerpo de la solicitud:
 - `domicilio`: requiere `provincia_destino`, `ciudad_destino` y `direccion_destino`. `latitud_destino`/`longitud_destino` son opcionales (marcado en mapa, Escenario 3 de HU03); si no se marca un punto, alcanza con la dirección tipeada.
 - `sucursal`: requiere `sucursal_destino_id` (ver `GET /api/v1/sucursales`).
 
+En el frontend, el domicilio se solicita como provincia, ciudad, calle y altura; calle y altura se combinan en `direccion_destino`. Las coordenadas no se escriben en campos: se obtienen opcionalmente al marcar un punto en el mapa (MapLibre con OpenFreeMap; el punto se puede arrastrar). La acción `Ubicar en el mapa` consulta al backend (`GET /mapa/ubicar`: Georef y, de respaldo, Nominatim; ver [mapas.md](./mapas.md)) únicamente por decisión del usuario, primero con la dirección completa y, si no hay coincidencia, con ciudad y provincia. Las consultas se almacenan temporalmente en memoria y el fallback respeta un intervalo mayor a un segundo entre solicitudes. Para retiro en sucursal, antes de elegir se informa que su ubicación aparecerá en el mapa y, luego de seleccionar, se centra el mapa usando las coordenadas del catálogo.
+
 `terminos_aceptados` debe ser `true` o el backend rechaza la solicitud.
 
-Respuesta exitosa (`201 Created`): devuelve el envío completo, con `token_seguimiento` (uno solo por envío, no por paquete) y cada paquete con su `numero_paquete` propio y estado inicial `"Pendiente"`. Este `numero_paquete` es el valor a codificar en el código de barras de la planilla imprimible (Escenario 4 de HU03); la generación del PDF/planilla es responsabilidad del frontend, el backend solo provee los datos.
+Respuesta exitosa (`201 Created`): devuelve el envío completo, con `token_seguimiento` (uno solo por envío, no por paquete) y cada paquete con su `numero_paquete` propio y estado inicial `"Pendiente"`. Este `numero_paquete` es el valor a codificar en el código de barras del comprobante (Escenario 4 de HU03); la generación del comprobante es responsabilidad del frontend, el backend solo provee los datos. La respuesta incluye `admitir_hasta`, el plazo para llevar el paquete a una sucursal (ver [circuito-logistico.md](./circuito-logistico.md)). El cliente no imprime etiquetas: las imprime la sucursal al admitir el paquete.
+
+El frontend genera una etiqueta por paquete en formato imprimible A4. Cada etiqueta incorpora un código de barras Code 128 construido con `numero_paquete`, además de los datos de remitente, destinatario, destino, peso y medidas. Se puede imprimir desde el navegador o descargar directamente un PDF generado localmente con una página por bulto. El `token_seguimiento` se muestra y puede copiarse, pero no reemplaza al número de paquete utilizado para el escaneo en sucursal.
 
 ```json
 {
@@ -83,7 +88,7 @@ Si algún paquete incumple, la respuesta es `400` con `code: "VALIDATION_ERROR"`
 {
   "status": "success",
   "data": [
-    { "id": 1, "nombre": "Sucursal Córdoba Centro", "provincia": "Córdoba", "ciudad": "Córdoba", "direccion": "Av. Colón 1234", "latitud": -31.4167, "longitud": -64.1833 }
+    { "id": 1, "nombre": "Sucursal San Francisco", "provincia": "Córdoba", "ciudad": "San Francisco", "direccion": "Bv. 25 de Mayo 1855", "latitud": -31.429311, "longitud": -62.086707 }
   ]
 }
 ```
@@ -94,6 +99,7 @@ Las 6 sucursales base se siembran automáticamente al iniciar el backend (`app/i
 
 - Endpoint: `GET /api/v1/seguimiento/{token}`
 - Acceso: público.
+- Ruta del frontend: `/seguimiento`; acepta opcionalmente `?token=ENV-...` para compartir una consulta directa.
 - Un token corresponde a un único envío y devuelve **todos** los paquetes asociados a ese envío (Escenario 2 de HU04).
 
 ```json
@@ -102,6 +108,8 @@ Las 6 sucursales base se siembran automáticamente al iniciar el backend (`app/i
   "data": {
     "token_seguimiento": "ENV-ADRZSPQ90K",
     "destino": "San Martin 100, Cordoba, Cordoba",
+    "latitud_destino": -31.4167,
+    "longitud_destino": -64.1833,
     "paquetes": [
       {
         "numero_paquete": "PAQ-ZPC5LB48JJ",
@@ -118,16 +126,37 @@ Las 6 sucursales base se siembran automáticamente al iniciar el backend (`app/i
 
 `destino` ya viene armado como un único string legible por el backend (dirección completa si es a domicilio, o nombre y dirección de la sucursal si es retiro), para que la vista pública no tenga que componerlo.
 
+`latitud_destino`/`longitud_destino` **(campo nuevo, agregado 2026-09-02)** son la ubicación fija de entrega: las coordenadas fijas de la sucursal si `tipo_entrega = "sucursal"`, o las que el remitente marcó en el mapa al registrar el envío si fue a domicilio. En este último caso **pueden venir en `null`** — el remitente pudo no haber marcado ningún punto, el domicilio tipeado igual es válido. No es la ubicación en tiempo real del repartidor (eso sigue dependiendo de HU10/HU11, ver más abajo).
+
+La vista presenta cada paquete por separado, con su estado real, contenido, observaciones, fechas y un recorrido operativo de cuatro etapas: registrado, recibido en sucursal, en viaje y entregado. Las etapas futuras son solamente una representación visual inactiva; el estado textual devuelto por el backend es la fuente de verdad.
+
 Token inexistente: `404` con el mismo esquema estándar de error:
 
 ```json
 { "status": "error", "code": "NOT_FOUND", "message": "No se encontró un envío asociado a ese código de seguimiento." }
 ```
 
-### Pendiente para completar HU04 (fuera de este alcance de backend ya implementado)
+### Referencia histórica de pendientes de HU04
 
-- Escenarios 5 y 6 (distinción corta/larga distancia, mapa con recorrido y ubicación en tiempo real del repartidor) dependen de HU10/HU11 (recorridos y tracking del repartidor), todavía no implementadas. Por ahora `estado` solo refleja `"Pendiente"` desde el alta; no hay más transiciones de estado ni datos de recorrido.
+**Actualización del 27 de octubre de 2026:** los pendientes de implementación enumerados en esta sección fueron superados por los desarrollos posteriores. HU05, HU06, HU10 y el backend de HU11/HU12 existen. La integración frontend de HU04, HU06, HU11 y HU12 se documenta en [Reparto, recepción y seguimiento](reparto-terminal-seguimiento.md). El seguimiento ya muestra destino, última posición disponible, historial real y distingue las visitas fallidas de las entregas. Desde el Sprint 2, los avisos se envían por email y WhatsApp (ver [Sprint 2](sprint-2-notificaciones-retiro-y-neon.md)).
+
+El texto siguiente se conserva como antecedente del estado inicial y no debe usarse como lista vigente de trabajo pendiente.
+
+**Tarea de frontend disponible ahora — falta la "muestra en mapa" en `/seguimiento`:**
+
+El backend ya expone `latitud_destino`/`longitud_destino` en `GET /api/v1/seguimiento/{token}` (ver arriba). Falta consumirlo en `TrackingPage.tsx`, que hoy solo muestra el cartel fijo "La ubicación en tiempo real se verá cuando el repartidor comience su recorrido" sin ningún mapa. Propuesta concreta, reutilizando lo que ya existe en el registro de envíos:
+
+- Sumar `latitude`/`longitude` a `ShipmentTracking` (`tracking.types.ts`) y mapearlos en `trackingApi.ts` desde `latitud_destino`/`longitud_destino`.
+- En `TrackingPage.tsx`, cuando haya coordenadas, renderizar `<ShipmentMap mode="location" latitude={...} longitude={...} accessibleName="Ubicación de destino" />` (el mismo componente de `features/shipments/components/ShipmentMap.tsx`, ya usado para mostrar la ubicación fija de una sucursal en `CreateShipmentPage.tsx`).
+- Cuando no haya coordenadas (domicilio sin marcar en el mapa), usar el mismo patrón de placeholder que ya existe para sucursales sin coordenadas ("Ubicación no disponible…").
+- Mantener el texto que aclara que el recorrido en tiempo real llega con HU10/HU11 — no se reemplaza, se complementa con el mapa de destino fijo.
+- Como `ShipmentMap` se usaría desde dos features distintas (`shipments` y `tracking`), evaluar si conviene moverlo (junto con el CSS del mapa en sí: `.shipment-map`, `.shipment-map--picker`, `.shipment-map__point`) a un lugar compartido (`front/src/shared/components/`) en vez de importarlo cruzado entre features.
+
+**Todavía no implementado (no depende de este backend):**
+
+- Escenarios 5 y 6 completos (distinción corta/larga distancia, mapa con el recorrido y ubicación en tiempo real del repartidor) dependen de HU10/HU11 (generación de recorridos y tracking del repartidor), que no están implementadas ni en backend ni en frontend. Lo de arriba resuelve solo "dónde va el paquete" (destino fijo), no "dónde está el repartidor ahora".
 - HU05 (envío del token por email y WhatsApp) no está implementada; el token solo se devuelve en la respuesta de `POST /api/v1/envios`.
+- HU06 (lectura de código de barras al recibir el paquete en terminal) no está implementada: no existe endpoint de backend ni pantalla de frontend. Requiere definir primero rol autorizado (`VENDEDOR`), transición de estado esperada y si la lectura es manual o por cámara.
 
 ## Identificadores
 
