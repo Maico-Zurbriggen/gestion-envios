@@ -6,7 +6,7 @@ Tomado de Aviso Entrega Clientes (`SucursalAcceso`, `ElegirSucursalPage`, `Sucur
 
 | Rol | Sucursales | Al ingresar |
 |---|---|---|
-| Superadministrador | Todas, también las inactivas. | Elige una si hay más de una. |
+| Superadministrador | Todas las activas. | Elige una si hay más de una. |
 | Administrativo y vendedor | Solo las habilitadas en Usuarios y que estén activas. Necesitan al menos una. | Con una sola entra directo; con más, elige en `/elegir-sucursal`. |
 | Repartidor | Una sola: la que se le asigna en Usuarios, que es también su sucursal base de reparto. | No elige: sale siempre de su base. |
 
@@ -15,7 +15,7 @@ Tomado de Aviso Entrega Clientes (`SucursalAcceso`, `ElegirSucursalPage`, `Sucur
 - La sucursal del repartidor y su base de reparto están sincronizadas en los dos sentidos. Si se cambia en Usuarios, se mueve su perfil de reparto; si se cambia la base en Recorridos › Repartidores, cambia su sucursal. Con recorridos activos no se puede cambiar (409).
 
 - La tabla `usuario_sucursales` guarda las sucursales habilitadas. La migración `e5b19c3a7d20` habilita todas las sucursales a los administrativos y vendedores que ya existían, y su sucursal base a los repartidores, para no dejar a nadie sin acceso.
-- `sucursales.activa`: una sucursal inactiva no se ofrece para envíos nuevos ni puede elegirse, salvo el Superadministrador.
+- `sucursales.activa`: una sucursal inactiva no aparece en ningún lado de la app (selectores, elegir sucursal, usuarios, monitor, recorridos, catálogo público ni seguimiento). Solo se ve en Administración › Sucursales, marcada como inactiva. Si un usuario la tenía asignada, la asignación se conserva sin mostrarse para cuando se reactive.
 - El login y `/auth/me` devuelven `user.sucursales`, que son las que puede elegir. Las reglas están en `domain/rules/sucursal_rules.py`.
 
 ## La sucursal activa

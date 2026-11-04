@@ -47,9 +47,15 @@ async def test_el_login_informa_las_sucursales_habilitadas(client: AsyncClient, 
     detalle = (await client.get(f"/api/v1/admin/empleados/{creado.json()['data']['id']}", headers=_auth(token))).json()
     assert [s["id"] for s in detalle["data"]["sucursales"]] == [2]
 
-    # El Superadministrador entra en todas, también en las inactivas.
+    # El Superadministrador entra en todas las activas: una inactiva no se ofrece a nadie.
     me = (await client.get("/api/v1/auth/me", headers=_auth(token))).json()["data"]["user"]
-    assert {s["nombre"] for s in me["sucursales"]} >= {"Sucursal Test Centro", "Sucursal Test Norte", "Sucursal Cerrada"}
+    nombres = {s["nombre"] for s in me["sucursales"]}
+    assert nombres >= {"Sucursal Test Centro", "Sucursal Test Norte"}
+    assert "Sucursal Cerrada" not in nombres
+
+    # Tampoco aparece en los filtros del Monitor.
+    resumen = (await client.get("/api/v1/admin/monitor/resumen", headers=_auth(token))).json()["data"]
+    assert "Sucursal Cerrada" not in {s["nombre"] for s in resumen["sucursales"]}
 
 
 @pytest.mark.asyncio

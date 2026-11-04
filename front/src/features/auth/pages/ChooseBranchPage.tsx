@@ -123,7 +123,6 @@ export function ChooseBranchPage() {
                         <span className="choose-branch__name">
                           <strong>{shortName(branch.name)}</strong>
                           {last && <span className="choose-branch__tag"><History size={12} aria-hidden="true" /> Última usada</span>}
-                          {!branch.active && <span className="choose-branch__tag choose-branch__tag--off">Inactiva</span>}
                         </span>
                         <span className="choose-branch__address">
                           <MapPin size={14} aria-hidden="true" />

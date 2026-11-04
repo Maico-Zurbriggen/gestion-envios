@@ -163,7 +163,7 @@ class ServicioSucursales:
         disponibles.extend(
             self._mapear_sucursal_retiro(s, es_asignada=False)
             for s in sucursales_ciudad
-            if s.id != sucursal_asignada.id
+            if s.id != sucursal_asignada.id and getattr(s, "activa", True)
         )
         return disponibles
 

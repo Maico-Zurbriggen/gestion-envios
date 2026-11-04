@@ -30,7 +30,10 @@ interface FormState {
 
 function initialState(employee?: Employee | null): FormState {
   return employee
-    ? { name: employee.name, dni: employee.dni, email: employee.email, phone: employee.phone, roleId: employee.roleId, branchIds: employee.branches.map((branch) => branch.id) }
+    ? {
+        name: employee.name, dni: employee.dni, email: employee.email, phone: employee.phone, roleId: employee.roleId,
+        branchIds: employee.branches.filter((branch) => branch.active).map((branch) => branch.id),
+      }
     : { name: '', dni: '', email: '', phone: '', roleId: '', branchIds: [] }
 }
 
@@ -59,8 +62,11 @@ export function UserFormModal(props: UserFormModalProps) {
   )
 }
 
-function UserForm({ employee, roles, rolesLoading, branches, isSelf, pending, error, onClose, onSubmit }: UserFormModalProps) {
+function UserForm({ employee, roles, rolesLoading, branches: allBranchOptions, isSelf, pending, error, onClose, onSubmit }: UserFormModalProps) {
   const [form, setForm] = useState<FormState>(() => initialState(employee))
+  // Las inactivas no se ofrecen. Si ya tenía alguna asignada, se conserva sin mostrarse para cuando se reactive.
+  const branches = allBranchOptions.filter((branch) => branch.active)
+  const keptInactive = employee?.branches.filter((branch) => !branch.active).map((branch) => branch.id) ?? []
   // En el alta no se ofrece Superadministrador (HU01); al editar sí, para poder delegar.
   const options = employee ? roles : roles.filter((role) => role.name !== 'SUPERADMIN')
   const selectedRole = roles.find((role) => role.id === form.roleId)
@@ -103,7 +109,7 @@ function UserForm({ employee, roles, rolesLoading, branches, isSelf, pending, er
       email: form.email.trim(),
       phone: form.phone.trim(),
       roleId: form.roleId,
-      branchIds: allBranches ? [] : form.branchIds,
+      branchIds: allBranches ? [] : single ? form.branchIds : [...form.branchIds, ...keptInactive],
     })
   }
 
@@ -224,7 +230,7 @@ function UserForm({ employee, roles, rolesLoading, branches, isSelf, pending, er
             {allBranches ? (
               <p className="user-branches__all">
                 <Building2 size={18} aria-hidden="true" />
-                <span><strong>Todas las sucursales.</strong> El Superadministrador entra en cualquiera, también en las inactivas.</span>
+                <span><strong>Todas las sucursales.</strong> El Superadministrador entra en cualquiera de las activas.</span>
               </p>
             ) : (
               <>
@@ -250,7 +256,7 @@ function UserForm({ employee, roles, rolesLoading, branches, isSelf, pending, er
                           <span className="user-branches__mark" aria-hidden="true">{checked && <Check size={13} strokeWidth={3} />}</span>
                           <span className="user-branches__text">
                             <strong>{shortName(branch.name)}</strong>
-                            <small>{branch.city}{branch.active ? '' : ' · inactiva'}</small>
+                            <small>{branch.city}</small>
                           </span>
                         </label>
                       )

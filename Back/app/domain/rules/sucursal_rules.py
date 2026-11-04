@@ -7,15 +7,15 @@ from app.domain.constants.roles import RolEnum
 
 
 def ve_todas_las_sucursales(rol: str | None) -> bool:
-    """El Superadministrador entra en todas (también en las inactivas, para prepararlas)."""
+    """El Superadministrador entra en todas las activas sin necesidad de asignación."""
     return rol == RolEnum.SUPERADMIN.value
 
 
 def sucursales_permitidas(rol: str | None, asignadas: Iterable[Any], todas: Iterable[Any]) -> list[Any]:
-    """Sucursales a las que puede entrar: todas para el Superadministrador; si no, las activas asignadas."""
-    if ve_todas_las_sucursales(rol):
-        return sorted(todas, key=lambda s: s.nombre)
-    return sorted((s for s in asignadas if getattr(s, "activa", True)), key=lambda s: s.nombre)
+    """Sucursales a las que puede entrar: las activas, todas para el Superadministrador y las asignadas
+    para el resto. Una sucursal inactiva no se ofrece a nadie: solo se ve en la administración de sucursales."""
+    candidatas = todas if ve_todas_las_sucursales(rol) else asignadas
+    return sorted((s for s in candidatas if getattr(s, "activa", True)), key=lambda s: s.nombre)
 
 
 def requiere_sucursales(rol: str | None) -> bool:

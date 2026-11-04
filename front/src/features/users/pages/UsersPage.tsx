@@ -298,10 +298,10 @@ export function UsersPage() {
                         <Building2 size={13} aria-hidden="true" />
                         <span>Todas las sucursales</span>
                       </p>
-                    ) : employee.branches.length ? (
+                    ) : employee.branches.some((branch) => branch.active) ? (
                       <p className="list-row__meta user-row__branches">
                         <Building2 size={13} aria-hidden="true" />
-                        <span>{employee.branches.map((branch) => branch.name).join(' · ')}</span>
+                        <span>{employee.branches.filter((branch) => branch.active).map((branch) => branch.name).join(' · ')}</span>
                       </p>
                     ) : (
                       <p className="list-row__meta user-row__branches user-row__branches--missing">

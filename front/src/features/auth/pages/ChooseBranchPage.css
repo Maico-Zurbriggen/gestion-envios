@@ -154,11 +154,6 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.choose-branch__tag--off {
-  color: var(--color-danger-text);
-  background: var(--color-danger-subtle);
-}
-
 .choose-branch__arrow {
   color: var(--color-text-subtle);
   transition: color var(--transition-fast), transform var(--transition-fast);

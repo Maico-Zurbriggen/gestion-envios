@@ -67,7 +67,7 @@ export interface ApiEmployee {
   requiere_cambio_password: boolean
   created_at: string | null
   updated_at: string | null
-  sucursales?: Array<{ id: number; nombre: string }>
+  sucursales?: Array<{ id: number; nombre: string; activa?: boolean }>
 }
 
 export interface ApiEmployeeList {
@@ -93,7 +93,7 @@ export interface Employee {
   requiresPasswordChange: boolean
   createdAt: string | null
   updatedAt: string | null
-  branches: Array<{ id: number; name: string }>
+  branches: Array<{ id: number; name: string; active: boolean }>
 }
 
 export interface EmployeeSummary {

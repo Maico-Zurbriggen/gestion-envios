@@ -187,7 +187,7 @@ function mapEmployee(employee: ApiEmployee): Employee {
     requiresPasswordChange: employee.requiere_cambio_password,
     createdAt: employee.created_at,
     updatedAt: employee.updated_at,
-    branches: (employee.sucursales ?? []).map((branch) => ({ id: branch.id, name: branch.nombre })),
+    branches: (employee.sucursales ?? []).map((branch) => ({ id: branch.id, name: branch.nombre, active: branch.activa ?? true })),
   }
 }
 

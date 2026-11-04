@@ -31,7 +31,9 @@ export function loadAuthSession(): AuthSession | null {
     const parsedSession: unknown = JSON.parse(storedSession)
     if (!isStoredSession(parsedSession)) return null
     // Sesiones guardadas antes de dividir por sucursal: se completan al validar el token.
-    return { ...parsedSession, user: { ...parsedSession.user, branches: parsedSession.user.branches ?? [] } }
+    // Las sucursales que quedaron inactivas no se ofrecen aunque estén en una sesión vieja.
+    const branches = (parsedSession.user.branches ?? []).filter((branch) => branch.active !== false)
+    return { ...parsedSession, user: { ...parsedSession.user, branches } }
   } catch {
     return null
   }

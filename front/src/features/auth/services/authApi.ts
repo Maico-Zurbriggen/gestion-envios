@@ -31,7 +31,8 @@ function mapUser(user: ApiUser): AuthSession['user'] {
     email: user.email,
     role: user.rol,
     requiresPasswordChange: user.requiere_cambio_password,
-    branches: (user.sucursales ?? []).map((branch) => ({
+    // Una sucursal inactiva no se ofrece en ningún selector.
+    branches: (user.sucursales ?? []).filter((branch) => branch.activa !== false).map((branch) => ({
       id: branch.id,
       name: branch.nombre,
       city: branch.ciudad,

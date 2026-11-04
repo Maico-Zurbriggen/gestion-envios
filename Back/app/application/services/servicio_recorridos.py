@@ -339,7 +339,8 @@ class ServicioRecorridos(IServicioRecorridos):
         sucursales = await self.repo_sucursales.listar_todas()
         sin_llegar = await self.repo.contar_sin_llegar()
         por_sucursal = []
-        for sucursal in sucursales:
+        # Las inactivas no se muestran en ningún lado de la operación.
+        for sucursal in (s for s in sucursales if getattr(s, "activa", True)):
             clasificacion = await self._clasificar(sucursal, sucursales)
             corta = len(clasificacion.pendientes[TipoDistanciaEnum.CORTA.value])
             larga = len(clasificacion.pendientes[TipoDistanciaEnum.LARGA.value])

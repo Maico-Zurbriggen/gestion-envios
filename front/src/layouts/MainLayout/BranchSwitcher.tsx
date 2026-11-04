@@ -113,7 +113,7 @@ export function BranchSwitcher() {
                   >
                     <span className="branch-switcher__icon" aria-hidden="true"><Building2 size={16} /></span>
                     <span className="branch-switcher__text">
-                      <strong>{shortName(item.name)}{item.active ? '' : ' · inactiva'}</strong>
+                      <strong>{shortName(item.name)}</strong>
                       <small><MapPin size={12} aria-hidden="true" /> {item.city}</small>
                     </span>
                     {current && <Check className="branch-switcher__check" size={16} aria-hidden="true" />}

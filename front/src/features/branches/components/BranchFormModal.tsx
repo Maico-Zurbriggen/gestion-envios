@@ -124,7 +124,7 @@ function BranchForm({ branch, pending, error, onClose, onSubmit }: BranchFormMod
 
       <label className="branch-form__check" htmlFor="branch-active">
         <input id="branch-active" type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
-        <span><strong>Sucursal activa</strong><small>Si la desactivás, deja de ofrecerse para envíos nuevos y nadie más puede elegirla, salvo el Superadministrador.</small></span>
+        <span><strong>Sucursal activa</strong><small>Si la desactivás, deja de aparecer en el resto de la app: no se ofrece para envíos nuevos ni para trabajar en ella. Solo queda en esta lista, como inactiva.</small></span>
       </label>
 
       {error && <p className="form-error" role="alert"><CircleAlert size={18} aria-hidden="true" /> {error}</p>}

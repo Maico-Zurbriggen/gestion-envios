@@ -191,7 +191,9 @@ class RepositorioMonitor(IRepositorioMonitor):
         return await self._escalar(stmt)
 
     async def listar_sucursales(self) -> list[Any]:
-        return list((await self.db.execute(select(SucursalModel).order_by(SucursalModel.nombre))).scalars().all())
+        """Las sucursales activas, para elegir en los filtros (las inactivas no se ofrecen)."""
+        consulta = select(SucursalModel).where(SucursalModel.activa.is_(True)).order_by(SucursalModel.nombre)
+        return list((await self.db.execute(consulta)).scalars().all())
 
     # --- Listado ------------------------------------------------------------
 
