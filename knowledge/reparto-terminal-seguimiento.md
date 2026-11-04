@@ -19,11 +19,11 @@ Las features nuevas conservan páginas, componentes, hooks, servicios y tipos pr
 - Ruta `/reparto` exclusiva de `REPARTIDOR`, bajo `ProtectedRoutes`; feature cargada de forma diferida.
 - Listado de recorridos propios con fecha y estado. Vaciar la fecha permite consultar todos. La fecha inicial es la del navegador del repartidor.
 - Detalle con origen, tipo de distancia, progreso por asignaciones, paradas y paquetes en el orden recibido. El inicio pide confirmación y llama al endpoint privado de reparto, sin utilizar permisos administrativos.
-- Se reutilizan los tipos y mapeos de recorridos y el cálculo de calles Mapbox de HU10. Sin configuración o ante errores de mapas, quedan disponibles marcadores, direcciones, lista de paradas y reintento; no se inventan trayectos rectos. El enlace de navegación abre el destino elegido en un navegador externo de mapas.
+- Se reutilizan los tipos y mapeos de recorridos y el recorrido por calles de OSRM ([mapas.md](./mapas.md)), con la posición del vehículo en el mapa. Ante errores de mapas quedan disponibles marcadores, direcciones y lista de paradas; no se inventan trayectos rectos. El enlace de navegación abre el destino elegido en un navegador externo de mapas.
 - El GPS se activa por una acción del usuario. Requiere HTTPS o localhost y permiso del navegador. Se informa denegación, ausencia de soporte, timeout y fallas de conexión.
 - Se usa `watchPosition`, alta precisión y posiciones sin antigüedad permitida. Se envía como máximo una posición cada diez segundos y no se superponen envíos. Se conserva la última posición confirmada por el servidor con fecha y hora visibles.
 - La pantalla debe permanecer abierta: los navegadores móviles pueden suspender ubicación en segundo plano o con el dispositivo bloqueado. Desactivar GPS, cambiar de recorrido, salir de la vista, perder acceso o finalizar elimina el observador y cancela el envío pendiente.
-- En larga distancia, la transición por proximidad a la siguiente sucursal sigue a cargo del backend. Cuando un ping devuelve paquetes actualizados se invalidan detalle y listado; si finaliza, se detiene el GPS. El detalle activo se actualiza cada quince segundos.
+- En larga distancia, a 10 km o menos de la próxima sucursal la llegada se registra sola con la posición (HU11 CA3). Si el GPS no la registró, el repartidor la marca con «Llegué a [sucursal]», en orden y con confirmación (`POST /{id}/llegadas`). En los dos casos se actualizan el detalle, el listado y el seguimiento; si el recorrido finaliza, se detiene el GPS. El detalle activo se actualiza cada quince segundos.
 
 ## Resultado de la visita (HU12)
 

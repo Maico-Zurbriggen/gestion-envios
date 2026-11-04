@@ -30,8 +30,24 @@ export interface ApiRouteSummary {
   cantidad_paquetes: number
   distancia_estimada_km: number | null
   duracion_estimada_min: number | null
+  paquetes_entregados?: number
+  paquetes_no_entregados?: number
   created_at: string
   updated_at: string
+}
+
+export interface ApiPendingPackage {
+  paquete_id: string
+  numero_paquete: string
+  descripcion: string
+  peso_kg: number
+  destinatario_nombre: string
+  destino: string
+  token_seguimiento: string
+  tiene_ubicacion: boolean
+  motivo: string | null
+  visitas_previas: number
+  en_devolucion: boolean
 }
 
 export interface ApiRouteDetail extends ApiRouteSummary {
@@ -41,6 +57,7 @@ export interface ApiRouteDetail extends ApiRouteSummary {
   paradas: Array<{
     orden: number
     tipo_parada: 'DOMICILIO' | 'SUCURSAL'
+    sucursal_destino?: { id: number; nombre: string } | null
     destino: string
     latitud: number | null
     longitud: number | null
@@ -55,10 +72,13 @@ export interface ApiRouteDetail extends ApiRouteSummary {
       token_seguimiento: string
       destinatario_nombre: string
       destinatario_telefono: string
+      visitas_previas?: number
+      en_devolucion?: boolean
     }>
   }>
   trazado: Array<{ latitud: number; longitud: number }>
   paquetes_sin_ubicacion: number
+  max_visitas?: number
 }
 
 export interface ApiRouteAlert {
@@ -129,8 +149,47 @@ export interface DeliveryRouteSummary {
   packageCount: number
   distanceKm: number | null
   durationMinutes: number | null
+  delivered: number
+  failed: number
   createdAt: string
   updatedAt: string
+}
+
+export interface ApiWaitingSummary {
+  sin_llegar: number
+  sucursales: Array<{ sucursal_id: number; nombre: string; a_domicilio: number; entre_sucursales: number; sin_llegar: number }>
+}
+
+/** Dónde hay paquetes esperando recorrido y cuántos todavía no llegaron a una sucursal. */
+export interface WaitingSummary {
+  notArrived: number
+  branches: Array<{ id: number; name: string; home: number; between: number; notArrived: number }>
+}
+
+/** Paquete listo en la sucursal que todavía no tiene recorrido. */
+export interface PendingPackage {
+  id: string
+  code: string
+  description: string
+  weightKg: number
+  recipientName: string
+  destination: string
+  trackingToken: string
+  located: boolean
+  /** Por qué no se puede planificar todavía (por ejemplo, sin ubicación). */
+  issue: string | null
+  previousVisits: number
+  isReturn: boolean
+}
+
+export interface NewRouteInput {
+  branchId: number
+  date: string
+  distanceType: DistanceType
+  driverId: string
+  packages: string[]
+  /** Si al terminar vuelve a la sucursal (cuenta al ordenar las paradas). */
+  returnsToBranch: boolean
 }
 
 export interface RoutePackage {
@@ -144,11 +203,17 @@ export interface RoutePackage {
   trackingToken: string
   recipientName: string
   recipientPhone: string
+  /** Visitas a domicilio sin éxito antes de este recorrido. */
+  previousVisits: number
+  /** Viaja de vuelta a la sucursal de origen. */
+  isReturn: boolean
 }
 
 export interface RouteStop {
   order: number
   type: 'DOMICILIO' | 'SUCURSAL'
+  /** Sucursal de la parada en un recorrido entre sucursales. */
+  branch: { id: number; name: string } | null
   destination: string
   latitude: number | null
   longitude: number | null
@@ -162,6 +227,8 @@ export interface DeliveryRoute extends DeliveryRouteSummary {
   stops: RouteStop[]
   path: Array<{ latitude: number; longitude: number }>
   packagesWithoutLocation: number
+  maxVisits: number
+  /** Escaneo de lo que subió al vehículo en la sucursal de origen, si se hizo. */
 }
 
 export interface RouteAlert {
@@ -178,16 +245,23 @@ export interface RouteAlert {
   createdAt: string
 }
 
-export interface RouteFilters {
+interface RouteFilters {
   branchId: number
   date: string
   distanceType: DistanceType
 }
 
+/** Recorridos de un rango de días (la semana que se está viendo). */
+export interface RouteRange {
+  branchId: number
+  distanceType: DistanceType
+  from: string
+  to: string
+}
+
 export interface GenerateRoutesInput extends RouteFilters {
-  streetOrientation: number
-  driverIds: string[] | null
-  replaceExisting: boolean
+  driverIds: string[]
+  returnsToBranch: boolean
 }
 
 export interface GenerationResult {
@@ -214,6 +288,8 @@ export type RouteCommand =
   | { id: string; action: 'save'; packages: string[] }
   | { id: string; action: 'locate'; packageCode: string; latitude: number; longitude: number }
   | { id: string; action: 'assign'; driverId: string }
+  /** Con `reorder`, después de cambiar la vuelta se vuelve a optimizar el orden. */
+  | { id: string; action: 'return'; returnsToBranch: boolean; reorder: boolean }
   | { id: string; action: 'optimize' | 'start' | 'delete' }
 
 export interface DriverProfileInput {

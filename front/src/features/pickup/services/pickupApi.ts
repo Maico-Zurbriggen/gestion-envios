@@ -35,6 +35,9 @@ export async function validatePickup(code: string, token: string, signal?: Abort
     currentBranch: mapBranch(data.sucursal_actual),
     recipient: { name: data.datos_destinatario.nombre, phone: data.datos_destinatario.telefono, email: data.datos_destinatario.email },
     requirements: { recipient: data.requisitos_retiro.titular, authorizedPerson: data.requisitos_retiro.tercero_autorizado },
+    isReturn: Boolean(data.es_devolucion),
+    pickupUntil: data.retiro_hasta ?? null,
+    pickupBranch: mapBranch(data.sucursal_retiro ?? data.sucursal_destino),
   }
 }
 

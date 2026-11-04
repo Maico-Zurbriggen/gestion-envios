@@ -28,9 +28,13 @@ def normalizar_url_base_datos(database_url: str) -> str:
     """Acepta el connection string tal como lo copia el panel de Neon.
 
     `postgresql://` o `postgres://` pasan a `postgresql+asyncpg://` y se quitan
-    `sslmode`/`channel_binding`. Las URLs ya preparadas y las de SQLite no cambian.
+    `sslmode`/`channel_binding`. También acepta el formato del comando que muestra
+    el panel (`psql 'postgresql://...'`). Las URLs ya preparadas y las de SQLite no cambian.
     """
     url = database_url.strip()
+    if url.lower().startswith("psql "):
+        url = url[len("psql ") :].strip()
+    url = url.strip("'\"")
     for prefijo in ("postgres://", "postgresql://"):
         if url.startswith(prefijo):
             url = "postgresql+asyncpg://" + url[len(prefijo) :]

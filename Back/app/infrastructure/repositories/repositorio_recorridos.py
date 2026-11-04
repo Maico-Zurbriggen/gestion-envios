@@ -1,14 +1,18 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.application.interfaces.repositorio_recorridos import IRepositorioRecorridos
 from app.core.exceptions import DuplicateEntryException
-from app.domain.constants.estados_logistica import EstadoRecorridoPaqueteEnum
+from app.domain.constants.estados_logistica import (
+    EstadoRecorridoPaqueteEnum,
+    ResultadoEventoEntregaEnum,
+)
+from app.domain.rules.circuito_rules import ESTADOS_PRE_REGISTRO
 from app.domain.rules.recorrido_rules import (
     ESTADOS_PAQUETE_LISTOS_PARA_DESPACHO,
     ESTADOS_RECORRIDO_ACTIVOS,
@@ -17,6 +21,7 @@ from app.domain.rules.recorrido_rules import (
 from app.infrastructure.db.models import (
     AlertaRecorridoModel,
     EnvioModel,
+    EventoEntregaModel,
     PaqueteModel,
     PosicionActualRepartidorModel,
     RecorridoModel,
@@ -33,6 +38,27 @@ class RepositorioRecorridos(IRepositorioRecorridos):
         self.db = db
 
     # --- Paquetes ---
+
+    async def visitas_fallidas_de(self, paquete_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
+        if not paquete_ids:
+            return {}
+        resultado = await self.db.execute(
+            select(EventoEntregaModel.paquete_id, func.count())
+            .where(
+                EventoEntregaModel.paquete_id.in_(paquete_ids),
+                EventoEntregaModel.resultado == ResultadoEventoEntregaEnum.FALLIDO.value,
+            )
+            .group_by(EventoEntregaModel.paquete_id)
+        )
+        return {paquete_id: int(cantidad) for paquete_id, cantidad in resultado.all()}
+
+    async def contar_sin_llegar(self) -> dict[int | None, int]:
+        filas = await self.db.execute(
+            select(PaqueteModel.sucursal_origen_id, func.count())
+            .where(PaqueteModel.estado.in_(ESTADOS_PRE_REGISTRO))
+            .group_by(PaqueteModel.sucursal_origen_id)
+        )
+        return {sucursal: int(cantidad) for sucursal, cantidad in filas.all()}
 
     async def listar_paquetes_listos_en_sucursal(self, sucursal_id: int) -> list[PaqueteModel]:
         stmt = (
@@ -143,8 +169,14 @@ class RepositorioRecorridos(IRepositorioRecorridos):
         tipo_distancia: str | None = None,
         estado: str | None = None,
         repartidor_id: uuid.UUID | None = None,
+        desde: date | None = None,
+        hasta: date | None = None,
     ) -> list[RecorridoModel]:
         stmt = self._select_recorrido_completo()
+        if desde is not None:
+            stmt = stmt.where(RecorridoModel.fecha >= desde)
+        if hasta is not None:
+            stmt = stmt.where(RecorridoModel.fecha <= hasta)
         if sucursal_id is not None:
             stmt = stmt.where(RecorridoModel.sucursal_origen_id == sucursal_id)
         if fecha is not None:
@@ -227,7 +259,10 @@ class RepositorioRecorridos(IRepositorioRecorridos):
         stmt = (
             self._select_alerta_completa()
             .join(PaqueteModel, AlertaRecorridoModel.paquete_id == PaqueteModel.id)
-            .where(AlertaRecorridoModel.resuelta.is_(False), PaqueteModel.sucursal_actual_id == sucursal_id)
+            .where(
+                AlertaRecorridoModel.resuelta.is_(False),
+                PaqueteModel.sucursal_actual_id == sucursal_id,
+            )
         )
         result = await self.db.execute(stmt)
         return list(result.unique().scalars().all())

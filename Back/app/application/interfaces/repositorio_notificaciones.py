@@ -21,7 +21,15 @@ class IRepositorioNotificaciones(Protocol):
         """Persiste un nuevo intento o log de notificación."""
         ...
 
-    async def registrar_intento(self, envio_id: UUID, canal: str, destinatario_tipo: str, destino: str) -> Any:
+    async def registrar_intento(
+        self,
+        envio_id: UUID,
+        canal: str,
+        destinatario_tipo: str,
+        destino: str,
+        tipo_aviso: str = ...,
+        paquete_id: UUID | None = None,
+    ) -> Any:
         """Crea un intento pendiente para un canal y destinatario."""
         ...
 
@@ -44,3 +52,17 @@ class IRepositorioNotificaciones(Protocol):
     ) -> Any | None:
         """Actualiza el estado y respuesta del proveedor de una notificación."""
         ...
+
+    async def obtener_paquete_aviso(self, paquete_id: UUID) -> Any | None:
+        """Paquete con su envío y sucursales, para armar un aviso por hito."""
+        ...
+
+    async def avisos_recientes_de_envio(self, envio_id: UUID, tipo_aviso: str, desde: Any) -> list[Any]:
+        """Avisos del mismo hito para el envío, creados desde `desde`."""
+        ...
+
+    async def contar_visitas_fallidas(self, paquete_id: UUID) -> int: ...
+
+    async def ultima_entrega(self, paquete_id: UUID) -> Any | None: ...
+
+    async def obtener_sucursal(self, sucursal_id: int) -> Any | None: ...

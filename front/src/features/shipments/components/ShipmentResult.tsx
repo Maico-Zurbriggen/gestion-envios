@@ -10,6 +10,10 @@ import {
 } from 'lucide-react'
 import type { CreatedShipment } from '../types/shipment.types'
 import { downloadShipmentLabelsPdf } from '../services/shipmentLabelPdf'
+import { getShipmentPrintLabels } from '../services/shipmentPrintLabels'
+import { useAppSelector } from '../../../app/store'
+import { PrintLabelsButton } from '../../../shared/printing/PrintLabelsButton'
+import { selectCurrentUser } from '../../auth/redux/authSlice'
 import { PackageBarcode } from './PackageBarcode'
 
 interface ShipmentResultProps {
@@ -39,6 +43,12 @@ export function ShipmentResult({
   const [tokenCopied, setTokenCopied] = useState(false)
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
+  // Las etiquetas térmicas se imprimen en el mostrador; el cliente solo necesita el comprobante.
+  const user = useAppSelector(selectCurrentUser)
+  const isCounterStaff = Boolean(user?.role && ['VENDEDOR', 'ADMINISTRATIVO', 'SUPERADMIN'].includes(user.role))
+  const admitBy = shipment.admitBy
+    ? new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(shipment.admitBy))
+    : null
   const destination = getDestination(shipment)
   const createdAt = new Intl.DateTimeFormat('es-AR', {
     dateStyle: 'medium',
@@ -76,11 +86,25 @@ export function ShipmentResult({
           <CheckCircle2 size={32} />
         </span>
         <span className="eyebrow">Envío registrado</span>
-        <h1>La planilla está lista</h1>
+        <h1>Tu envío está registrado</h1>
         <p>
-          Imprimí una etiqueta por paquete, pegala en el bulto correspondiente y
-          llevalo a la sucursal para que puedan escanearlo.
+          Guardá el código de seguimiento: con él seguís el envío y te avisamos
+          por correo y WhatsApp cada novedad.
         </p>
+        <ol className="shipment-next-steps">
+          <li>
+            <strong>Llevá cada paquete a {shipment.originBranch ? `${shipment.originBranch.name} (${shipment.originBranch.address}, ${shipment.originBranch.city})` : 'la sucursal elegida'}{admitBy ? ` antes del ${admitBy}` : ''}.</strong>
+            <span>Si no lo llevás a tiempo, el registro vence y hay que hacerlo de nuevo.</span>
+          </li>
+          <li>
+            <strong>Mostrá este comprobante, impreso o en el celular.</strong>
+            <span>Escaneamos el código, pesamos el paquete y le pegamos la etiqueta de envío.</span>
+          </li>
+          <li>
+            <strong>Listo: te avisamos cuando llegue a destino.</strong>
+            <span>También le avisamos a quien lo recibe.</span>
+          </li>
+        </ol>
 
         <div className="tracking-token">
           <span>Código de seguimiento</span>
@@ -102,7 +126,7 @@ export function ShipmentResult({
             onClick={() => window.print()}
           >
             <Printer size={19} aria-hidden="true" />
-            Imprimir planilla
+            Imprimir comprobante
           </button>
           <button
             className="shipment-secondary-action"
@@ -117,6 +141,13 @@ export function ShipmentResult({
             )}
             {isDownloadingPdf ? 'Generando PDF…' : 'Descargar PDF'}
           </button>
+          {isCounterStaff ? (
+            <PrintLabelsButton
+              labels={getShipmentPrintLabels(shipment, destination, createdAt)}
+              className="shipment-secondary-action"
+              label="Imprimir etiquetas (mostrador)"
+            />
+          ) : null}
           <button
             className="shipment-secondary-action"
             type="button"
@@ -144,7 +175,7 @@ export function ShipmentResult({
                 <span aria-hidden="true">GE</span>
                 <div>
                   <strong>Gestión de envíos</strong>
-                  <small>Etiqueta de admisión</small>
+                  <small>Comprobante para la sucursal</small>
                 </div>
               </div>
               <div className="shipping-label__piece">

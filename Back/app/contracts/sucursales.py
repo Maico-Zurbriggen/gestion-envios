@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.contracts.common import ApiModel
 
@@ -82,3 +82,42 @@ class OpcionesRetiroResponse(ApiModel):
 
     status: str = "success"
     data: OpcionesRetiroData
+
+
+# --- Administración de sucursales (Superadministrador) ---
+
+
+class SucursalAdminData(SucursalData):
+    activa: bool = True
+    usuarios: int = Field(0, description="Usuarios del personal que la tienen habilitada.")
+
+
+class GuardarSucursalRequest(ApiModel):
+    """Alta o edición. La dirección y su ubicación son el punto de partida de los recorridos."""
+
+    nombre: str = Field(..., min_length=2, max_length=150)
+    provincia: str = Field(..., min_length=2, max_length=100)
+    ciudad: str = Field(..., min_length=2, max_length=100)
+    direccion: str = Field(..., min_length=3, max_length=255)
+    latitud: float = Field(..., ge=-90, le=90, description="Ubicación de la dirección: de acá parten los recorridos.")
+    longitud: float = Field(..., ge=-180, le=180)
+    activa: bool = True
+
+    @field_validator("nombre", "provincia", "ciudad", "direccion")
+    @classmethod
+    def recortar(cls, v: str) -> str:
+        v = " ".join(v.split())
+        if len(v) < 2:
+            raise ValueError("Completá este dato.")
+        return v
+
+
+class ListarSucursalesAdminResponse(ApiModel):
+    status: str = "success"
+    data: list[SucursalAdminData]
+
+
+class SucursalAdminResponse(ApiModel):
+    status: str = "success"
+    message: str = "Sucursal guardada."
+    data: SucursalAdminData

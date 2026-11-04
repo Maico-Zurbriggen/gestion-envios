@@ -7,6 +7,10 @@ export interface ApiTrackedPackage {
   ultima_actualizacion: string
   historial?: Array<{ estado_anterior: string | null; estado: string; fecha_hora: string; descripcion: string }>
   ubicacion_repartidor?: { latitud: number; longitud: number; actualizado_at: string } | null
+  retiro?: { sucursal: string; direccion: string; hasta: string | null; lo_retira: 'destinatario' | 'remitente' } | null
+  visitas_fallidas?: number
+  max_visitas?: number
+  en_devolucion?: boolean
 }
 
 export interface TrackingSuccessResponse {
@@ -30,6 +34,11 @@ export interface TrackedPackage {
   updatedAt: string
   history: Array<{ previousStatus: string | null; status: string; occurredAt: string; description: string }>
   driverLocation: { latitude: number; longitude: number; updatedAt: string } | null
+  /** Dónde y hasta cuándo retirarlo, cuando espera en una sucursal. */
+  pickup: { branch: string; address: string; until: string | null; pickedUpBy: 'destinatario' | 'remitente' } | null
+  failedVisits: number
+  maxVisits: number
+  isReturn: boolean
 }
 
 export interface ShipmentTracking {

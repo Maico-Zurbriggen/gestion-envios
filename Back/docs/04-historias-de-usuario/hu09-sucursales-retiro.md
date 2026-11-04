@@ -4,6 +4,8 @@
 
 Prioridad: **Media** · Estimación: **5 SP** · Contrato orientado a frontend: [`Back/Contrato/endpoints_frontend.md`, sección 10](../../Contrato/endpoints_frontend.md).
 
+El alta y la edición de sucursales, y el acceso por sucursal, se agregaron con [HU16](./hu16-sucursales-y-acceso.md).
+
 ## Endpoints
 
 | Método | Ruta | Autenticación |

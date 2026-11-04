@@ -1,19 +1,387 @@
-.ops-page, .ops-stack { display: grid; gap: var(--space-4); min-width: 0; }
-.ops-page h1 { margin: 0; font-size: clamp(1.7rem, 5vw, 2.6rem); }
-.ops-page h2, .ops-page h3, .ops-page p { margin-block: 0 var(--space-3); }
-.ops-panel { min-width: 0; padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); overflow-wrap: anywhere; }
-.ops-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
-.ops-button { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 2.75rem; padding: var(--space-2) var(--space-4); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-primary); font-weight: 650; text-decoration: none; }
-.ops-button:hover:not(:disabled) { border-color: var(--color-primary); background: var(--color-surface-subtle); }
-.ops-button:disabled { opacity: .6; cursor: not-allowed; }
-.ops-button svg { flex-shrink: 0; }
-.ops-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: var(--space-4); }
-.ops-page fieldset { min-width: 0; padding: 0; margin: 0; border: 0; }
-.ops-page .form-control { min-width: 0; }
-.ops-page textarea { padding-block: var(--space-3); min-height: 6rem; }
-.ops-hint { color: var(--color-text-muted); font-size: var(--font-size-sm); }
-.ops-list { display: grid; gap: var(--space-4); padding: 0; margin: 0; list-style: none; }
-.ops-success { padding: var(--space-4); border: 1px solid var(--color-success); border-radius: var(--radius-md); background: var(--color-surface); }
-.ops-check { display: flex; align-items: center; gap: var(--space-3); min-height: 2.75rem; }
-.ops-check input { width: 1.15rem; height: 1.15rem; }
-@media (max-width: 480px) { .ops-panel { padding: var(--space-3); } .ops-actions > .ops-button { flex: 1 1 auto; } }
+/* Pantallas operativas (terminal y reparto): mismo lenguaje que el resto del panel. */
+.ops-page,
+.ops-stack {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.ops-page {
+  gap: var(--space-6);
+}
+
+.ops-page__header h1,
+.ops-page h1 {
+  margin: 0 0 var(--space-2);
+}
+
+.ops-page__header p {
+  max-width: 62ch;
+  margin: 0;
+}
+
+.ops-page h2,
+.ops-page h3,
+.ops-page p {
+  margin-block: 0;
+}
+
+.ops-page h2 {
+  font-size: var(--font-size-xl);
+}
+
+.ops-page h3 {
+  font-size: var(--font-size-lg);
+}
+
+.ops-panel {
+  min-width: 0;
+  padding: var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow-wrap: anywhere;
+}
+
+.ops-panel > * + * {
+  margin-top: var(--space-3);
+}
+
+.ops-panel.ops-stack > * + * {
+  margin-top: 0;
+}
+
+/* Lector de códigos: campo grande y acción principal al lado. */
+.ops-scan {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-4);
+}
+
+.ops-scan > * + * {
+  margin-top: 0;
+}
+
+/* Con el botón de cámara: el campo ocupa el resto y las acciones van a la derecha. */
+.ops-scan--camera {
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-columns: auto;
+  grid-auto-flow: column;
+}
+
+.ops-scan .form-control {
+  min-height: 3.4rem;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-lg);
+  letter-spacing: 0.04em;
+}
+
+.ops-scan .ops-button {
+  min-height: 3.4rem;
+}
+
+.ops-package__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.ops-package__heading .eyebrow {
+  margin-bottom: var(--space-1);
+}
+
+.ops-package__heading h2 {
+  font-family: var(--font-family-mono);
+  letter-spacing: 0.02em;
+}
+
+.ops-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.ops-details > div {
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-md);
+}
+
+.ops-details__wide {
+  grid-column: 1 / -1;
+}
+
+.ops-details dt {
+  margin-bottom: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ops-details dd {
+  margin: 0;
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.ops-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ops-button {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.ops-button svg {
+  flex-shrink: 0;
+  color: var(--color-brand);
+}
+
+.ops-button:hover:not(:disabled) {
+  color: var(--color-text);
+  border-color: var(--color-primary-300);
+  box-shadow: var(--shadow-sm);
+}
+
+.ops-button--primary {
+  color: var(--color-text-on-primary);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+
+.ops-button--primary svg {
+  color: currentColor;
+}
+
+.ops-button--primary:hover:not(:disabled) {
+  color: var(--color-text-on-primary);
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.ops-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: var(--space-4);
+}
+
+.ops-page fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ops-page .form-control {
+  min-width: 0;
+}
+
+.ops-page textarea {
+  min-height: 6rem;
+  padding-block: var(--space-3);
+  resize: vertical;
+}
+
+.ops-hint {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.ops-list {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Tarjetas de recorridos y paradas. */
+.ops-card {
+  display: grid;
+  gap: var(--space-2);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-base),
+    transform var(--transition-base);
+}
+
+.ops-card:hover {
+  border-color: var(--color-primary-200);
+  box-shadow: var(--shadow-md);
+}
+
+.ops-card > * + * {
+  margin-top: 0;
+}
+
+.ops-card .ops-button {
+  margin-top: var(--space-2);
+}
+
+.ops-stop {
+  box-shadow: none;
+}
+
+.ops-stop h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ops-stop__number {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: var(--color-brand);
+  background: var(--color-surface);
+  border: 2px solid var(--color-brand);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.ops-stop .ops-list li {
+  padding: var(--space-4);
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-md);
+}
+
+.ops-stop .ops-list li > * + * {
+  margin-top: var(--space-1);
+}
+
+.ops-success {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  color: var(--color-success-text);
+  background: var(--color-success-subtle);
+  border: 1px solid color-mix(in srgb, var(--color-success) 40%, transparent);
+  border-radius: var(--radius-lg);
+}
+
+.ops-success p {
+  color: inherit;
+}
+
+.ops-success svg {
+  vertical-align: -0.2em;
+}
+
+.ops-check {
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ops-check input {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--color-primary);
+}
+
+/* El formulario de entrega se destaca: es la acción principal del repartidor. */
+section[aria-labelledby='delivery-action-title'] {
+  border-color: color-mix(in srgb, var(--color-primary-500) 45%, var(--color-border));
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--color-primary-500) 10%, transparent),
+    var(--shadow-card);
+}
+
+@media (max-width: 640px) {
+  .ops-panel {
+    padding: var(--space-4);
+  }
+
+  .ops-scan {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-scan--camera {
+    grid-auto-flow: row;
+  }
+
+  .ops-details {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-actions > .ops-button,
+  .ops-scan .ops-button {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}
+
+/* Admisión: aviso de peso y campo con ícono */
+.ops-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-accent-800);
+  background: var(--color-warning-subtle);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+:root[data-theme='dark'] .ops-warning {
+  color: var(--color-accent-200);
+}
+
+.ops-warning svg {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+.ops-input-icon {
+  position: relative;
+  display: block;
+}
+
+.ops-input-icon svg {
+  position: absolute;
+  top: 50%;
+  left: var(--space-4);
+  color: var(--color-text-subtle);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.ops-input-icon .form-control {
+  padding-left: 2.75rem;
+}

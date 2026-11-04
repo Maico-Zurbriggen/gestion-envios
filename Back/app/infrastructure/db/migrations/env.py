@@ -53,8 +53,11 @@ def do_run_migrations(connection: Connection) -> None:
             # Se libera solo al terminar la transacción: quien llegue segundo espera y ve la base ya migrada.
             connection.execute(text("SELECT pg_advisory_xact_lock(:llave)"), {"llave": LLAVE_CANDADO_MIGRACIONES})
         if config.attributes.get("adoptar_base_existente"):
-            from app.infrastructure.db.actualizar_base import revision_de_base_heredada
+            from app.infrastructure.db.actualizar_base import retirar_alcance_quitado, revision_de_base_heredada
 
+            if retirar_alcance_quitado(connection) and connection.in_transaction():
+                # Las tablas y revisiones retiradas se limpian antes de migrar (también en SQLite).
+                connection.commit()
             revision = revision_de_base_heredada(connection)
             if revision:
                 # Base creada con `create_all`: se marca en su revisión real y se migra desde ahí.

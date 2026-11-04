@@ -27,6 +27,7 @@ class IServicioReclamos(Protocol):
         estado: str | None = None,
         tipo: str | None = None,
         token_seguimiento: str | None = None,
+        sucursal_id: int | None = None,
     ) -> ListarReclamosAdminResponse:
         """Bandeja interna de reclamos."""
         ...

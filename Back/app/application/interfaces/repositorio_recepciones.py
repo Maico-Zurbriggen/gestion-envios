@@ -22,6 +22,7 @@ class IRepositorioRecepciones(Protocol):
         sucursal_id: int,
         historial_estado: Any,
         estados_previos: set[str] | None = None,
+        valores_extra: dict | None = None,
     ) -> Any | None:
         """Actualiza estado y ubicación del paquete y persiste la fila de historial
         en una sola transacción. Devuelve `None` si otra solicitud ya lo recibió."""

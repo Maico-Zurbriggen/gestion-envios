@@ -111,6 +111,9 @@ class ValidarRetiroData(BaseModel):
     sucursal_actual: SucursalData | None = None
     datos_destinatario: DestinatarioRetiroInfo
     requisitos_retiro: RequisitosRetiroInfo = Field(default_factory=RequisitosRetiroInfo)
+    es_devolucion: bool = Field(False, description="Vuelve al remitente: lo retira quien lo envió.")
+    retiro_hasta: datetime | None = Field(None, description="Último día para retirarlo antes de devolverlo.")
+    sucursal_retiro: SucursalData | None = Field(None, description="Sucursal donde corresponde retirarlo.")
 
 
 class ValidarRetiroResponse(BaseModel):

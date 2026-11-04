@@ -24,7 +24,7 @@ def test_hu11_hu12_upgrade_downgrade_preserva_constancias(tmp_path, monkeypatch)
             "VALUES (?, ?, 'RETIRO_SUCURSAL', 'EXITOSO', 'Titular previo', 0, 1, ?, CURRENT_TIMESTAMP)",
             (id_evento, uuid.uuid4().hex, uuid.uuid4().hex),
         )
-    command.upgrade(config, "head")
+    command.upgrade(config, "d2a6f81112ac")
     with sqlite3.connect(ruta) as db:
         campos = {fila[1] for fila in db.execute("PRAGMA table_info(eventos_entrega)")}
         assert {"operacion_id", "solicitud_hash", "recorrido_id", "receptor_fecha_nacimiento"} <= campos

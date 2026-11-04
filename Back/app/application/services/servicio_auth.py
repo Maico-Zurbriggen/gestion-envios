@@ -1,5 +1,7 @@
+from typing import Any
 from uuid import UUID
 
+from app.application.interfaces.repositorio_sucursales import IRepositorioSucursales
 from app.application.interfaces.repositorio_usuarios import IRepositorioUsuarios
 from app.contracts.auth import (
     CambiarPasswordData,
@@ -8,6 +10,7 @@ from app.contracts.auth import (
     LoginRequiresPasswordChangeResponse,
     LoginSuccessResponse,
     LoginTempTokenData,
+    SucursalAccesoData,
     UserInfoResponse,
 )
 from app.core.exceptions import (
@@ -17,6 +20,7 @@ from app.core.exceptions import (
 )
 from app.domain.constants.scopes import ScopeEnum
 from app.domain.rules.password_rules import validar_politica_password
+from app.domain.rules.sucursal_rules import sucursales_permitidas, ve_todas_las_sucursales
 from app.infrastructure.auth.hasher import HasherContrasenas
 from app.infrastructure.auth.jwt_handler import ManejadorJWT
 
@@ -29,10 +33,23 @@ class ServicioAuth:
         repositorio_usuarios: IRepositorioUsuarios,
         hasher: HasherContrasenas = HasherContrasenas(),
         jwt_handler: ManejadorJWT = ManejadorJWT(),
+        repositorio_sucursales: IRepositorioSucursales | None = None,
     ):
         self.repo_usuarios = repositorio_usuarios
+        self.repo_sucursales = repositorio_sucursales
         self.hasher = hasher
         self.jwt_handler = jwt_handler
+
+    async def _sucursales(self, usuario: Any, rol: str) -> list[SucursalAccesoData]:
+        """Sucursales en las que puede trabajar (el Superadministrador, en todas)."""
+        todas = await self.repo_sucursales.listar_todas() if self.repo_sucursales and ve_todas_las_sucursales(rol) else []
+        return [
+            SucursalAccesoData(
+                id=s.id, nombre=s.nombre, ciudad=s.ciudad, provincia=s.provincia, direccion=s.direccion,
+                activa=getattr(s, "activa", True),
+            )
+            for s in sucursales_permitidas(rol, getattr(usuario, "sucursales", None) or [], todas)
+        ]
 
     async def autenticar_usuario(
         self, dni: str, password_plana: str
@@ -82,6 +99,7 @@ class ServicioAuth:
                     dni=usuario.dni,
                     email=usuario.email,
                     rol=rol_nombre,
+                    sucursales=await self._sucursales(usuario, rol_nombre),
                     requiere_cambio_password=False,
                 ),
             ),
@@ -197,6 +215,7 @@ class ServicioAuth:
                     dni=usuario.dni,
                     email=usuario.email,
                     rol=rol_nombre,
+                    sucursales=await self._sucursales(usuario, rol_nombre),
                     requiere_cambio_password=False,
                 ),
             ),
@@ -237,6 +256,7 @@ class ServicioAuth:
                     dni=usuario.dni,
                     email=usuario.email,
                     rol=rol_nombre,
+                    sucursales=await self._sucursales(usuario, rol_nombre),
                     requiere_cambio_password=usuario.requiere_cambio_password,
                 ),
             ),

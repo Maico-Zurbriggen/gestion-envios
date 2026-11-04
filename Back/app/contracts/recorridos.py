@@ -45,6 +45,31 @@ class GenerarRecorridosRequest(ApiModel):
         False,
         description="Si ya hay recorridos sin iniciar para esa sucursal, fecha y tipo, los descarta y genera de nuevo.",
     )
+    vuelve_a_sucursal: bool | None = Field(
+        None,
+        description="Si al terminar el repartidor vuelve a la sucursal (el tramo de vuelta cuenta al ordenar). "
+        "Por defecto, sí en corta distancia y no en larga.",
+    )
+
+    @field_validator("tipo_distancia")
+    @classmethod
+    def validar_tipo(cls, v: str) -> str:
+        return _validar_tipo_distancia(v)
+
+
+class CrearRecorridoRequest(ApiModel):
+    """Alta manual de un recorrido: el repartidor y los paquetes, en el orden de visita."""
+
+    sucursal_id: int = Field(..., gt=0, description="Sucursal de partida.")
+    tipo_distancia: str = Field(..., description="'CORTA' o 'LARGA'.")
+    fecha: date | None = Field(None, description="Día de reparto. Por defecto, hoy.")
+    repartidor_id: UUID
+    paquetes: list[str] = Field(..., min_length=1, max_length=500, description="Códigos de paquete.")
+    vuelve_a_sucursal: bool | None = Field(
+        None,
+        description="Si al terminar el repartidor vuelve a la sucursal (el tramo de vuelta cuenta al ordenar). "
+        "Por defecto, sí en corta distancia y no en larga.",
+    )
 
     @field_validator("tipo_distancia")
     @classmethod
@@ -69,6 +94,12 @@ class ReemplazarPaquetesRecorridoRequest(ApiModel):
 
 class ReasignarRepartidorRequest(ApiModel):
     repartidor_id: UUID
+
+
+class CambiarVueltaRequest(ApiModel):
+    """Si el recorrido termina volviendo a la sucursal."""
+
+    vuelve_a_sucursal: bool
 
 
 class CompletarUbicacionPaqueteRequest(ApiModel):
@@ -99,6 +130,8 @@ class PaqueteRecorridoData(ApiModel):
     token_seguimiento: str
     destinatario_nombre: str
     destinatario_telefono: str
+    visitas_previas: int = Field(0, description="Visitas a domicilio sin éxito antes de este recorrido.")
+    en_devolucion: bool = Field(False, description="Viaja de vuelta a la sucursal de origen.")
 
 
 class ParadaRecorridoData(ApiModel):
@@ -131,6 +164,8 @@ class RecorridoResumenData(ApiModel):
     cantidad_paquetes: int
     distancia_estimada_km: float | None = None
     duracion_estimada_min: int | None = None
+    paquetes_entregados: int = 0
+    paquetes_no_entregados: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -150,6 +185,7 @@ class RecorridoDetalleData(RecorridoResumenData):
     paradas: list[ParadaRecorridoData]
     trazado: list[PuntoMapaData]
     paquetes_sin_ubicacion: int
+    max_visitas: int = 2
 
 
 class AlertaRecorridoData(ApiModel):
@@ -192,6 +228,46 @@ class GenerarRecorridosResponse(ApiModel):
     status: str = "success"
     message: str
     data: GeneracionRecorridosData
+
+
+class PaquetePendienteData(ApiModel):
+    """Paquete listo en la sucursal que todavía no tiene recorrido."""
+
+    paquete_id: UUID
+    numero_paquete: str
+    descripcion: str
+    peso_kg: float
+    destinatario_nombre: str
+    destino: str
+    token_seguimiento: str
+    tiene_ubicacion: bool
+    motivo: str | None = Field(None, description="Por qué no se puede planificar todavía (por ejemplo, sin ubicación).")
+    visitas_previas: int = 0
+    en_devolucion: bool = False
+
+
+class EsperaSucursalData(ApiModel):
+    sucursal_id: int
+    nombre: str
+    a_domicilio: int = Field(..., description="Esperan un recorrido de corta distancia.")
+    entre_sucursales: int = Field(..., description="Esperan un recorrido de larga distancia.")
+    sin_llegar: int = Field(0, description="Registrados para llevar a esta sucursal que todavía no llegaron.")
+
+
+class ResumenEsperaData(ApiModel):
+    sin_llegar: int = Field(..., description="Registrados que todavía no se recibieron (de las sucursales visibles).")
+    sucursales: list[EsperaSucursalData] = Field(..., description="Solo las que tienen paquetes esperando.")
+
+
+class ResumenEsperaResponse(ApiModel):
+    status: str = "success"
+    data: ResumenEsperaData
+
+
+class PaquetesPendientesResponse(ApiModel):
+    status: str = "success"
+    total: int
+    data: list[PaquetePendienteData]
 
 
 class ListarRecorridosResponse(ApiModel):

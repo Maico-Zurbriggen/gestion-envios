@@ -10,7 +10,7 @@ Las versiones indicadas corresponden a los rangos declarados, no a una auditorí
 |---|---|
 | Frontend | TypeScript, React 19 y Vite 8; componentes funcionales y compilación de la aplicación web.
 | Navegación y estado | React Router 7; Redux Toolkit 2 con React Redux; TanStack Query 5 para consultas y mutaciones remotas.
-| Interfaz y documentos | CSS, `lucide-react`, Leaflet, JsBarcode y jsPDF para estilos, iconos, mapas, códigos de barras y etiquetas PDF.
+| Interfaz y documentos | CSS, `lucide-react`, MapLibre (`react-map-gl`), JsBarcode y jsPDF para estilos, iconos, mapas, códigos de barras y etiquetas PDF.
 | Backend | Python 3.12 o superior, FastAPI y Uvicorn; contratos Pydantic v2 y configuración con pydantic-settings.
 | Persistencia | SQLAlchemy 2 asíncrono, Alembic y drivers `aiosqlite` y `asyncpg`. La URL predeterminada usa SQLite; PostgreSQL dispone de driver declarado, sin que esto pruebe un despliegue efectivo.
 | Autenticación y trazabilidad | PyJWT, bcrypt, logging y middleware de identificador de correlación.
@@ -138,7 +138,7 @@ CreateUserPage → useCreateUser → usersApi.createUser
 #### F9. Gestión del ciclo de vida de recursos externos — decisión específica
 
 - **Descripción:** inicializar y liberar recursos imperativos integrados con React.
-- **Implementación:** `ShipmentMap` mantiene mapa y marcador en refs, crea Leaflet dentro de un efecto y ejecuta `map.remove()` en su limpieza. Otros efectos actualizan callback y coordenadas con sus dependencias declaradas.
+- **Implementación:** los mapas usan el componente declarativo `MapView` (`react-map-gl`), que crea y libera la instancia de MapLibre con el ciclo de vida de React; marcadores y recorrido se pasan como props.
 - **Justificación:** evita conservar mapas y manejadores después del desmontaje o de una recreación del recurso.
 
 ### 2.3. Backend
@@ -224,7 +224,7 @@ Los errores siguientes representan riesgos propios de las tecnologías utilizada
 | Mezclar nombres de API con modelos de UI. | Extiende detalles del contrato a páginas y formularios. | F5: adaptación explícita de snake_case a camelCase en servicios. |
 | No mostrar carga, error o resultado de una operación. | El usuario pierde la referencia sobre lo que está ocurriendo y puede repetir acciones. | F6 y F8: estados de Query, controles deshabilitados y mensajes accesibles. |
 | Confiar en un token almacenado u ocultar un botón como único control de acceso. | El usuario puede invocar una URL o la API directamente. | F7 y B8: validación de sesión, rutas protegidas y autorización backend. |
-| Crear recursos de Leaflet sin liberarlos al desmontar. | Puede conservar instancias y manejadores que ya no corresponden a la vista. | F9: limpieza explícita del mapa en el efecto. Prevención específica de ese componente. |
+| Crear instancias de mapa a mano sin liberarlas al desmontar. | Puede conservar instancias y manejadores que ya no corresponden a la vista. | F9: `MapView` declarativo, que libera el mapa al desmontar. |
 | Concentrar SQL y reglas de negocio en endpoints. | Aumenta acoplamiento y dificulta probar la lógica. | B1, B4 y B5: routers delegan, reglas puras validan y repositorios consultan. |
 | Aceptar datos sólo porque el formulario los validó. | La API puede consumirse sin el frontend. | B3 y B4: contratos Pydantic y reglas backend vuelven a validar. |
 | Acceder a relaciones ORM no preparadas en un flujo asíncrono. | Puede intentar una carga implícita fuera del contexto adecuado. | B5: carga explícita de roles y paquetes en los repositorios examinados. |

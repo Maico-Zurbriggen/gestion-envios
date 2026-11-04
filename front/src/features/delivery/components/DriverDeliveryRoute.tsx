@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
+import { PageLoading } from '../../../shared/components/PageLoading'
 const DriverDeliveryPage = lazy(() => import('../pages/DriverDeliveryPage'))
 export function DriverDeliveryRoute() {
-  return <Suspense fallback={<p role="status">Cargando reparto…</p>}><DriverDeliveryPage /></Suspense>
+  return <Suspense fallback={<PageLoading label="Cargando tu reparto…" />}><DriverDeliveryPage /></Suspense>
 }

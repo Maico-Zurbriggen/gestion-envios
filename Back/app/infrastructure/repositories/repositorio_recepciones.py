@@ -38,6 +38,7 @@ class RepositorioRecepciones(IRepositorioRecepciones):
             select(PaqueteModel)
             .options(
                 joinedload(PaqueteModel.envio).joinedload(EnvioModel.sucursal_destino),
+                joinedload(PaqueteModel.envio).selectinload(EnvioModel.paquetes),
                 joinedload(PaqueteModel.sucursal_actual),
             )
             .where(or_(*condiciones))
@@ -52,6 +53,7 @@ class RepositorioRecepciones(IRepositorioRecepciones):
         sucursal_id: int,
         historial_estado: HistorialEstadoPaqueteModel,
         estados_previos: set[str] | None = None,
+        valores_extra: dict | None = None,
     ) -> PaqueteModel | None:
         """Actualiza estado y ubicación del paquete y agrega la fila de auditoría.
 
@@ -67,7 +69,7 @@ class RepositorioRecepciones(IRepositorioRecepciones):
         resultado = await self.db.execute(
             update(PaqueteModel)
             .where(*condiciones)
-            .values(estado=nuevo_estado, sucursal_actual_id=sucursal_id)
+            .values(estado=nuevo_estado, sucursal_actual_id=sucursal_id, **(valores_extra or {}))
             .execution_options(synchronize_session=False)
         )
         if resultado.rowcount != 1:

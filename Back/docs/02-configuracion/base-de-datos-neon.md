@@ -1,6 +1,8 @@
 # Mantener Neon actualizada
 
-Neon es la base PostgreSQL compartida por el equipo. Antes quedaba desactualizada después de cada cambio de modelo porque la API creaba las tablas con `Base.metadata.create_all` al arrancar. `create_all` crea tablas que faltan pero **nunca agrega columnas ni restricciones** a tablas existentes y no registra la versión en `alembic_version`, así que después tampoco se podía correr `alembic upgrade head`.
+**Neon es solo la base de producción**: la usa la app publicada en el VPS ([Despliegue en el VPS](./despliegue-vps.md)). El desarrollo local usa SQLite (`DATABASE_URL=sqlite+aiosqlite:///./gestion_envios.db`), así las pruebas no tocan los datos publicados ni mandan avisos a sus clientes. No conectar el entorno local a Neon.
+
+Neon antes quedaba desactualizada después de cada cambio de modelo porque la API creaba las tablas con `Base.metadata.create_all` al arrancar. `create_all` crea tablas que faltan pero **nunca agrega columnas ni restricciones** a tablas existentes y no registra la versión en `alembic_version`, así que después tampoco se podía correr `alembic upgrade head`.
 
 Desde ahora el esquema solo cambia con migraciones de Alembic y se aplican solas en tres momentos.
 

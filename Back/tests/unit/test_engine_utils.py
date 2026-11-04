@@ -12,6 +12,13 @@ def test_acepta_el_connection_string_tal_como_lo_copia_neon():
     )
 
 
+def test_acepta_el_comando_psql_que_muestra_el_panel_de_neon():
+    esperado = "postgresql+asyncpg://user:clave@ep-cool-123-pooler.sa-east-1.aws.neon.tech/gestion"
+    assert normalizar_url_base_datos(f"psql '{NEON}'") == esperado
+    assert normalizar_url_base_datos(f'"{NEON}"') == esperado
+    assert url_para_migraciones(f"psql '{NEON}'") == esperado.replace("-pooler", "")
+
+
 def test_urls_ya_preparadas_y_sqlite_no_cambian():
     assert normalizar_url_base_datos("sqlite+aiosqlite:///./gestion_envios.db") == "sqlite+aiosqlite:///./gestion_envios.db"
     assert normalizar_url_base_datos("postgresql+asyncpg://u:p@h/db") == "postgresql+asyncpg://u:p@h/db"

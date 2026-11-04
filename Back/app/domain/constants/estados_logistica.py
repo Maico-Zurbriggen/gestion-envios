@@ -29,6 +29,12 @@ class EstadoPaqueteEnum(StrEnum):
     ENTREGA_FALLIDA = "ENTREGA_FALLIDA"
     RETIRADO = "RETIRADO"
     ENTREGADO_EN_SUCURSAL = "ENTREGADO_EN_SUCURSAL"
+    EN_DEVOLUCION = "EN_DEVOLUCION"
+    """No se retiró a tiempo: espera viajar de vuelta a la sucursal de origen."""
+    DEVUELTO = "DEVUELTO"
+    """El remitente retiró el paquete devuelto."""
+    VENCIDO = "VENCIDO"
+    """Pre-registro que nunca se entregó en una sucursal dentro del plazo."""
 
 
 class TipoRetiroEnum(StrEnum):
@@ -36,16 +42,6 @@ class TipoRetiroEnum(StrEnum):
 
     TITULAR = "TITULAR"
     TERCERO_AUTORIZADO = "TERCERO_AUTORIZADO"
-
-
-class TipoDocumentoEnum(StrEnum):
-    """Tipos de documento válidos para verificación de identidad."""
-
-    DNI = "DNI"
-    PASAPORTE = "PASAPORTE"
-    LC = "LC"
-    LE = "LE"
-    OTRO = "OTRO"
 
 
 class TipoDistanciaEnum(StrEnum):
@@ -129,3 +125,16 @@ class TipoEventoEntregaEnum(StrEnum):
 class ResultadoEventoEntregaEnum(StrEnum):
     EXITOSO = "EXITOSO"
     FALLIDO = "FALLIDO"
+
+
+class TipoAvisoEnum(StrEnum):
+    """Hitos del envío que se avisan al cliente por email y WhatsApp."""
+
+    NUEVO_ENVIO = "NUEVO_ENVIO"
+    ADMITIDO = "ADMITIDO"
+    EN_REPARTO = "EN_REPARTO"
+    LISTO_PARA_RETIRO = "LISTO_PARA_RETIRO"
+    ENTREGADO = "ENTREGADO"
+    VISITA_FALLIDA = "VISITA_FALLIDA"
+    DEVOLUCION = "DEVOLUCION"
+    VENCIDO = "VENCIDO"

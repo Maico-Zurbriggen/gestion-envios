@@ -10,11 +10,14 @@ from app.contracts.recorridos import ListarRecorridosResponse, RecorridoResponse
 from app.contracts.reparto import (
     ContactoEntregaResponse,
     EventoEntregaResponse,
+    OptimizarRecorridoRequest,
     RegistrarEntregaRequest,
+    RegistrarLlegadaRequest,
     RegistrarVisitaFallidaRequest,
     UbicacionRequest,
     UbicacionResponse,
 )
+from app.domain.constants.estados_logistica import TipoAvisoEnum, TipoDistanciaEnum
 from app.domain.constants.roles import RolEnum
 from app.infrastructure.db.models import UsuarioModel
 
@@ -51,22 +54,76 @@ async def obtener_recorrido(
 @router.post("/{id}/iniciar", response_model=RecorridoResponse, summary="Iniciar mi recorrido asignado")
 async def iniciar_recorrido(
     id: uuid.UUID,
+    tareas: BackgroundTasks,
+    usuario: UsuarioModel = Depends(repartidor_autorizado),
+    servicio: IServicioReparto = Depends(get_servicio_reparto),
+    notificaciones: IServicioNotificaciones = Depends(get_servicio_notificaciones),
+):
+    resultado = await servicio.iniciar(id, usuario)
+    # Corta distancia: cada destinatario recibe el aviso de que su paquete llega hoy.
+    if resultado.data.tipo_distancia == TipoDistanciaEnum.CORTA.value:
+        for parada in resultado.data.paradas:
+            for paquete in parada.paquetes:
+                tareas.add_task(notificaciones.notificar_hito, paquete.paquete_id, TipoAvisoEnum.EN_REPARTO.value)
+    return resultado
+
+
+@router.post(
+    "/{id}/optimizar",
+    response_model=RecorridoResponse,
+    summary="Optimizar mi recorrido",
+    description="Recalcula el orden más rápido por calles de las paradas pendientes, desde la ubicación enviada.",
+)
+async def optimizar_recorrido(
+    id: uuid.UUID,
+    datos: OptimizarRecorridoRequest | None = None,
     usuario: UsuarioModel = Depends(repartidor_autorizado),
     servicio: IServicioReparto = Depends(get_servicio_reparto),
 ):
-    return await servicio.iniciar(id, usuario)
+    desde = (datos.latitud, datos.longitud) if datos and datos.latitud is not None and datos.longitud is not None else None
+    return await servicio.optimizar(id, usuario, desde)
+
+
+@router.post(
+    "/{id}/llegadas",
+    response_model=RecorridoResponse,
+    summary="Marcar la llegada a la próxima sucursal del recorrido (respaldo)",
+    description="Recorridos entre sucursales. La llegada se registra sola por proximidad (10 km) al enviar la "
+    "ubicación; si el GPS no la registró, el repartidor la marca desde el celular. Los paquetes que bajan ahí se "
+    "actualizan y, si quedan listos para retirar, se avisa al cliente por email y WhatsApp.",
+)
+async def registrar_llegada(
+    id: uuid.UUID,
+    datos: RegistrarLlegadaRequest,
+    tareas: BackgroundTasks,
+    usuario: UsuarioModel = Depends(repartidor_autorizado),
+    servicio: IServicioReparto = Depends(get_servicio_reparto),
+    notificaciones: IServicioNotificaciones = Depends(get_servicio_notificaciones),
+):
+    respuesta, listos = await servicio.registrar_llegada(id, datos, usuario)
+    for paquete_id in listos:
+        tareas.add_task(notificaciones.notificar_hito, paquete_id, TipoAvisoEnum.LISTO_PARA_RETIRO.value)
+    return respuesta
 
 
 @router.put(
-    "/{id}/ubicacion", response_model=UbicacionResponse, summary="Actualizar la posición en un recorrido activo"
+    "/{id}/ubicacion",
+    response_model=UbicacionResponse,
+    summary="Actualizar la posición en un recorrido activo",
+    description="En larga distancia, a 10 km o menos de la próxima sucursal registra la llegada (HU11 CA3).",
 )
 async def actualizar_ubicacion(
     id: uuid.UUID,
     datos: UbicacionRequest,
+    tareas: BackgroundTasks,
     usuario: UsuarioModel = Depends(repartidor_autorizado),
     servicio: IServicioReparto = Depends(get_servicio_reparto),
+    notificaciones: IServicioNotificaciones = Depends(get_servicio_notificaciones),
 ):
-    return await servicio.actualizar_ubicacion(id, datos, usuario)
+    respuesta, listos = await servicio.actualizar_ubicacion(id, datos, usuario)
+    for paquete_id in listos:
+        tareas.add_task(notificaciones.notificar_hito, paquete_id, TipoAvisoEnum.LISTO_PARA_RETIRO.value)
+    return respuesta
 
 
 @router.get("/{id}/ubicacion", response_model=UbicacionResponse, summary="Consultar la última posición de mi recorrido")
@@ -100,11 +157,15 @@ async def obtener_contacto(
 async def registrar_entrega(
     id: uuid.UUID,
     datos: RegistrarEntregaRequest,
+    tareas: BackgroundTasks,
     codigo: str = Path(..., max_length=40),
     usuario: UsuarioModel = Depends(repartidor_autorizado),
     servicio: IServicioReparto = Depends(get_servicio_reparto),
+    notificaciones: IServicioNotificaciones = Depends(get_servicio_notificaciones),
 ):
-    return await servicio.registrar_entrega(id, codigo, datos, usuario)
+    resultado = await servicio.registrar_entrega(id, codigo, datos, usuario)
+    tareas.add_task(notificaciones.notificar_hito, resultado.data.paquete_id, TipoAvisoEnum.ENTREGADO.value)
+    return resultado
 
 
 @router.post(

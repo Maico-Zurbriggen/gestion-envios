@@ -1,12 +1,19 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 
-from app.api.dependencies import get_servicio_retiro_sucursal, requerir_roles
+from app.api.dependencies import (
+    get_servicio_notificaciones,
+    get_servicio_retiro_sucursal,
+    requerir_roles,
+    verificar_sucursal,
+)
+from app.application.interfaces.servicio_notificaciones import IServicioNotificaciones
 from app.application.interfaces.servicio_retiro_sucursal import IServicioRetiroSucursal
 from app.contracts.sucursal_retiro import (
     RegistrarRetiroRequest,
     RegistrarRetiroResponse,
     ValidarRetiroResponse,
 )
+from app.domain.constants.estados_logistica import TipoAvisoEnum
 from app.domain.constants.roles import RolEnum
 from app.infrastructure.db.models import UsuarioModel
 
@@ -43,12 +50,17 @@ async def validar_retiro(
 async def registrar_retiro(
     id: str,
     datos: RegistrarRetiroRequest,
+    tareas: BackgroundTasks,
     usuario_admin: UsuarioModel = Depends(requerir_roles([RolEnum.ADMINISTRATIVO, RolEnum.SUPERADMIN])),
     servicio_retiro: IServicioRetiroSucursal = Depends(get_servicio_retiro_sucursal),
+    notificaciones: IServicioNotificaciones = Depends(get_servicio_notificaciones),
 ):
+    verificar_sucursal(usuario_admin, datos.sucursal_id)
     """Endpoint para registrar el retiro presencial de un paquete en sucursal. Requiere rol ADMINISTRATIVO."""
-    return await servicio_retiro.registrar_retiro(
+    resultado = await servicio_retiro.registrar_retiro(
         id_o_codigo=id,
         datos=datos,
         usuario_admin=usuario_admin,
     )
+    tareas.add_task(notificaciones.notificar_hito, resultado.data.paquete_id, TipoAvisoEnum.ENTREGADO.value)
+    return resultado

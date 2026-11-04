@@ -73,6 +73,32 @@ class Settings(BaseSettings):
     SMTP_TIMEOUT_SEGUNDOS: int = 15
     FRONTEND_BASE_URL: str = "http://localhost:5173"
 
+    # Circuito logístico (valores de referencia del mercado: Correo Argentino, Andreani, OCA)
+    MAX_VISITAS_DOMICILIO: int = 2
+    """Visitas a domicilio antes de dejar el paquete para retiro en sucursal."""
+    PLAZO_RETIRO_DIAS_HABILES: int = 7
+    """Días hábiles que un paquete espera en la sucursal antes de volver al remitente."""
+    VENCIMIENTO_PRE_REGISTRO_DIAS: int = 10
+    """Días para entregar en una sucursal un envío registrado online."""
+    INTERVALO_PLAZOS_MINUTOS: int = 30
+    """Cada cuánto se revisan los plazos vencidos (0 desactiva la revisión automática)."""
+
+    # Mapas, como en Rumbo: recorridos por calle (OSRM) y ubicación de direcciones (Georef + Nominatim)
+    OSRM_URL: str = "https://router.project-osrm.org"
+    """OSRM con el mapa de calles: por defecto el servidor público de demostración (uso liviano,
+    una consulta por segundo). En producción conviene el propio con Docker (ver deploy/osrm)."""
+    RUTAS_FACTOR_TRAFICO: float = 1.2
+    """Multiplicador sobre el tiempo que calcula OSRM."""
+    RUTAS_VELOCIDAD_MEDIA_KMH: float = 30.0
+    """Velocidad media urbana para estimar sin OSRM."""
+    RUTAS_FACTOR_DESVIO: float = 1.35
+    """Cuánto más larga es la calle real que la línea recta (estimación sin OSRM)."""
+    GEOREF_HABILITADO: bool = True
+    GEOREF_URL: str = "https://apis.datos.gob.ar/georef/api"
+    """API del Estado Argentino para ubicar direcciones (gratis, sin clave)."""
+    NOMINATIM_URL: str = "https://nominatim.openstreetmap.org"
+    """Respaldo de Georef (OpenStreetMap, 1 consulta por segundo). Vacío lo desactiva."""
+
     # Notificaciones por WhatsApp (HU05 y aviso de visita de HU12)
     WHATSAPP_PROVIDER: str = "mock"  # "mock" | "meta" | "twilio" | "deshabilitado"
     WHATSAPP_CODIGO_PAIS: str = "54"
@@ -84,6 +110,8 @@ class Settings(BaseSettings):
     WHATSAPP_META_IDIOMA_PLANTILLA: str = "es_AR"
     WHATSAPP_META_PLANTILLA_NUEVO_ENVIO: str = ""
     WHATSAPP_META_PLANTILLA_VISITA_FALLIDA: str = ""
+    WHATSAPP_META_PLANTILLA_AVISO_ESTADO: str = ""
+    """Plantilla aprobada con 3 parámetros: nombre, novedad del envío y enlace."""
     WHATSAPP_META_DESTINATARIOS_PRUEBA: dict[str, str] = Field(default_factory=dict)
     """Equivalencias explícitas entre E.164 y el número guardado en la lista de prueba de Meta."""
     # Twilio (sandbox o remitente aprobado)
@@ -92,6 +120,7 @@ class Settings(BaseSettings):
     TWILIO_WHATSAPP_FROM: str = "whatsapp:+14155238886"
     TWILIO_CONTENT_SID_NUEVO_ENVIO: str = ""
     TWILIO_CONTENT_SID_VISITA_FALLIDA: str = ""
+    TWILIO_CONTENT_SID_AVISO_ESTADO: str = ""
 
     @field_validator("DEBUG", mode="before")
     @classmethod

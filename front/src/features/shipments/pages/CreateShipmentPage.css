@@ -14,39 +14,11 @@
     var(--color-background);
 }
 
-.shipment-public-header {
-  min-height: 4.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-3) max(var(--space-4), calc((100% - 1120px) / 2));
-  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.shipment-brand,
 .shipment-public-header__actions,
 .shipment-public-header__actions a,
 .shipment-public-header__actions button {
   display: inline-flex;
   align-items: center;
-}
-
-.shipment-brand {
-  gap: var(--space-3);
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-.shipment-brand > span {
-  width: 2.5rem;
-  height: 2.5rem;
-  display: grid;
-  place-items: center;
-  color: var(--color-text-on-primary);
-  background: var(--color-primary);
-  border-radius: var(--radius-md);
 }
 
 .shipment-public-header__actions {
@@ -91,7 +63,6 @@
 
 .shipment-page__intro h1 {
   margin: var(--space-2) 0 var(--space-3);
-  font-size: clamp(2rem, 5vw, 3.25rem);
 }
 
 .shipment-page__intro p {
@@ -911,13 +882,6 @@ a.shipment-inline-action {
 }
 
 @media (max-width: 520px) {
-  .shipment-public-header {
-    min-height: 4rem;
-  }
-
-  .shipment-brand strong {
-    font-size: var(--font-size-sm);
-  }
 
   .shipment-public-header__actions a {
     width: 2.5rem;
@@ -1048,4 +1012,48 @@ a.shipment-inline-action {
 .shipment-page.is-embedded {
   min-height: auto;
   background: none;
+}
+
+/* Próximos pasos tras registrar el envío */
+.shipment-next-steps {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 34rem;
+  margin: var(--space-5) auto 0;
+  padding: 0;
+  counter-reset: paso;
+  list-style: none;
+  text-align: left;
+}
+
+.shipment-next-steps li {
+  position: relative;
+  display: grid;
+  gap: 0.15rem;
+  padding: var(--space-3) var(--space-4) var(--space-3) 3.25rem;
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-md);
+  counter-increment: paso;
+  font-size: var(--font-size-sm);
+}
+
+.shipment-next-steps li::before {
+  position: absolute;
+  top: 50%;
+  left: var(--space-4);
+  width: 1.6rem;
+  height: 1.6rem;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-on-primary);
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  content: counter(paso);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  transform: translateY(-50%);
+}
+
+.shipment-next-steps span {
+  color: var(--color-text-muted);
 }

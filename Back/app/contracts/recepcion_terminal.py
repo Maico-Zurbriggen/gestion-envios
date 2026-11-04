@@ -51,6 +51,8 @@ class PaqueteEscaneadoData(ApiModel):
     fecha_registro: datetime
     sucursal_actual: SucursalData | None = None
     envio: EnvioResumenRecepcion
+    bulto: int = Field(1, description="Posición del paquete dentro del envío (para la etiqueta «1 de 3»).")
+    total_bultos: int = Field(1, description="Cantidad de paquetes del envío.")
 
 
 class EscanearPaqueteResponse(ApiModel):
@@ -73,6 +75,9 @@ class RecepcionarPaqueteRequest(ApiModel):
         description="Observaciones del vendedor sobre el estado en que recibió el paquete.",
         max_length=500,
     )
+    peso_balanza_kg: float | None = Field(
+        None, gt=0, le=1000, description="Peso medido en la balanza al admitir el paquete (opcional)."
+    )
 
 
 class PaqueteRecepcionadoData(ApiModel):
@@ -89,6 +94,9 @@ class PaqueteRecepcionadoData(ApiModel):
     fecha_hora_recepcion: datetime
     observaciones: str | None = None
     token_seguimiento: str
+    peso_balanza_kg: float | None = None
+    aviso_peso: str | None = Field(None, description="Aviso si la balanza difiere más de un 10 % de lo declarado.")
+    retiro_hasta: datetime | None = Field(None, description="Si queda para retirar en esta sucursal, hasta cuándo.")
 
 
 class RecepcionarPaqueteResponse(ApiModel):

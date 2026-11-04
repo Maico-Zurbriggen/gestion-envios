@@ -31,7 +31,7 @@ def _payload_envio_notificacion():
         "direccion_destino": "Av. Vélez Sarsfield 500",
         "latitud_destino": -31.4201,
         "longitud_destino": -64.1888,
-        "terminos_aceptados": True,
+        "sucursal_origen_id": 1, "terminos_aceptados": True,
         "paquetes": [
             {
                 "descripcion": "Notebook y accesorios",

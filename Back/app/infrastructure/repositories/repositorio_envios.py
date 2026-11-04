@@ -36,6 +36,7 @@ class RepositorioEnvios:
             .options(
                 joinedload(EnvioModel.sucursal_destino),
                 selectinload(EnvioModel.paquetes).selectinload(PaqueteModel.historial_estados),
+                selectinload(EnvioModel.paquetes).selectinload(PaqueteModel.sucursal_actual),
                 selectinload(EnvioModel.paquetes).selectinload(PaqueteModel.recorrido_asignaciones)
                 .joinedload(RecorridoPaqueteModel.recorrido).joinedload(RecorridoModel.repartidor)
                 .joinedload(RepartidorModel.posicion_actual),

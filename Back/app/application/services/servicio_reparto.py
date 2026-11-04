@@ -2,19 +2,21 @@
 
 import hashlib
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from app.application.interfaces.repositorio_entregas import IRepositorioEntregas
 from app.application.interfaces.repositorio_recorridos import IRepositorioRecorridos
 from app.application.interfaces.servicio_recorridos import IServicioRecorridos
 from app.application.interfaces.servicio_reparto import IServicioReparto
+from app.contracts.recorridos import RecorridoResponse
 from app.contracts.reparto import (
     ContactoEntregaData,
     ContactoEntregaResponse,
     EventoEntregaData,
     EventoEntregaResponse,
     RegistrarEntregaRequest,
+    RegistrarLlegadaRequest,
     RegistrarVisitaFallidaRequest,
     UbicacionData,
     UbicacionRequest,
@@ -35,9 +37,11 @@ from app.domain.constants.estados_logistica import (
     EstadoRecorridoEnum,
     EstadoRecorridoPaqueteEnum,
     ResultadoEventoEntregaEnum,
+    TipoAvisoEnum,
     TipoDistanciaEnum,
     TipoEventoEntregaEnum,
 )
+from app.domain.rules.circuito_rules import agoto_visitas, estado_al_llegar, sumar_dias_habiles
 from app.domain.rules.recepcion_rules import normalizar_codigo_escaneado
 from app.domain.rules.recorrido_rules import distancia_haversine_km
 from app.domain.rules.reparto_rules import decodificar_firma_png, receptor_mayor_de_16
@@ -54,6 +58,9 @@ def _destino_whatsapp(telefono: str | None) -> str:
     """Se audita el número al que realmente se envía; si no es válido, el original para poder corregirlo."""
     numero = normalizar_telefono_whatsapp(telefono, settings.WHATSAPP_CODIGO_PAIS)
     return f"+{numero}" if numero else (telefono or "")
+
+RADIO_LLEGADA_KM = 10.0
+"""HU11 CA3: a esta distancia de la próxima sucursal la llegada se registra sola."""
 
 
 class ServicioReparto(IServicioReparto):
@@ -100,6 +107,12 @@ class ServicioReparto(IServicioReparto):
         await self._autorizado(id, usuario, bloquear=True)
         return await self.recorridos.iniciar(id, usuario)
 
+    async def optimizar(self, id: uuid.UUID, usuario: Any, desde: tuple[float, float] | None):
+        recorrido = await self._autorizado(id, usuario, bloquear=True)
+        if recorrido.estado == EstadoRecorridoEnum.FINALIZADO.value:
+            raise ValidationException(message="El recorrido ya terminó: no hay nada que reordenar.")
+        return await self.recorridos.optimizar(id, desde)
+
     async def obtener_ubicacion(self, id: uuid.UUID, usuario: Any):
         recorrido = await self._autorizado(id, usuario)
         posicion = await self.repo.obtener_posicion(usuario.id)
@@ -112,7 +125,12 @@ class ServicioReparto(IServicioReparto):
             latitud=posicion.latitud, longitud=posicion.longitud, actualizado_at=posicion.actualizado_at
         )
 
-    async def actualizar_ubicacion(self, id: uuid.UUID, datos: UbicacionRequest, usuario: Any):
+    async def actualizar_ubicacion(
+        self, id: uuid.UUID, datos: UbicacionRequest, usuario: Any
+    ) -> tuple[UbicacionResponse, list[uuid.UUID]]:
+        """Guarda la posición. En larga distancia, si está a 10 km o menos de la próxima
+        sucursal, registra la llegada sola (HU11 CA3). Devuelve también los paquetes que
+        quedaron listos para retirar, para avisar al cliente."""
         recorrido = await self._autorizado(id, usuario, bloquear=True)
         self._validar_activo(recorrido)
         ahora = datetime.now(UTC)
@@ -124,59 +142,126 @@ class ServicioReparto(IServicioReparto):
         posicion.latitud, posicion.longitud = datos.latitud, datos.longitud
         posicion.actualizado_at = ahora
 
-        actualizados = []
+        actualizados: list[uuid.UUID] = []
+        listos: list[uuid.UUID] = []
         if recorrido.tipo_distancia == TipoDistanciaEnum.LARGA.value:
-            await self.repo.sincronizar()
-            # Se reutiliza el mismo destino y orden que HU10 entrega al mapa.
-            detalle = (await self.recorridos.obtener(id)).data
-            por_id = {rp.paquete_id: rp for rp in recorrido.paquetes}
-            for parada in detalle.paradas:
-                pendientes = [
-                    por_id[p.paquete_id]
-                    for p in parada.paquetes
-                    if por_id[p.paquete_id].estado_en_recorrido == EstadoRecorridoPaqueteEnum.PENDIENTE.value
-                ]
-                if not pendientes:
-                    continue
-                sucursal = parada.sucursal_destino
+            proxima = await self._proxima_sucursal(recorrido)
+            # Un ping procesa como máximo la próxima parada, aunque otra también esté cerca.
+            if proxima is not None:
+                sucursal, grupo = proxima
                 if (
-                    sucursal is not None
-                    and sucursal.id != recorrido.sucursal_origen_id
-                    and parada.latitud is not None
-                    and parada.longitud is not None
-                    and distancia_haversine_km((datos.latitud, datos.longitud), (parada.latitud, parada.longitud))
-                    <= 10.0
+                    sucursal.id != recorrido.sucursal_origen_id
+                    and sucursal.latitud is not None
+                    and sucursal.longitud is not None
+                    and distancia_haversine_km((datos.latitud, datos.longitud), (sucursal.latitud, sucursal.longitud))
+                    <= RADIO_LLEGADA_KM
                 ):
-                    for rp in pendientes:
-                        if rp.paquete.estado != EstadoPaqueteEnum.EN_TRANSITO.value:
-                            continue
-                        await self.repo.actualizar_estado_paquete(
-                            rp.paquete_id,
-                            EstadoPaqueteEnum.EN_TRANSITO.value,
-                            EstadoPaqueteEnum.EN_SUCURSAL_DESTINO.value,
-                            sucursal.id,
-                        )
-                        rp.estado_en_recorrido = EstadoRecorridoPaqueteEnum.ENTREGADO.value
-                        await self.repo.agregar(
-                            HistorialEstadoPaqueteModel(
-                                paquete_id=rp.paquete_id,
-                                estado_anterior=EstadoPaqueteEnum.EN_TRANSITO.value,
-                                estado_nuevo=EstadoPaqueteEnum.EN_SUCURSAL_DESTINO.value,
-                                usuario_id=None,
-                                sucursal_id=sucursal.id,
-                                latitud=datos.latitud,
-                                longitud=datos.longitud,
-                                observacion="Llegada a la sucursal de destino por proximidad de hasta 10 km.",
-                                created_at=ahora,
-                            )
-                        )
-                        actualizados.append(rp.paquete_id)
-                # Un ping corresponde al siguiente tramo, aunque otro destino
-                # también esté dentro del radio de proximidad.
-                break
+                    actualizados = [rp.paquete_id for rp in grupo]
+                    listos = await self._registrar_llegada_en(
+                        recorrido, sucursal, grupo, ahora,
+                        usuario_id=None, latitud=datos.latitud, longitud=datos.longitud,
+                        detalle=f"por proximidad de hasta {RADIO_LLEGADA_KM:g} km",
+                    )
             self._finalizar_si_completo(recorrido)
         await self.repo.confirmar()
-        return UbicacionResponse(data=self._posicion_data(posicion), paquetes_actualizados=actualizados)
+        return UbicacionResponse(data=self._posicion_data(posicion), paquetes_actualizados=actualizados), listos
+
+    async def registrar_llegada(
+        self, id: uuid.UUID, datos: RegistrarLlegadaRequest, usuario: Any
+    ) -> tuple[RecorridoResponse, list[uuid.UUID]]:
+        """Respaldo de la llegada automática: el repartidor la marca desde el celular
+        cuando el GPS no la registró (sin señal o sin permiso de ubicación).
+
+        Devuelve el recorrido actualizado y los paquetes que quedaron listos para retirar.
+        """
+        recorrido = await self._autorizado(id, usuario, bloquear=True)
+        self._validar_activo(recorrido)
+        if recorrido.tipo_distancia != TipoDistanciaEnum.LARGA.value:
+            raise ValidationException(message="La llegada a una sucursal se marca solo en recorridos entre sucursales.")
+        proxima = await self._proxima_sucursal(recorrido)
+        if proxima is None:
+            raise ValidationException(message="No quedan sucursales pendientes en este recorrido.")
+        sucursal, grupo = proxima
+        if sucursal.id != datos.sucursal_id:
+            raise ValidationException(
+                message=f"Primero marcá la llegada a {sucursal.nombre}: las sucursales se visitan en orden.",
+                errors=[{"field": "sucursal_id", "message": f"La próxima parada es {sucursal.nombre}."}],
+            )
+        listos = await self._registrar_llegada_en(
+            recorrido, sucursal, grupo, datetime.now(UTC),
+            usuario_id=usuario.id, latitud=datos.latitud, longitud=datos.longitud,
+            detalle="marcada por el repartidor",
+        )
+        self._finalizar_si_completo(recorrido)
+        await self.repo.confirmar()
+
+        respuesta = await self.recorridos.obtener(id)
+        cantidad = len(grupo)
+        respuesta.message = (
+            f"Llegada a {sucursal.nombre} registrada: "
+            f"{cantidad} {'paquete bajó' if cantidad == 1 else 'paquetes bajaron'} en esta sucursal."
+        )
+        return respuesta, listos
+
+    async def _proxima_sucursal(self, recorrido) -> tuple[Any, list[Any]] | None:
+        """Primera sucursal del recorrido (en el orden de HU10) con paquetes pendientes."""
+        await self.repo.sincronizar()
+        for sucursal, grupo in await self.recorridos.paradas_en_sucursales(recorrido):
+            pendientes = [rp for rp in grupo if rp.estado_en_recorrido == EstadoRecorridoPaqueteEnum.PENDIENTE.value]
+            if pendientes:
+                return sucursal, pendientes
+        return None
+
+    async def _registrar_llegada_en(
+        self, recorrido, sucursal, grupo, ahora: datetime, *,
+        usuario_id: uuid.UUID | None, latitud: float | None, longitud: float | None, detalle: str,
+    ) -> list[uuid.UUID]:
+        """Los paquetes que bajan en esa sucursal quedan listos para retirar (si es su
+        sucursal de retiro), en espera del reparto a domicilio o, si vuelven al
+        remitente, en camino a su origen. Devuelve los que quedaron listos para retirar."""
+        llegables = (
+            EstadoPaqueteEnum.EN_TRANSITO.value,
+            EstadoPaqueteEnum.EN_SUCURSAL_DESTINO.value,
+            EstadoPaqueteEnum.EN_DEVOLUCION.value,
+        )
+        listos: list[uuid.UUID] = []
+        for rp in grupo:
+            paquete = rp.paquete
+            envio = paquete.envio
+            destino = estado_al_llegar(
+                tipo_entrega=envio.tipo_entrega,
+                sucursal_destino_id=envio.sucursal_destino_id,
+                sucursal_origen_id=paquete.sucursal_origen_id,
+                en_devolucion=paquete.en_devolucion,
+                sucursal_llegada_id=sucursal.id,
+            )
+            if paquete.estado in llegables and paquete.estado != destino:
+                anterior = paquete.estado
+                paquete.estado = destino
+                paquete.sucursal_actual_id = sucursal.id
+                observacion = f"Llegó a {sucursal.nombre} ({detalle})."
+                if destino == EstadoPaqueteEnum.LISTO_PARA_RETIRO.value:
+                    paquete.retiro_hasta = None if paquete.en_devolucion else sumar_dias_habiles(
+                        ahora, settings.PLAZO_RETIRO_DIAS_HABILES
+                    )
+                    observacion += (
+                        " Vuelve al remitente: lo retira quien lo envió." if paquete.en_devolucion
+                        else " Queda listo para retirar."
+                    )
+                    listos.append(paquete.id)
+                await self.repo.agregar(HistorialEstadoPaqueteModel(
+                    paquete_id=paquete.id,
+                    estado_anterior=anterior,
+                    estado_nuevo=destino,
+                    usuario_id=usuario_id,
+                    sucursal_id=sucursal.id,
+                    latitud=latitud,
+                    longitud=longitud,
+                    observacion=observacion,
+                    created_at=ahora,
+                ))
+            rp.estado_en_recorrido = EstadoRecorridoPaqueteEnum.ENTREGADO.value
+        return listos
 
     def _paquete(self, recorrido, codigo: str):
         codigo = normalizar_codigo_escaneado(codigo)
@@ -243,6 +328,10 @@ class ServicioReparto(IServicioReparto):
             )
         paquete = rp.paquete
         nuevo_estado = EstadoPaqueteEnum.ENTREGADO.value if exitoso else EstadoPaqueteEnum.ENTREGA_FALLIDA.value
+        # Tras la última visita sin éxito el paquete deja de salir a reparto: al volver
+        # el vehículo queda en la sucursal para que el destinatario lo retire.
+        visitas = 0 if exitoso else await self.entregas.contar_visitas_fallidas(paquete.id) + 1
+        queda_para_retiro = not exitoso and agoto_visitas(visitas, settings.MAX_VISITAS_DOMICILIO)
         evento = EventoEntregaModel(
             id=uuid.uuid4(),
             operacion_id=datos.operacion_id,
@@ -267,7 +356,19 @@ class ServicioReparto(IServicioReparto):
         posicion = await self.repo.obtener_posicion(usuario.id)
         if posicion and posicion.recorrido_id == id:
             evento.latitud, evento.longitud = posicion.latitud, posicion.longitud
-        await self.repo.actualizar_estado_paquete(paquete.id, EstadoPaqueteEnum.EN_REPARTO.value, nuevo_estado)
+        # Una visita fallida vuelve con el vehículo a la sucursal de donde salió: desde ahí
+        # se reintenta en otro recorrido o, tras la última visita, se retira.
+        await self.repo.actualizar_estado_paquete(
+            paquete.id,
+            EstadoPaqueteEnum.EN_REPARTO.value,
+            nuevo_estado,
+            None if exitoso else recorrido.sucursal_origen_id,
+        )
+        if queda_para_retiro:
+            await self.repo.actualizar_estado_paquete(
+                paquete.id, nuevo_estado, EstadoPaqueteEnum.LISTO_PARA_RETIRO.value, recorrido.sucursal_origen_id
+            )
+            paquete.retiro_hasta = sumar_dias_habiles(ahora, settings.PLAZO_RETIRO_DIAS_HABILES)
         rp.estado_en_recorrido = (
             EstadoRecorridoPaqueteEnum.ENTREGADO.value if exitoso else EstadoRecorridoPaqueteEnum.FALLIDO.value
         )
@@ -285,6 +386,21 @@ class ServicioReparto(IServicioReparto):
                 observacion="Entrega a domicilio completada." if exitoso else "Aviso de visita: entrega no concretada.",
             )
         )
+        if queda_para_retiro:
+            await self.repo.agregar(
+                HistorialEstadoPaqueteModel(
+                    paquete_id=paquete.id,
+                    estado_anterior=nuevo_estado,
+                    estado_nuevo=EstadoPaqueteEnum.LISTO_PARA_RETIRO.value,
+                    usuario_id=None,
+                    sucursal_id=recorrido.sucursal_origen_id,
+                    created_at=ahora + timedelta(seconds=1),
+                    observacion=(
+                        f"Se hicieron las {settings.MAX_VISITAS_DOMICILIO} visitas previstas: queda para retirar "
+                        "en la sucursal al volver el vehículo."
+                    ),
+                )
+            )
         if not exitoso:
             # El aviso pendiente se guarda en la MISMA transacción que la visita.
             # Un aviso por canal (email y WhatsApp), como pide HU12 Escenario 3.
@@ -298,6 +414,8 @@ class ServicioReparto(IServicioReparto):
                         id=uuid.uuid4(),
                         envio_id=paquete.envio_id,
                         evento_entrega_id=evento.id,
+                        paquete_id=paquete.id,
+                        tipo_aviso=TipoAvisoEnum.VISITA_FALLIDA.value,
                         canal=canal,
                         destinatario_tipo=DestinatarioNotificacionEnum.DESTINATARIO.value,
                         destino=(destino or "").strip()[:150],

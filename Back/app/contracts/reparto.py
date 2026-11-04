@@ -14,6 +14,15 @@ class UbicacionRequest(ApiModel):
     longitud: float = Field(..., ge=-180, le=180, strict=True)
 
 
+class OptimizarRecorridoRequest(ApiModel):
+    """Ubicación actual del repartidor (opcional): desde ahí se ordena lo que falta."""
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    latitud: float | None = Field(None, ge=-90, le=90)
+    longitud: float | None = Field(None, ge=-180, le=180)
+
+
 class UbicacionData(UbicacionRequest):
     actualizado_at: datetime
 
@@ -26,7 +35,17 @@ class UbicacionData(UbicacionRequest):
 class UbicacionResponse(ApiModel):
     status: str = "success"
     data: UbicacionData | None = None
-    paquetes_actualizados: list[UUID] = Field(default_factory=list)
+    paquetes_actualizados: list[UUID] = Field(
+        default_factory=list, description="Paquetes cuya llegada a la sucursal se registró con esta posición (HU11 CA3)."
+    )
+
+
+class RegistrarLlegadaRequest(ApiModel):
+    """Respaldo de la llegada automática: el repartidor avisa que llegó a la próxima sucursal."""
+
+    sucursal_id: int = Field(..., ge=1, description="Sucursal a la que llegó: tiene que ser la próxima parada pendiente.")
+    latitud: float | None = Field(None, ge=-90, le=90)
+    longitud: float | None = Field(None, ge=-180, le=180)
 
 
 class RegistrarEntregaRequest(ApiModel):

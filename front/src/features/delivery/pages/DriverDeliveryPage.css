@@ -1,3 +1,47 @@
-.delivery-map__driver { fill: var(--color-accent); fill-opacity: 1; stroke: var(--color-neutral-950); stroke-width: 3; }
-.ops-page .delivery-map { height: clamp(15rem, 45vh, 26rem); }
+.ops-page .delivery-map.map-view { height: clamp(16rem, 50vh, 30rem); }
 .ops-page .ops-list .ops-list { margin-top: var(--space-4); }
+
+.driver-badge { margin-left: var(--space-2); vertical-align: middle; }
+.driver-load { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-3) 0 0; }
+
+/* Llegada a la próxima sucursal de un recorrido entre sucursales. */
+.driver-arrival {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--color-primary) 7%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+  border-radius: var(--radius-md);
+}
+
+.driver-arrival > .ops-button {
+  grid-column: 1 / -1;
+}
+
+.driver-arrival__icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-on-primary);
+  background: var(--color-primary);
+  border-radius: var(--radius-md);
+}
+
+.driver-arrival p {
+  margin: 0;
+}
+
+.driver-arrival__label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.driver-arrival__name {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}

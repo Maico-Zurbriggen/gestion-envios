@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Path, Query, status
 
-from app.api.dependencies import get_servicio_reclamos, requerir_roles
+from app.api.dependencies import exigir_sucursal, get_servicio_reclamos, requerir_roles
 from app.application.interfaces.servicio_reclamos import IServicioReclamos
 from app.contracts.reclamos import (
     ActualizarEstadoReclamoRequest,
@@ -76,10 +76,13 @@ async def listar_reclamos(
     estado: str | None = Query(None, max_length=15, description="ABIERTO, EN_REVISION, RESUELTO o RECHAZADO."),
     tipo: str | None = Query(None, max_length=20, description="DEMORA, DANIO, EXTRAVIO u OTRO."),
     token: str | None = Query(None, max_length=40, description="Token de seguimiento del envío."),
-    _usuario: UsuarioModel = Depends(requerir_roles(ROLES_GESTION_RECLAMOS)),
+    sucursal_id: int | None = Query(None, ge=1, description="Reclamos de los envíos que pasan por esa sucursal."),
+    usuario: UsuarioModel = Depends(requerir_roles(ROLES_GESTION_RECLAMOS)),
     servicio: IServicioReclamos = Depends(get_servicio_reclamos),
 ):
-    return await servicio.listar_reclamos(estado=estado, tipo=tipo, token_seguimiento=token)
+    return await servicio.listar_reclamos(
+        estado=estado, tipo=tipo, token_seguimiento=token, sucursal_id=exigir_sucursal(usuario, sucursal_id)
+    )
 
 
 @router_admin.get(

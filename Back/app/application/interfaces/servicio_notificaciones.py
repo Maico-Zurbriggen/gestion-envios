@@ -9,6 +9,10 @@ class IServicioNotificaciones(Protocol):
 
     async def notificar_visita_fallida(self, evento_id: UUID) -> None: ...
 
+    async def notificar_hito(self, paquete_id: UUID, tipo: str) -> None:
+        """Aviso de un hito del paquete (recibido, en reparto, listo para retirar, entregado...)."""
+        ...
+
     async def notificar_nuevo_envio(self, datos: DatosNotificacionEnvio) -> list[Any]:
         """Envía el token de seguimiento al emisor y destinatario por email y WhatsApp.
 

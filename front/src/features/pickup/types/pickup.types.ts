@@ -21,6 +21,9 @@ export interface ApiPickupValidation {
   sucursal_actual: ApiPickupBranch | null
   datos_destinatario: { nombre: string; telefono: string; email: string }
   requisitos_retiro: { titular: string; tercero_autorizado: string }
+  es_devolucion?: boolean
+  retiro_hasta?: string | null
+  sucursal_retiro?: ApiPickupBranch | null
 }
 
 export interface PickupBranch {
@@ -48,6 +51,11 @@ export interface PickupValidation {
   currentBranch: PickupBranch | null
   recipient: { name: string; phone: string; email: string }
   requirements: { recipient: string; authorizedPerson: string }
+  /** Vuelve al remitente: el titular que retira es quien lo envió. */
+  isReturn: boolean
+  pickupUntil: string | null
+  /** Donde corresponde retirarlo según el caso (elegida, tras las visitas o, si vuelve, la de origen). */
+  pickupBranch: PickupBranch | null
 }
 
 export type PickupType = 'TITULAR' | 'TERCERO_AUTORIZADO'

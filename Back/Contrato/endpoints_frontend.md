@@ -46,7 +46,7 @@
     - `GET|PUT /api/v1/repartidores...` (Perfiles de Repartidor)
     - `POST /api/v1/recorridos/generar` (Generación Automática)
     - `GET /api/v1/recorridos` y `GET /api/v1/recorridos/{id}` (Visualización)
-    - `PUT|DELETE /api/v1/recorridos/{id}/paquetes...`, `POST .../optimizar`, `PATCH .../repartidor`, `DELETE /api/v1/recorridos/{id}` (Edición)
+    - `PUT|DELETE /api/v1/recorridos/{id}/paquetes...`, `POST .../optimizar`, `PATCH .../repartidor`, `PUT .../vuelta`, `DELETE /api/v1/recorridos/{id}` (Edición)
     - `POST /api/v1/recorridos/{id}/iniciar` (Inicio)
     - `GET /api/v1/recorridos/alertas` y `PATCH .../alertas/{id}/resolver` (Alertas)
 14. [Ejecución de Reparto y Constancias - HU11/HU12](#14-ejecución-de-reparto-y-constancias-hu11hu12)
@@ -491,21 +491,21 @@ Permite verificar el estado actual del paquete y los datos del destinatario para
     "tipo_entrega": "sucursal",
     "sucursal_destino": {
       "id": 1,
-      "nombre": "Sucursal Córdoba Centro",
+      "nombre": "Sucursal San Francisco",
       "provincia": "Córdoba",
-      "ciudad": "Córdoba",
-      "direccion": "Av. Colón 1234",
-      "latitud": -31.4167,
-      "longitud": -64.1833
+      "ciudad": "San Francisco",
+      "direccion": "Bv. 25 de Mayo 1855",
+      "latitud": -31.429311,
+      "longitud": -62.086707
     },
     "sucursal_actual": {
       "id": 1,
-      "nombre": "Sucursal Córdoba Centro",
+      "nombre": "Sucursal San Francisco",
       "provincia": "Córdoba",
-      "ciudad": "Córdoba",
-      "direccion": "Av. Colón 1234",
-      "latitud": -31.4167,
-      "longitud": -64.1833
+      "ciudad": "San Francisco",
+      "direccion": "Bv. 25 de Mayo 1855",
+      "latitud": -31.429311,
+      "longitud": -62.086707
     },
     "datos_destinatario": {
       "nombre": "María López",
@@ -824,15 +824,15 @@ Consulta de **solo lectura**: no modifica el paquete. Se puede llamar tantas vec
       "destinatario_nombre": "Ana López",
       "destinatario_telefono": "+543564333444",
       "tipo_entrega": "sucursal",
-      "destino": "Sucursal Rosario Sur - Bv. Oroño 2456, Rosario, Santa Fe",
+      "destino": "Sucursal Villa María - General Paz 450, Villa María, Córdoba",
       "sucursal_destino": {
         "id": 2,
-        "nombre": "Sucursal Rosario Sur",
-        "provincia": "Santa Fe",
-        "ciudad": "Rosario",
-        "direccion": "Bv. Oroño 2456",
-        "latitud": -32.9587,
-        "longitud": -60.6931
+        "nombre": "Sucursal Villa María",
+        "provincia": "Córdoba",
+        "ciudad": "Villa María",
+        "direccion": "General Paz 450",
+        "latitud": -32.406853,
+        "longitud": -63.247333
       }
     }
   }
@@ -922,7 +922,7 @@ Si el envío es para **retiro en sucursal** y se recibe en la misma sucursal ele
     "estado_anterior": "Pendiente",
     "estado": "EN_SUCURSAL_ORIGEN",
     "sucursal_id": 1,
-    "sucursal_nombre": "Sucursal Córdoba Centro",
+    "sucursal_nombre": "Sucursal San Francisco",
     "usuario_receptor_id": "b1ffcd88-7a1b-4de9-9c2e-1aa8bc471c02",
     "usuario_receptor_nombre": "Marcos Vendedor",
     "fecha_hora_recepcion": "2026-10-12T14:07:52.119Z",
@@ -993,12 +993,12 @@ Catálogo de sucursales de la red. Alimenta el selector de "retiro en sucursal" 
   "data": [
     {
       "id": 1,
-      "nombre": "Sucursal Córdoba Centro",
+      "nombre": "Sucursal San Francisco",
       "provincia": "Córdoba",
-      "ciudad": "Córdoba",
-      "direccion": "Av. Colón 1234",
-      "latitud": -31.4167,
-      "longitud": -64.1833
+      "ciudad": "San Francisco",
+      "direccion": "Bv. 25 de Mayo 1855",
+      "latitud": -31.429311,
+      "longitud": -62.086707
     }
   ]
 }
@@ -1028,33 +1028,33 @@ Dado el token de seguimiento de un envío, devuelve dónde se retira el paquete,
     "motivo_no_aplica": null,
     "sucursal_asignada": {
       "id": 2,
-      "nombre": "Sucursal Rosario Sur",
-      "provincia": "Santa Fe",
-      "ciudad": "Rosario",
-      "direccion": "Bv. Oroño 2456",
-      "latitud": -32.9587,
-      "longitud": -60.6931,
+      "nombre": "Sucursal Villa María",
+      "provincia": "Córdoba",
+      "ciudad": "Villa María",
+      "direccion": "General Paz 450",
+      "latitud": -32.406853,
+      "longitud": -63.247333,
       "es_sucursal_asignada": true
     },
     "sucursales_disponibles": [
       {
         "id": 2,
-        "nombre": "Sucursal Rosario Sur",
-        "provincia": "Santa Fe",
-        "ciudad": "Rosario",
-        "direccion": "Bv. Oroño 2456",
-        "latitud": -32.9587,
-        "longitud": -60.6931,
+        "nombre": "Sucursal Villa María",
+        "provincia": "Córdoba",
+        "ciudad": "Villa María",
+        "direccion": "General Paz 450",
+        "latitud": -32.406853,
+        "longitud": -63.247333,
         "es_sucursal_asignada": true
       },
       {
-        "id": 7,
-        "nombre": "Sucursal Rosario Norte",
-        "provincia": "Santa Fe",
-        "ciudad": "Rosario",
-        "direccion": "Av. Alberdi 1500",
-        "latitud": -32.92,
-        "longitud": -60.68,
+        "id": 3,
+        "nombre": "Sucursal Arroyito",
+        "provincia": "Córdoba",
+        "ciudad": "Arroyito",
+        "direccion": "Rivadavia 456",
+        "latitud": -31.418952,
+        "longitud": -63.050467,
         "es_sucursal_asignada": false
       }
     ],
@@ -1376,7 +1376,7 @@ Respuesta (`200`):
     "telefono": "+543564222333",
     "estado_usuario": "Activo",
     "perfil_configurado": true,
-    "sucursal_base": { "id": 1, "nombre": "Sucursal Córdoba Centro", "provincia": "Córdoba", "ciudad": "Córdoba", "direccion": "Av. Colón 1234", "latitud": -31.4167, "longitud": -64.1833 },
+    "sucursal_base": { "id": 1, "nombre": "Sucursal San Francisco", "provincia": "Córdoba", "ciudad": "San Francisco", "direccion": "Bv. 25 de Mayo 1855", "latitud": -31.429311, "longitud": -62.086707 },
     "tipo_reparto": "CORTA",
     "activo": true,
     "disponible_para_recorridos": true
@@ -1468,7 +1468,7 @@ Detalle (`data`):
   "estado": "GENERADO",
   "generado_automaticamente": true,
   "sucursal_origen_id": 1,
-  "sucursal_origen_nombre": "Sucursal Córdoba Centro",
+  "sucursal_origen_nombre": "Sucursal San Francisco",
   "repartidor": { "usuario_id": "7c53315c-...", "nombre": "Diego Repartidor", "telefono": "+543564222333" },
   "cantidad_paradas": 1,
   "cantidad_paquetes": 1,
@@ -1478,7 +1478,7 @@ Detalle (`data`):
   "updated_at": "2026-10-24T09:16:20",
   "orientacion_calles_grados": 20.0,
   "vuelve_a_sucursal": true,
-  "sucursal_origen": { "id": 1, "nombre": "Sucursal Córdoba Centro", "provincia": "Córdoba", "ciudad": "Córdoba", "direccion": "Av. Colón 1234", "latitud": -31.4167, "longitud": -64.1833 },
+  "sucursal_origen": { "id": 1, "nombre": "Sucursal San Francisco", "provincia": "Córdoba", "ciudad": "San Francisco", "direccion": "Bv. 25 de Mayo 1855", "latitud": -31.429311, "longitud": -62.086707 },
   "paradas": [
     {
       "orden": 1,
@@ -1512,7 +1512,7 @@ Detalle (`data`):
 }
 ```
 
-**Cómo dibujarlo:** `trazado` es la polilínea en orden de visita (sucursal, paradas y vuelta a la sucursal si `vuelve_a_sucursal`). En `LARGA`, `tipo_parada` es `SUCURSAL`, `sucursal_destino` viene poblado y no hay vuelta. Una parada con `latitud: null` es un domicilio sin coordenadas agregado a mano: listarla, pero no tiene punto en el mapa.
+**Cómo dibujarlo:** `trazado` es la polilínea en orden de visita (sucursal, paradas y vuelta a la sucursal si `vuelve_a_sucursal`). El front dibuja la ida con el color principal y la vuelta (última parada → sucursal) aparte, en `--color-info` y punteada. `vuelve_a_sucursal` se elige al generar (`POST /generar`) o crear (`POST /recorridos`); si no se manda, es `true` en `CORTA` y `false` en `LARGA`. En `LARGA`, `tipo_parada` es `SUCURSAL`, `sucursal_destino` viene poblado y no hay vuelta. Una parada con `latitud: null` es un domicilio sin coordenadas agregado a mano: listarla, pero no tiene punto en el mapa.
 
 ### 13.4. Editar un Recorrido (solo `GENERADO` o `EN_EDICION`)
 | Método | URL | Body | Detalle |
@@ -1522,6 +1522,7 @@ Detalle (`data`):
 | `PATCH` | `/api/v1/recorridos/{id}/paquetes/{codigo}/ubicacion` | `{ "latitud": -34.58, "longitud": -58.42 }` | Completa un domicilio sin coordenadas en corta distancia. Guarda el punto en el envío y recalcula sus recorridos editables conservando el orden. |
 | `POST` | `/api/v1/recorridos/{id}/optimizar` | — | Recalcula el mejor orden de los paquetes actuales. |
 | `PATCH` | `/api/v1/recorridos/{id}/repartidor` | `{ "repartidor_id": "uuid" }` | Reasigna a otro repartidor disponible de la misma sucursal y tipo. |
+| `PUT` | `/api/v1/recorridos/{id}/vuelta` | `{ "vuelve_a_sucursal": false }` | Marca si al terminar vuelve a la sucursal y reestima km y minutos. Se puede cambiar hasta que el recorrido termina (`400` si está `FINALIZADO`). El orden no cambia solo: el front llama a `optimizar` después. |
 | `DELETE` | `/api/v1/recorridos/{id}` | — | Descarta el recorrido; sus paquetes quedan libres (y se alertan). Responde `{ "status", "message", "alertas" }`. |
 
 Todas salvo eliminar el recorrido devuelven el detalle actualizado (formato 13.3) y `alertas` con los paquetes de la sucursal que siguen sin recorrido de ese tipo. Una edición manual deja el recorrido en `EN_EDICION` con `generado_automaticamente: false`.

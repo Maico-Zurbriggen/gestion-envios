@@ -1,10 +1,18 @@
 from fastapi import APIRouter, Depends, Path, Query, status
 
-from app.api.dependencies import get_servicio_sucursales
+from app.api.dependencies import get_servicio_sucursales, requerir_rol
 from app.application.interfaces.servicio_sucursales import IServicioSucursales
-from app.contracts.sucursales import ListarSucursalesResponse, OpcionesRetiroResponse
+from app.contracts.sucursales import (
+    GuardarSucursalRequest,
+    ListarSucursalesAdminResponse,
+    ListarSucursalesResponse,
+    OpcionesRetiroResponse,
+    SucursalAdminResponse,
+)
+from app.domain.constants.roles import RolEnum
 
 router = APIRouter(prefix="/sucursales", tags=["Sucursales"])
+router_admin = APIRouter(prefix="/admin/sucursales", tags=["Sucursales"])
 
 
 @router.get(
@@ -48,3 +56,41 @@ async def obtener_opciones_retiro(
 ):
     """Endpoint público de opciones de retiro en sucursal (HU09). Sin autenticación."""
     return await servicio_sucursales.obtener_opciones_retiro(token)
+
+
+@router_admin.get(
+    "",
+    response_model=ListarSucursalesAdminResponse,
+    summary="Sucursales para administrar",
+    description="Todas, también las inactivas, con cuántos usuarios las tienen habilitadas.",
+)
+async def listar_sucursales_admin(
+    _superadmin=Depends(requerir_rol(RolEnum.SUPERADMIN)),
+    servicio: IServicioSucursales = Depends(get_servicio_sucursales),
+):
+    return await servicio.listar_admin()
+
+
+@router_admin.post(
+    "",
+    response_model=SucursalAdminResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Crear una sucursal",
+    description="La dirección y su ubicación son obligatorias: de ahí parten los recorridos.",
+)
+async def crear_sucursal(
+    datos: GuardarSucursalRequest,
+    _superadmin=Depends(requerir_rol(RolEnum.SUPERADMIN)),
+    servicio: IServicioSucursales = Depends(get_servicio_sucursales),
+):
+    return await servicio.crear_sucursal(datos)
+
+
+@router_admin.put("/{id}", response_model=SucursalAdminResponse, summary="Modificar una sucursal")
+async def actualizar_sucursal(
+    datos: GuardarSucursalRequest,
+    id: int = Path(..., ge=1),
+    _superadmin=Depends(requerir_rol(RolEnum.SUPERADMIN)),
+    servicio: IServicioSucursales = Depends(get_servicio_sucursales),
+):
+    return await servicio.actualizar_sucursal(id, datos)

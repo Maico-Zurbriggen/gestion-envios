@@ -1,22 +1,31 @@
 import { useState } from 'react'
 import { ArrowLeft, Building2, CircleAlert, LoaderCircle, MapPin, MapPinned, RefreshCw } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useBranches } from '../hooks/useBranches'
 import { ShipmentMap } from '../components/ShipmentMap'
 import type { Branch } from '../types/shipment.types'
 import './BranchesPage.css'
 import { useInsidePanel } from '../../../layouts/MainLayout/panelContext'
+import { PublicHeader } from '../../../shared/components/PublicHeader'
+
+/** Desde dónde se llegó: el login, el seguimiento o las preguntas lo indican; si no, es el registro del envío. */
+interface BackState {
+  backTo?: string
+  backLabel?: string
+}
 
 export function BranchesPage() {
   const branchesQuery = useBranches()
   const insidePanel = useInsidePanel()
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const selectedBranch = branchesQuery.data?.find((branch) => branch.id === selectedId) ?? null
+  const back = (useLocation().state ?? {}) as BackState
 
   return (
     <main className={`branches-page${insidePanel ? ' is-embedded' : ''}`}>
+      {!insidePanel && <PublicHeader />}
       <div className="branches-page__content">
-        <Link className="branches-page__back" to="/envios/nuevo"><ArrowLeft size={18} aria-hidden="true" /> Volver al registro</Link>
+        <Link className="branches-page__back" to={back.backTo ?? '/envios/nuevo'}><ArrowLeft size={18} aria-hidden="true" /> {back.backLabel ?? 'Volver al registro'}</Link>
         <header className="branches-page__intro">
           <span className="eyebrow"><Building2 size={16} aria-hidden="true" /> Retiro en sucursal</span>
           <h1>Sucursales disponibles</h1>

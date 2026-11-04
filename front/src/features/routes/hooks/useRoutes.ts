@@ -1,13 +1,23 @@
-import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useIsMutating, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useAppSelector } from '../../../app/store'
 import { selectAuthToken } from '../../auth/redux/authSlice'
-import { generateRoutes, getDrivers, getRoute, getRouteAlerts, getRoutes, resolveRouteAlert, runRouteCommand, saveDriverProfile } from '../services/routesApi'
-import type { DriverProfileInput, GenerateRoutesInput, RouteCommand, RouteFilters } from '../types/route.types'
+import { createRoute, generateRoutes, getDrivers, getPendingPackages, getRoute, getRoutes, getWaitingSummary, runRouteCommand, saveDriverProfile } from '../services/routesApi'
+import type { DistanceType, DriverProfileInput, GenerateRoutesInput, NewRouteInput, RouteCommand, RouteRange } from '../types/route.types'
 
 const mutationKey = ['route-operations']
+const ROUTES_KEY = ['delivery-routes'] as const
 
 export function useRoutesBusy() {
   return useIsMutating({ mutationKey }) > 0
+}
+
+/** Después de cualquier cambio: listados, paquetes en espera y seguimiento. */
+function refresh(client: QueryClient) {
+  return Promise.all([
+    client.invalidateQueries({ queryKey: [...ROUTES_KEY, 'list'] }),
+    client.invalidateQueries({ queryKey: [...ROUTES_KEY, 'pending'] }),
+    client.invalidateQueries({ queryKey: ['tracking'] }),
+  ])
 }
 
 export function useDrivers() {
@@ -15,19 +25,43 @@ export function useDrivers() {
   return useQuery({ queryKey: ['delivery-drivers'], queryFn: ({ signal }) => getDrivers(token!, signal), enabled: Boolean(token), retry: false })
 }
 
-export function useRoutes(filters: RouteFilters) {
+export function useRoutes(range: RouteRange) {
   const token = useAppSelector(selectAuthToken)
-  return useQuery({ queryKey: ['delivery-routes', 'list', filters], queryFn: ({ signal }) => getRoutes(filters, token!, signal), enabled: Boolean(token && filters.date), retry: false })
+  return useQuery({
+    queryKey: [...ROUTES_KEY, 'list', range],
+    queryFn: ({ signal }) => getRoutes(range, token!, signal),
+    enabled: Boolean(token),
+    retry: false,
+    refetchInterval: 60_000,
+  })
 }
 
 export function useRoute(id: string) {
   const token = useAppSelector(selectAuthToken)
-  return useQuery({ queryKey: ['delivery-routes', 'detail', id], queryFn: ({ signal }) => getRoute(id, token!, signal), enabled: Boolean(token && id), retry: false })
+  return useQuery({ queryKey: [...ROUTES_KEY, 'detail', id], queryFn: ({ signal }) => getRoute(id, token!, signal), enabled: Boolean(token && id), retry: false,
+    // En reparto, las paradas cambian solas con cada entrega.
+    refetchInterval: (query) => (query.state.data?.status === 'EN_CURSO' ? 30_000 : false) })
 }
 
-export function useRouteAlerts(branchId: number) {
+export function usePendingPackages(branchId: number, distanceType: DistanceType) {
   const token = useAppSelector(selectAuthToken)
-  return useQuery({ queryKey: ['delivery-routes', 'alerts', branchId], queryFn: ({ signal }) => getRouteAlerts(branchId, token!, signal), enabled: Boolean(token), retry: false })
+  return useQuery({
+    queryKey: [...ROUTES_KEY, 'pending', branchId, distanceType],
+    queryFn: ({ signal }) => getPendingPackages(branchId, distanceType, token!, signal),
+    enabled: Boolean(token && branchId),
+    retry: false,
+  })
+}
+
+export function useWaitingSummary() {
+  const token = useAppSelector(selectAuthToken)
+  return useQuery({
+    queryKey: [...ROUTES_KEY, 'pending', 'summary'],
+    queryFn: ({ signal }) => getWaitingSummary(token!, signal),
+    enabled: Boolean(token),
+    retry: false,
+    refetchInterval: 60_000,
+  })
 }
 
 export function useGenerateRoutes() {
@@ -35,9 +69,19 @@ export function useGenerateRoutes() {
   const client = useQueryClient()
   return useMutation({ mutationKey, mutationFn: (input: GenerateRoutesInput) => generateRoutes(input, token!), retry: false,
     onSuccess: async (result) => {
-      for (const route of result.routes) client.setQueryData(['delivery-routes', 'detail', route.id], route)
-      await client.invalidateQueries({ queryKey: ['delivery-routes', 'list'] })
-      await client.invalidateQueries({ queryKey: ['delivery-routes', 'alerts'] })
+      for (const route of result.routes) client.setQueryData([...ROUTES_KEY, 'detail', route.id], route)
+      await refresh(client)
+    },
+  })
+}
+
+export function useCreateRoute() {
+  const token = useAppSelector(selectAuthToken)
+  const client = useQueryClient()
+  return useMutation({ mutationKey, mutationFn: (input: NewRouteInput) => createRoute(input, token!), retry: false,
+    onSuccess: async (route) => {
+      client.setQueryData([...ROUTES_KEY, 'detail', route.id], route)
+      await refresh(client)
     },
   })
 }
@@ -47,18 +91,14 @@ export function useRouteCommand() {
   const client = useQueryClient()
   return useMutation({ mutationKey, mutationFn: (command: RouteCommand) => runRouteCommand(command, token!), retry: false,
     onSuccess: async (result, command) => {
-      if (result.route) client.setQueryData(['delivery-routes', 'detail', command.id], result.route)
-      else client.removeQueries({ queryKey: ['delivery-routes', 'detail', command.id] })
-      await Promise.all([
-        client.invalidateQueries({ queryKey: ['delivery-routes', 'list'] }),
-        ...(command.action === 'locate' ? [client.invalidateQueries({ queryKey: ['delivery-routes', 'detail'] })] : []),
-        client.invalidateQueries({ queryKey: ['delivery-routes', 'alerts'] }),
-        client.invalidateQueries({ queryKey: ['tracking'] }),
-      ])
+      if (result.route) client.setQueryData([...ROUTES_KEY, 'detail', command.id], result.route)
+      else client.removeQueries({ queryKey: [...ROUTES_KEY, 'detail', command.id] })
+      if (command.action === 'locate') await client.invalidateQueries({ queryKey: [...ROUTES_KEY, 'detail'] })
+      await refresh(client)
     },
     onError: async () => {
       await Promise.all([
-        client.invalidateQueries({ queryKey: ['delivery-routes'] }),
+        client.invalidateQueries({ queryKey: ROUTES_KEY }),
         client.invalidateQueries({ queryKey: ['delivery-drivers'] }),
       ])
     },
@@ -69,12 +109,9 @@ export function useSaveDriverProfile() {
   const token = useAppSelector(selectAuthToken)
   const client = useQueryClient()
   return useMutation({ mutationKey, mutationFn: (input: DriverProfileInput) => saveDriverProfile(input, token!), retry: false,
-    onSuccess: () => client.invalidateQueries({ queryKey: ['delivery-drivers'] }) })
-}
-
-export function useResolveRouteAlert() {
-  const token = useAppSelector(selectAuthToken)
-  const client = useQueryClient()
-  return useMutation({ mutationKey, mutationFn: (id: string) => resolveRouteAlert(id, token!), retry: false,
-    onSuccess: () => client.invalidateQueries({ queryKey: ['delivery-routes', 'alerts'] }) })
+    // La base de reparto es también la sucursal del usuario: se refresca el listado de Usuarios.
+    onSuccess: () => Promise.all([
+      client.invalidateQueries({ queryKey: ['delivery-drivers'] }),
+      client.invalidateQueries({ queryKey: ['admin', 'employees'] }),
+    ]) })
 }

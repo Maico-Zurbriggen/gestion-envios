@@ -4,8 +4,8 @@ import type { ApiRouteDetail, ApiRouteSummary } from '../../routes/types/route.t
 import type { ApiDeliveryReceipt, ApiDriverPosition, DeliveryOperation, DeliveryReceipt, DriverPosition, RecipientContact } from '../types/delivery.types'
 
 const root = '/reparto/recorridos'
-export const routePath = (id: string) => `${root}/${encodeURIComponent(id)}`
-export function mapPosition(position: ApiDriverPosition | null): DriverPosition | null {
+const routePath = (id: string) => `${root}/${encodeURIComponent(id)}`
+function mapPosition(position: ApiDriverPosition | null): DriverPosition | null {
   return position ? { latitude: position.latitud, longitude: position.longitud, updatedAt: position.actualizado_at } : null
 }
 export async function getMyRoutes(date: string, status: string, token: string, signal?: AbortSignal) {
@@ -25,13 +25,31 @@ export async function startMyRoute(id: string, token: string) {
   const { data } = await operationalRequest<{ data: ApiRouteDetail }>(`${routePath(id)}/iniciar`, token, { method: 'POST' })
   return mapRoute(data)
 }
+/** Mejor orden por calles de lo que falta, desde la ubicación del repartidor (si la comparte). */
+export async function optimizeMyRoute(id: string, position: { latitude: number; longitude: number } | null, token: string) {
+  const { data, message } = await operationalRequest<{ data: ApiRouteDetail; message: string | null }>(`${routePath(id)}/optimizar`, token, {
+    method: 'POST', body: JSON.stringify(position ? { latitud: position.latitude, longitud: position.longitude } : {}),
+  })
+  return { route: mapRoute(data), message: message ?? 'Recorrido optimizado.' }
+}
+
+/** Llegada a la próxima sucursal de un recorrido entre sucursales, con la posición del celular si la comparte. */
+export async function registerArrival(id: string, branchId: number, position: { latitude: number; longitude: number } | null, token: string) {
+  const body = { sucursal_id: branchId, ...(position ? { latitud: position.latitude, longitud: position.longitude } : {}) }
+  const { data, message } = await operationalRequest<{ data: ApiRouteDetail; message: string | null }>(`${routePath(id)}/llegadas`, token, {
+    method: 'POST', body: JSON.stringify(body),
+  })
+  return { route: mapRoute(data), message: message ?? 'Llegada registrada.' }
+}
+
 export async function getPosition(id: string, token: string, signal?: AbortSignal) {
   const { data } = await operationalRequest<{ data: ApiDriverPosition | null }>(`${routePath(id)}/ubicacion`, token, { signal })
   return mapPosition(data)
 }
 export async function sendPosition(id: string, latitude: number, longitude: number, token: string, signal?: AbortSignal) {
-  const result = await operationalRequest<{ data: ApiDriverPosition; paquetes_actualizados: string[] }>(`${routePath(id)}/ubicacion`, token, { method: 'PUT', body: JSON.stringify({ latitud: latitude, longitud: longitude }), signal })
-  return { position: mapPosition(result.data), updatedPackages: result.paquetes_actualizados }
+  const result = await operationalRequest<{ data: ApiDriverPosition; paquetes_actualizados?: string[] }>(`${routePath(id)}/ubicacion`, token, { method: 'PUT', body: JSON.stringify({ latitud: latitude, longitud: longitude }), signal })
+  // En larga distancia, cerca de la próxima sucursal la llegada se registra sola (HU11 CA3).
+  return { position: mapPosition(result.data), updatedPackages: result.paquetes_actualizados ?? [] }
 }
 export async function getContact(id: string, code: string, token: string, signal?: AbortSignal): Promise<RecipientContact> {
   const { data } = await operationalRequest<{ data: { destinatario_nombre: string; telefono: string | null; telefono_disponible: boolean } }>(`${routePath(id)}/paquetes/${encodeURIComponent(code)}/contacto`, token, { signal })

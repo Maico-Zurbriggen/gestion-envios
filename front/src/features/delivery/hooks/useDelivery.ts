@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAppSelector } from '../../../app/store'
 import { selectAuthToken } from '../../auth/redux/authSlice'
-import { getContact, getMyRoute, getMyRoutes, getPosition, registerDelivery, startMyRoute } from '../services/deliveryApi'
+import { getContact, getMyRoute, getMyRoutes, getPosition, optimizeMyRoute, registerArrival, registerDelivery, startMyRoute } from '../services/deliveryApi'
 import type { DeliveryOperation } from '../types/delivery.types'
 
 export function useMyRoutes(date: string, status: string) {
@@ -14,7 +14,32 @@ export function useMyRoute(id: string) {
   const detail = useQuery({ queryKey: ['delivery', 'detail', id], queryFn: ({ signal }) => getMyRoute(id, token!, signal), enabled: Boolean(id && token), retry: false, refetchInterval: (query) => query.state.data?.status === 'EN_CURSO' ? 15000 : false })
   const position = useQuery({ queryKey: ['delivery', 'position', id], queryFn: ({ signal }) => getPosition(id, token!, signal), enabled: Boolean(id && token), retry: false, refetchInterval: detail.data?.status === 'EN_CURSO' ? 15000 : false })
   const start = useMutation({ mutationFn: () => startMyRoute(id, token!), onSuccess: (route) => { client.setQueryData(['delivery', 'detail', id], route); void client.invalidateQueries({ queryKey: ['delivery', 'list'] }); void client.invalidateQueries({ queryKey: ['tracking'] }) } })
-  return { detail, position, start }
+  const optimize = useMutation({
+    mutationFn: async () => optimizeMyRoute(id, await currentPosition(), token!),
+    onSuccess: ({ route }) => { client.setQueryData(['delivery', 'detail', id], route); void client.invalidateQueries({ queryKey: ['delivery-routes'] }) },
+  })
+  // Recorridos entre sucursales: el repartidor avisa que llegó y los paquetes de esa parada se actualizan.
+  const arrive = useMutation({
+    mutationFn: async (branchId: number) => registerArrival(id, branchId, await currentPosition(), token!),
+    onSuccess: ({ route }) => {
+      client.setQueryData(['delivery', 'detail', id], route)
+      void client.invalidateQueries({ queryKey: ['delivery', 'list'] })
+      void client.invalidateQueries({ queryKey: ['tracking'] })
+    },
+  })
+  return { detail, position, start, optimize, arrive }
+}
+
+/** Ubicación actual del celular, si el repartidor la permite; si no, se optimiza desde la última conocida. */
+function currentPosition(): Promise<{ latitude: number; longitude: number } | null> {
+  if (!('geolocation' in navigator)) return Promise.resolve(null)
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (result) => resolve({ latitude: result.coords.latitude, longitude: result.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30_000 },
+    )
+  })
 }
 export function useRecipientContact(id: string, code: string) {
   const token = useAppSelector(selectAuthToken)

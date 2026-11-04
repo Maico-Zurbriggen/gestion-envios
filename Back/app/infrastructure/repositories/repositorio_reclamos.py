@@ -1,11 +1,11 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.application.interfaces.repositorio_reclamos import IRepositorioReclamos
-from app.infrastructure.db.models import EnvioModel, ReclamoModel
+from app.infrastructure.db.models import EnvioModel, PaqueteModel, ReclamoModel
 
 
 class RepositorioReclamos(IRepositorioReclamos):
@@ -45,6 +45,7 @@ class RepositorioReclamos(IRepositorioReclamos):
         estado: str | None = None,
         tipo: str | None = None,
         token_seguimiento: str | None = None,
+        sucursal_id: int | None = None,
     ) -> list[ReclamoModel]:
         stmt = self._select_completo()
         if estado:
@@ -55,6 +56,13 @@ class RepositorioReclamos(IRepositorioReclamos):
             stmt = stmt.join(EnvioModel, ReclamoModel.envio_id == EnvioModel.id).where(
                 EnvioModel.token_seguimiento == token_seguimiento
             )
+        if sucursal_id:
+            # Envíos que pasan por la sucursal: los admitió, los tiene o se retiran ahí.
+            por_paquetes = select(PaqueteModel.envio_id).where(
+                or_(PaqueteModel.sucursal_origen_id == sucursal_id, PaqueteModel.sucursal_actual_id == sucursal_id)
+            )
+            por_destino = select(EnvioModel.id).where(EnvioModel.sucursal_destino_id == sucursal_id)
+            stmt = stmt.where(or_(ReclamoModel.envio_id.in_(por_paquetes), ReclamoModel.envio_id.in_(por_destino)))
         stmt = stmt.order_by(ReclamoModel.created_at.desc(), ReclamoModel.id)
         result = await self.db.execute(stmt)
         return list(result.unique().scalars().all())

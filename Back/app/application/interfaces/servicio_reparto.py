@@ -7,6 +7,7 @@ from app.contracts.reparto import (
     ContactoEntregaResponse,
     EventoEntregaResponse,
     RegistrarEntregaRequest,
+    RegistrarLlegadaRequest,
     RegistrarVisitaFallidaRequest,
     UbicacionRequest,
     UbicacionResponse,
@@ -20,9 +21,23 @@ class IServicioReparto(Protocol):
 
     async def iniciar(self, id: UUID, usuario: Any) -> RecorridoResponse: ...
 
-    async def actualizar_ubicacion(self, id: UUID, datos: UbicacionRequest, usuario: Any) -> UbicacionResponse: ...
+    async def optimizar(self, id: UUID, usuario: Any, desde: tuple[float, float] | None) -> RecorridoResponse:
+        """Mejor orden de lo que falta, desde la ubicación del repartidor."""
+        ...
+
+    async def actualizar_ubicacion(
+        self, id: UUID, datos: UbicacionRequest, usuario: Any
+    ) -> tuple[UbicacionResponse, list[UUID]]:
+        """Guarda la posición y, en larga distancia, registra la llegada por proximidad (10 km)."""
+        ...
 
     async def obtener_ubicacion(self, id: UUID, usuario: Any) -> UbicacionResponse: ...
+
+    async def registrar_llegada(
+        self, id: UUID, datos: RegistrarLlegadaRequest, usuario: Any
+    ) -> tuple[RecorridoResponse, list[UUID]]:
+        """Llegada a la próxima sucursal de un recorrido entre sucursales; devuelve los paquetes listos para retirar."""
+        ...
 
     async def contacto(self, id: UUID, codigo: str, usuario: Any) -> ContactoEntregaResponse: ...
 

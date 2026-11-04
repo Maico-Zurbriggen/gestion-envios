@@ -6,7 +6,8 @@ import type { DeliveryOperation } from '../types/delivery.types'
 import { receiverIsOldEnough } from '../deliveryValidation'
 import { SignaturePad } from './SignaturePad'
 
-export function DeliveryAction({ routeId, code, onClose }: { routeId: string; code: string; onClose: () => void }) {
+export function DeliveryAction({ routeId, code, visitNumber = 1, maxVisits = 2, onClose }: { routeId: string; code: string; visitNumber?: number; maxVisits?: number; onClose: () => void }) {
+  const lastVisit = visitNumber >= maxVisits
   const heading = useRef<HTMLHeadingElement>(null)
   useEffect(() => { heading.current?.focus() }, [])
   const contact = useRecipientContact(routeId, code)
@@ -37,7 +38,7 @@ export function DeliveryAction({ routeId, code, onClose }: { routeId: string; co
     {contact.isPending && <p role="status">Consultando contacto…</p>}
     {contact.isError && <div role="alert"><p>{contact.error.message}</p><button className="ops-button" type="button" onClick={() => void contact.refetch()} disabled={contact.isFetching}><RefreshCw size={18} aria-hidden="true" /> Reintentar contacto</button></div>}
     {contact.data && <p>Destinatario: {contact.data.name}. {phone ? <a className="ops-button" href={`tel:${phone}`}><Phone size={18} aria-hidden="true" /> Llamar al destinatario</a> : 'No hay teléfono disponible.'}</p>}
-    {mutation.data ? <div className="ops-success" role="status"><p><CheckCircle2 size={20} aria-hidden="true" /> {operation?.action === 'failed' ? 'Visita fallida registrada. Se solicitó el aviso por email; su entrega depende del servicio de correo.' : 'Entrega y firma registradas.'}</p><p>Constancia: {mutation.data.eventId}</p><p>{new Date(mutation.data.occurredAt).toLocaleString('es-AR')}</p><button className="ops-button" type="button" onClick={onClose}><CheckCircle2 size={18} aria-hidden="true" /> Continuar recorrido</button></div> : <form className="ops-stack" onSubmit={submit}>
+    {mutation.data ? <div className="ops-success" role="status"><p><CheckCircle2 size={20} aria-hidden="true" /> {operation?.action === 'failed' ? `Visita fallida registrada. ${lastVisit ? 'Era la última visita: al volver, el paquete queda para retirar en la sucursal.' : 'El paquete vuelve a la sucursal para otro intento.'} Se avisó al destinatario por email y WhatsApp.` : 'Entrega y firma registradas.'}</p><p>Constancia: {mutation.data.eventId}</p><p>{new Date(mutation.data.occurredAt).toLocaleString('es-AR')}</p><button className="ops-button" type="button" onClick={onClose}><CheckCircle2 size={18} aria-hidden="true" /> Continuar recorrido</button></div> : <form className="ops-stack" onSubmit={submit}>
       <fieldset className="ops-stack" disabled={locked}>
         <label className="form-field" htmlFor="delivery-mode">Resultado de la visita<select className="form-control" id="delivery-mode" value={mode} onChange={(e) => setMode(e.target.value as 'delivery' | 'failed')}><option value="delivery">Entrega con firma</option><option value="failed">Visita fallida</option></select></label>
         {mode === 'delivery' ? <>
@@ -46,7 +47,12 @@ export function DeliveryAction({ routeId, code, onClose }: { routeId: string; co
           <label className="form-field" htmlFor="receiver-birthdate">Fecha de nacimiento del receptor<input className="form-control" id="receiver-birthdate" type="date" required max={new Date().toISOString().slice(0, 10)} value={birthDate} onChange={(e) => setBirthDate(e.target.value)} /></label>
           <label className="ops-check" htmlFor="receiver-authorized"><input id="receiver-authorized" type="checkbox" checked={authorized} onChange={(e) => setAuthorized(e.target.checked)} /> Recibe una persona autorizada en lugar del destinatario</label>
           <SignaturePad onChange={setSignature} disabled={locked} />
-        </> : <label className="form-field" htmlFor="failure-reason">Motivo de la visita fallida<textarea id="failure-reason" className="form-control" required minLength={3} maxLength={255} value={reason} onChange={(e) => setReason(e.target.value)} /></label>}
+        </> : <>
+          <p className={lastVisit ? 'ops-warning' : 'ops-hint'}>{lastVisit
+            ? `Es la ${visitNumber}.ª y última visita: si no se entrega, el paquete queda para retirar en la sucursal y se le avisa al destinatario.`
+            : `Es la ${visitNumber}.ª de ${maxVisits} visitas: el paquete vuelve a la sucursal y sale en otro recorrido.`}</p>
+          <label className="form-field" htmlFor="failure-reason">Motivo de la visita fallida<textarea id="failure-reason" className="form-control" required minLength={3} maxLength={255} value={reason} onChange={(e) => setReason(e.target.value)} /></label>
+        </>}
       </fieldset>
       {error && <p className="form-error" role="alert">{error}</p>}
       {mutation.isError && <div className="form-error ops-stack" role="alert"><p>{mutation.error.message}</p><p>{conflict ? 'La operación entra en conflicto con un registro existente. Volvé al recorrido y revisá el estado antes de continuar.' : 'El reintento conserva los mismos datos y código de operación. Mantené esta pantalla abierta para recuperar la constancia.'}</p></div>}

@@ -13,6 +13,13 @@ class EventoSeguimientoData(ApiModel):
     descripcion: str
 
 
+class RetiroSeguimientoData(ApiModel):
+    sucursal: str
+    direccion: str
+    hasta: datetime | None = None
+    lo_retira: str = Field(..., description="'destinatario' o 'remitente' (en una devolución).")
+
+
 class PaqueteSeguimientoData(ApiModel):
     """Vista pública de un paquete (HU04). Deliberadamente no incluye datos
     de contacto de remitente/destinatario: el endpoint no requiere
@@ -26,6 +33,12 @@ class PaqueteSeguimientoData(ApiModel):
     ultima_actualizacion: datetime
     historial: list[EventoSeguimientoData] = Field(default_factory=list)
     ubicacion_repartidor: UbicacionData | None = None
+    retiro: RetiroSeguimientoData | None = Field(
+        None, description="Dónde y hasta cuándo retirarlo, cuando el paquete espera en una sucursal."
+    )
+    visitas_fallidas: int = 0
+    max_visitas: int = 2
+    en_devolucion: bool = Field(False, description="No se retiró a tiempo y vuelve a quien lo envió.")
 
 
 class SeguimientoData(ApiModel):

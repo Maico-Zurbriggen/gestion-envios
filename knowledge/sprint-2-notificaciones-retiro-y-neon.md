@@ -55,4 +55,4 @@ Cambios y decisiones del 27 de octubre de 2026 (rama `sprint-2-cambios-y-arreglo
 
 - No se verificó la entrega real por Gmail ni de los avisos personalizados por Twilio. Meta se verificó con recursos de prueba; eso no valida un remitente ni plantillas de producción. Las credenciales no se incluyen en el repositorio y cada proveedor mantiene sus condiciones de envío.
 - No se ejecutaron migraciones contra Neon desde esta rama: falta configurar `NEON_DATABASE_URL` o correr el comando con el connection string.
-- La sucursal del operador se elige en pantalla; los usuarios todavía no tienen sucursal asignada en el modelo.
+- La sucursal del operador se elige en pantalla; los usuarios todavía no tienen sucursal asignada en el modelo. **Resuelto después** con la historia HU16 (sucursales y acceso por sucursal), agregada al Sprint 2: ver [Alcance de los sprints 2 y 3](alcance-sprints-2-y-3.md) y [Sucursales por usuario](sucursales-por-usuario.md).

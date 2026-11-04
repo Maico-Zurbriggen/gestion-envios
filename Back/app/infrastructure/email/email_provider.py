@@ -52,9 +52,6 @@ class MockEmailProvider:
         )
         return True, mensaje_id, None
 
-    def limpiar(self) -> None:
-        self.mensajes_enviados.clear()
-
 
 class SMTPEmailProvider:
     """Proveedor real de correo vía SMTP (Gmail, Outlook, Mailtrap, servidor propio).

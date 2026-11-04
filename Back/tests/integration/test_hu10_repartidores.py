@@ -92,8 +92,8 @@ async def test_hu10_perfil_validaciones(
     assert tipo_invalido.status_code == 400
 
     sucursal_inexistente = await client.put(url, headers=headers, json={"sucursal_base_id": 999, "tipo_reparto": "CORTA"})
-    assert sucursal_inexistente.status_code == 400
-    assert sucursal_inexistente.json()["errors"][0]["field"] == "sucursal_base_id"
+    # Una sucursal que no existe tampoco está entre las habilitadas del administrativo.
+    assert sucursal_inexistente.status_code == 403
 
     no_repartidor = await client.put(
         f"{BASE}/{vendedor_usuario.id}/perfil", headers=headers, json={"sucursal_base_id": 1, "tipo_reparto": "CORTA"}

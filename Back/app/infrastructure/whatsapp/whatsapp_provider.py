@@ -20,6 +20,7 @@ from app.application.interfaces.proveedores_mensajeria import IWhatsAppProvider,
 from app.core.config import settings
 from app.core.logging import logger
 from app.domain.rules.notificacion_rules import (
+    PLANTILLA_AVISO_ESTADO,
     PLANTILLA_NUEVO_ENVIO,
     PLANTILLA_VISITA_FALLIDA,
     MensajeWhatsApp,
@@ -72,9 +73,6 @@ class MockWhatsAppProvider:
         logger.info(f"[MockWhatsAppProvider] Mensaje a {enmascarar_telefono(destinatario)} | ID: {mensaje_id}")
         return True, mensaje_id, None
 
-    def limpiar(self) -> None:
-        self.mensajes_enviados.clear()
-
 
 class DeshabilitadoWhatsAppProvider:
     """Canal apagado explícitamente: cada intento queda auditado como fallido."""
@@ -106,6 +104,7 @@ class MetaWhatsAppProvider:
         self.plantillas = plantillas if plantillas is not None else {
             PLANTILLA_NUEVO_ENVIO: settings.WHATSAPP_META_PLANTILLA_NUEVO_ENVIO,
             PLANTILLA_VISITA_FALLIDA: settings.WHATSAPP_META_PLANTILLA_VISITA_FALLIDA,
+            PLANTILLA_AVISO_ESTADO: settings.WHATSAPP_META_PLANTILLA_AVISO_ESTADO,
         }
         self.destinatarios_prueba = (
             destinatarios_prueba if destinatarios_prueba is not None else settings.WHATSAPP_META_DESTINATARIOS_PRUEBA
@@ -181,6 +180,7 @@ class TwilioWhatsAppProvider:
         self.content_sids = content_sids if content_sids is not None else {
             PLANTILLA_NUEVO_ENVIO: settings.TWILIO_CONTENT_SID_NUEVO_ENVIO,
             PLANTILLA_VISITA_FALLIDA: settings.TWILIO_CONTENT_SID_VISITA_FALLIDA,
+            PLANTILLA_AVISO_ESTADO: settings.TWILIO_CONTENT_SID_AVISO_ESTADO,
         }
         self.timeout = timeout or settings.WHATSAPP_TIMEOUT_SEGUNDOS
         self.transport = transport

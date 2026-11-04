@@ -1,15 +1,17 @@
 import uuid
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.application.interfaces.repositorio_entregas import IRepositorioEntregas
+from app.domain.constants.estados_logistica import ResultadoEventoEntregaEnum
 from app.infrastructure.db.models import (
     EnvioModel,
     EventoEntregaModel,
     HistorialEstadoPaqueteModel,
     PaqueteModel,
+    SucursalModel,
 )
 
 
@@ -24,6 +26,18 @@ class RepositorioEntregas(IRepositorioEntregas):
             select(EventoEntregaModel).where(EventoEntregaModel.operacion_id == operacion_id)
         )
         return resultado.scalar_one_or_none()
+
+    async def contar_visitas_fallidas(self, paquete_id: uuid.UUID) -> int:
+        resultado = await self.db.execute(
+            select(func.count()).select_from(EventoEntregaModel).where(
+                EventoEntregaModel.paquete_id == paquete_id,
+                EventoEntregaModel.resultado == ResultadoEventoEntregaEnum.FALLIDO.value,
+            )
+        )
+        return int(resultado.scalar() or 0)
+
+    async def obtener_sucursal(self, sucursal_id: int) -> SucursalModel | None:
+        return await self.db.get(SucursalModel, sucursal_id)
 
     async def obtener_evento(self, evento_id: uuid.UUID) -> EventoEntregaModel | None:
         return await self.db.get(EventoEntregaModel, evento_id)

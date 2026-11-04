@@ -72,8 +72,10 @@ function mapShipment(response: CreateShipmentSuccessResponse): CreatedShipment {
     destinationBranch: shipment.sucursal_destino
       ? mapBranch(shipment.sucursal_destino)
       : null,
+    originBranch: shipment.sucursal_origen ? mapBranch(shipment.sucursal_origen) : null,
     packages: shipment.paquetes.map(mapPackage),
     createdAt: shipment.created_at,
+    admitBy: shipment.admitir_hasta ?? null,
   }
 }
 
@@ -173,6 +175,7 @@ export async function createShipment(
         latitud_destino: input.destinationLatitude,
         longitud_destino: input.destinationLongitude,
         sucursal_destino_id: input.destinationBranchId,
+        sucursal_origen_id: input.originBranchId,
         terminos_aceptados: input.termsAccepted,
         paquetes: input.packages.map((shipmentPackage) => ({
           descripcion: shipmentPackage.description,

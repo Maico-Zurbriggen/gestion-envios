@@ -7,6 +7,15 @@ export interface LoginTokenCredentials {
   token: string
 }
 
+export interface ApiBranchAccess {
+  id: number
+  nombre: string
+  ciudad: string
+  provincia: string
+  direccion: string
+  activa: boolean
+}
+
 export interface ApiUser {
   id: string
   nombre: string
@@ -14,6 +23,7 @@ export interface ApiUser {
   email: string
   rol: string
   requiere_cambio_password: boolean
+  sucursales?: ApiBranchAccess[]
 }
 
 export interface LoginSuccessResponse {
@@ -69,6 +79,16 @@ export interface ApiErrorResponse {
   }>
 }
 
+/** Sucursal en la que el usuario puede trabajar. */
+export interface AuthBranch {
+  id: number
+  name: string
+  city: string
+  province: string
+  address: string
+  active: boolean
+}
+
 export interface AuthUser {
   id: string
   name: string | null
@@ -76,6 +96,7 @@ export interface AuthUser {
   email: string | null
   role: string
   requiresPasswordChange: boolean
+  branches: AuthBranch[]
 }
 
 export interface AuthSession {
