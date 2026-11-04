@@ -167,7 +167,7 @@ export function FaqPage() {
         <footer className="faq-next-steps" aria-label="Otras consultas públicas">
           <div><h2>Consultá tu envío</h2><p>Seguí tus paquetes o iniciá un reclamo con tu código de seguimiento.</p></div>
           <Link className="faq-button faq-button--primary" to="/seguimiento"><Search size={17} aria-hidden="true" /> Seguir un envío <ArrowRight size={17} aria-hidden="true" /></Link>
-          <Link className="faq-button" to="/sucursales"><MapPin size={17} aria-hidden="true" /> Ver sucursales</Link>
+          <Link className="faq-button" to="/sucursales" state={{ backTo: '/preguntas-frecuentes', backLabel: 'Volver a preguntas frecuentes' }}><MapPin size={17} aria-hidden="true" /> Ver sucursales</Link>
         </footer>
       </div>
     </main>

@@ -247,7 +247,10 @@ export function TrackingPage() {
             <span className="eyebrow"><Route size={15} aria-hidden="true" /> Seguimiento público</span>
             <h1 id="tracking-title">¿Dónde está tu paquete?</h1>
             <p>Ingresá el código de seguimiento del envío. No necesitás iniciar sesión.</p>
-            <Link className="tracking-help" to="/preguntas-frecuentes"><CircleHelp size={17} aria-hidden="true" /> Preguntas frecuentes</Link>
+            <div className="tracking-help-links">
+              <Link className="tracking-help" to="/preguntas-frecuentes"><CircleHelp size={17} aria-hidden="true" /> Preguntas frecuentes</Link>
+              <Link className="tracking-help" to="/sucursales" state={{ backTo: '/seguimiento', backLabel: 'Volver al seguimiento' }}><MapPin size={17} aria-hidden="true" /> Ver sucursales</Link>
+            </div>
           </div>
 
           <form className="tracking-search" onSubmit={handleSubmit}>

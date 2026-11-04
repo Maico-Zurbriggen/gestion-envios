@@ -8,6 +8,7 @@ import {
   LoaderCircle,
   LockKeyhole,
   LogIn,
+  MapPin,
   PackageCheck,
   PackagePlus,
   Search,
@@ -188,7 +189,11 @@ export function LoginPage() {
                   <Search size={18} aria-hidden="true" />
                   Seguir paquete
                 </Link>
-                <Link className="login-public-action__help" to="/preguntas-frecuentes">
+                <Link className="login-public-action__wide" to="/sucursales" state={{ backTo: '/login', backLabel: 'Volver al inicio de sesión' }}>
+                  <MapPin size={18} aria-hidden="true" />
+                  Ver sucursales
+                </Link>
+                <Link className="login-public-action__wide" to="/preguntas-frecuentes">
                   <CircleHelp size={18} aria-hidden="true" />
                   Preguntas frecuentes
                 </Link>

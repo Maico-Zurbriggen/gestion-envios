@@ -89,6 +89,12 @@
   box-shadow: var(--shadow-md);
 }
 
+.tracking-help-links {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-5);
+}
+
 .tracking-help {
   display: inline-flex;
   align-items: center;

@@ -235,7 +235,8 @@
   background: var(--color-primary);
 }
 
-.login-public-action__help {
+/* Las acciones de consulta van a lo ancho: con dos columnas sus textos se partían. */
+.login-public-action__wide {
   grid-column: 1 / -1;
 }
 
